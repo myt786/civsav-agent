@@ -1,0 +1,9 @@
+{
+  "opportunities": [
+    { "id": "opp_001", "stageName": "New Lead", "monetaryValue": 2500 },
+    { "id": "opp_002", "stageName": "New Lead", "monetaryValue": 1800 },
+    { "id": "opp_003", "stageName": "Contacted", "monetaryValue": 3200 },
+    { "id": "opp_004", "stageName": "Quote Sent", "monetaryValue": 5400 },
+    { "id": "opp_005", "stageName": "Won", "monetaryValue": 6100 }
+  ]
+}
