@@ -1,0 +1,12 @@
+{
+  "data": [
+    {
+      "spend": 312.1,
+      "impressions": "10500",
+      "clicks": "180",
+      "actions": [{ "action_type": "lead", "value": "9" }],
+      "effective_status": "ACTIVE",
+      "attribution_setting": "7d_click_1d_view"
+    }
+  ]
+}
