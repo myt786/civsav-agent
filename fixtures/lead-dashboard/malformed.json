@@ -1,0 +1,5 @@
+{
+  "leads": [
+    { "id": "lead_001", "status": "not_a_real_status", "createdAt": "not-a-date" }
+  ]
+}

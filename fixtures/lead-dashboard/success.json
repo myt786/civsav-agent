@@ -1,0 +1,10 @@
+{
+  "leads": [
+    { "id": "lead_001", "status": "new", "createdAt": "2026-08-19T14:22:00Z" },
+    { "id": "lead_002", "status": "contacted", "createdAt": "2026-08-19T16:05:00Z" },
+    { "id": "lead_003", "status": "qualified", "createdAt": "2026-08-20T09:10:00Z" },
+    { "id": "lead_004", "status": "won", "createdAt": "2026-08-20T11:45:00Z" },
+    { "id": "lead_005", "status": "new", "createdAt": "2026-08-20T18:30:00Z" },
+    { "id": "lead_006", "status": "lost", "createdAt": "2026-08-21T08:00:00Z" }
+  ]
+}
