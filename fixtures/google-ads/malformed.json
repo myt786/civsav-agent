@@ -1,0 +1,12 @@
+[
+  {
+    "campaign": { "resourceName": "customers/1234567890/campaigns/111111", "id": "111111" },
+    "segments": { "date": "2026-08-20" },
+    "metrics": {
+      "impressions": 5840,
+      "clicks": 231,
+      "cost_micros": "148920000",
+      "conversions": 9
+    }
+  }
+]
