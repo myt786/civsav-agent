@@ -1,0 +1,13 @@
+{
+  "trafficSourceReport": {
+    "rows": [
+      {
+        "dimensionValues": [{ "value": "google" }],
+        "metricValues": [{ "value": 412 }, { "value": "26" }]
+      }
+    ]
+  },
+  "conversionEventReport": {
+    "rows": []
+  }
+}
