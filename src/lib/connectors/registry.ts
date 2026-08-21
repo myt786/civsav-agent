@@ -4,6 +4,7 @@ import { searchConsoleConnector } from "./search-console";
 import { googleAdsConnector } from "./google-ads";
 import { ga4Connector } from "./ga4";
 import { ahrefsConnector } from "./ahrefs";
+import { openPhoneConnector } from "./openphone";
 
 // Platforms are added here as their connectors are built, without touching
 // the contract.
@@ -13,4 +14,5 @@ export const connectorRegistry: Partial<Record<Platform, Connector<unknown>>> = 
   google_ads: googleAdsConnector as Connector<unknown>,
   ga4: ga4Connector as Connector<unknown>,
   ahrefs: ahrefsConnector as Connector<unknown>,
+  openphone: openPhoneConnector as Connector<unknown>,
 };

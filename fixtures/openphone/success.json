@@ -1,0 +1,10 @@
+{
+  "calls": [
+    { "id": "AC001", "status": "completed", "duration": 184, "forwarded": false },
+    { "id": "AC002", "status": "missed", "duration": 0, "forwarded": false },
+    { "id": "AC003", "status": "missed", "duration": 47, "forwarded": true },
+    { "id": "AC004", "status": "completed", "duration": 302, "forwarded": true },
+    { "id": "AC005", "status": "voicemail", "duration": 22, "forwarded": false },
+    { "id": "AC006", "status": "missed", "duration": 0, "forwarded": true }
+  ]
+}
