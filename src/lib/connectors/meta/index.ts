@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
-import type { Connector, ConnectorResult, PlatformAccount, DateRange } from "../types";
-import { fetchRawInsights } from "./client";
+import type { Connector, ConnectorResult, DiscoveryResult, PlatformAccount, DateRange } from "../types";
+import { fetchRawInsights, listAdAccounts } from "./client";
 import { metaResponseSchema, metaDataSchema, type MetaData } from "./schema";
 
 const DATE_FORMAT = "yyyy-MM-dd";
@@ -60,5 +60,9 @@ export const metaConnector: Connector<MetaData> = {
     }
 
     return { status: "ok", data: dataParsed.data, raw };
+  },
+
+  async listAccounts(): Promise<DiscoveryResult> {
+    return listAdAccounts();
   },
 };

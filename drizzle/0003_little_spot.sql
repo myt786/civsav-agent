@@ -1,0 +1,1 @@
+ALTER TABLE "client_platform_accounts" ADD COLUMN "credential_label" text;

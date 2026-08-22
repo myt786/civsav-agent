@@ -1,0 +1,1 @@
+ALTER TABLE "metric_snapshots" ADD COLUMN "verified" boolean DEFAULT false NOT NULL;

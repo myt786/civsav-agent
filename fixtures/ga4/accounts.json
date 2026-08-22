@@ -1,0 +1,19 @@
+{
+  "accountSummaries": [
+    {
+      "account": "accounts/1000",
+      "displayName": "Acme Roofing",
+      "propertySummaries": [
+        { "property": "properties/123456789", "displayName": "Acme Roofing - Main" }
+      ]
+    },
+    {
+      "account": "accounts/2000",
+      "displayName": "Blue Ridge Dental",
+      "propertySummaries": [
+        { "property": "properties/234567890", "displayName": "Blue Ridge Dental - Web" },
+        { "property": "properties/234567891", "displayName": "Blue Ridge Dental - App" }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
-import type { Connector, ConnectorResult, PlatformAccount, DateRange } from "../types";
-import { fetchRawSearchAnalytics } from "./client";
+import type { Connector, ConnectorResult, DiscoveryResult, PlatformAccount, DateRange } from "../types";
+import { fetchRawSearchAnalytics, listSearchConsoleSites } from "./client";
 import {
   searchConsoleResponseSchema,
   searchConsoleDataSchema,
@@ -68,5 +68,9 @@ export const searchConsoleConnector: Connector<SearchConsoleData> = {
     }
 
     return { status: "ok", data: dataParsed.data, raw };
+  },
+
+  async listAccounts(): Promise<DiscoveryResult> {
+    return listSearchConsoleSites();
   },
 };

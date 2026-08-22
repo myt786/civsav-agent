@@ -109,3 +109,79 @@ describe("ahrefsConnector", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4); // initial attempt + 3 retries
   });
 });
+
+describe("ahrefsConnector.listAccounts", () => {
+  beforeEach(() => {
+    process.env.CONNECTOR_MODE = "fixture";
+    fetchMock.mockReset();
+  });
+
+  afterEach(() => {
+    delete process.env.CONNECTOR_MODE;
+    delete process.env.AHREFS_ACCOUNTS_FIXTURE;
+    delete process.env.AHREFS_API_BASE_URL;
+    delete process.env.AHREFS_API_TOKEN;
+  });
+
+  it("maps each project's url (trailing slash stripped) as the id, project_name as the label", async () => {
+    const result = await ahrefsConnector.listAccounts!();
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toHaveLength(3);
+    expect(result.accounts[0]).toEqual({ id: "acmeroofing.com", name: "Acme Roofing", extra: undefined });
+    expect(result.accounts[1]).toEqual({ id: "blueridgedental.com", name: "Blue Ridge Dental", extra: undefined });
+    expect(result.accounts[2]).toEqual({ id: "coastalhvac.com", name: "Coastal HVAC", extra: "not verified in Ahrefs" });
+  });
+
+  it("returns error when the fixture file is missing", async () => {
+    process.env.AHREFS_ACCOUNTS_FIXTURE = "does-not-exist.json";
+
+    const result = await ahrefsConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+
+  it("returns a friendly access-denied message on 401/403, not a raw status code", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.AHREFS_API_BASE_URL = "https://api.ahrefs.com/v3";
+    process.env.AHREFS_API_TOKEN = "test-token";
+    fetchMock.mockResolvedValue(mockResponse(403));
+
+    const result = await ahrefsConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toMatch(/No access to Ahrefs projects/);
+  });
+
+  it("returns error when credentials aren't configured", async () => {
+    delete process.env.CONNECTOR_MODE;
+
+    const result = await ahrefsConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+
+  it("goes live on real credentials even when CONNECTOR_MODE is still 'fixture'", async () => {
+    // Unlike fetchSummary (metered, stays fixture-gated), listing projects
+    // is cheap enough that a real token takes discovery live on its own —
+    // someone who's wired up Ahrefs shouldn't have to flip every other
+    // connector's dev safety net off just to see their real projects here.
+    process.env.AHREFS_API_BASE_URL = "https://api.ahrefs.com/v3";
+    process.env.AHREFS_API_TOKEN = "test-token";
+    fetchMock.mockResolvedValue(
+      mockResponse(200, {
+        projects: [{ project_id: "1", project_name: "Real Co", url: "real.co/", verified: true }],
+      }),
+    );
+
+    const result = await ahrefsConnector.listAccounts!();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0].toString()).toContain("/management/projects");
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toEqual([{ id: "real.co", name: "Real Co", extra: undefined }]);
+  });
+});

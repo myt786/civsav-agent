@@ -115,3 +115,56 @@ describe("metaConnector", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4); // initial attempt + 3 retries
   });
 });
+
+describe("metaConnector.listAccounts", () => {
+  beforeEach(() => {
+    process.env.CONNECTOR_MODE = "fixture";
+    fetchMock.mockReset();
+  });
+
+  afterEach(() => {
+    delete process.env.CONNECTOR_MODE;
+    delete process.env.META_ACCOUNTS_FIXTURE;
+    delete process.env.META_GRAPH_API_BASE_URL;
+    delete process.env.META_SYSTEM_USER_ACCESS_TOKEN;
+  });
+
+  it("returns discovered accounts with name/currency/status as the extra hint", async () => {
+    const result = await metaConnector.listAccounts!();
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toHaveLength(3);
+    expect(result.accounts[0]).toEqual({ id: "act_1234567890", name: "Acme Roofing", extra: "USD · active" });
+    expect(result.accounts[2].extra).toBe("USD · disabled");
+  });
+
+  it("returns error when the fixture file is missing", async () => {
+    process.env.META_ACCOUNTS_FIXTURE = "does-not-exist.json";
+
+    const result = await metaConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+
+  it("returns a friendly access-denied message on 401/403, not a raw status code", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.META_GRAPH_API_BASE_URL = "https://graph.facebook.com/v21.0";
+    process.env.META_SYSTEM_USER_ACCESS_TOKEN = "test-token";
+    fetchMock.mockResolvedValue(mockResponse(403));
+
+    const result = await metaConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toMatch(/No access to Meta accounts/);
+  });
+
+  it("returns error when credentials aren't configured", async () => {
+    delete process.env.CONNECTOR_MODE;
+
+    const result = await metaConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+});

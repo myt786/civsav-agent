@@ -15,6 +15,15 @@ vi.mock("@google-analytics/data", () => ({
   BetaAnalyticsDataClient: betaAnalyticsDataClientMock,
 }));
 
+const { accountSummariesListMock } = vi.hoisted(() => ({ accountSummariesListMock: vi.fn() }));
+
+vi.mock("googleapis", () => ({
+  google: {
+    auth: { GoogleAuth: vi.fn(function GoogleAuthMock() {}) },
+    analyticsadmin: () => ({ accountSummaries: { list: accountSummariesListMock } }),
+  },
+}));
+
 import { ga4Connector } from "./index";
 import type { PlatformAccount, DateRange } from "../types";
 
@@ -135,5 +144,63 @@ describe("ga4Connector", () => {
 
     expect(result.status).toBe("error");
     expect(runReportMock).toHaveBeenCalledTimes(4); // initial attempt + 3 retries
+  });
+});
+
+describe("ga4Connector.listAccounts", () => {
+  beforeEach(() => {
+    process.env.CONNECTOR_MODE = "fixture";
+    accountSummariesListMock.mockReset();
+  });
+
+  afterEach(() => {
+    delete process.env.CONNECTOR_MODE;
+    delete process.env.GA4_ACCOUNTS_FIXTURE;
+    delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  });
+
+  it("flattens every account's properties into a single discovered list", async () => {
+    const result = await ga4Connector.listAccounts!();
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toHaveLength(3);
+    expect(result.accounts[0]).toEqual({
+      id: "123456789",
+      name: "Acme Roofing - Main",
+      extra: "Acme Roofing",
+    });
+    expect(result.accounts[2].id).toBe("234567891");
+  });
+
+  it("returns error when the fixture file is missing", async () => {
+    process.env.GA4_ACCOUNTS_FIXTURE = "does-not-exist.json";
+
+    const result = await ga4Connector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+
+  it("returns a friendly access-denied message on 403, not a raw status code", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.GOOGLE_SERVICE_ACCOUNT_JSON = JSON.stringify({
+      client_email: "test@test.iam.gserviceaccount.com",
+      private_key: "test",
+    });
+    accountSummariesListMock.mockRejectedValue(httpError(403, "403 Forbidden"));
+
+    const result = await ga4Connector.listAccounts!();
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toMatch(/No access to GA4 properties/);
+  });
+
+  it("returns error when credentials aren't configured", async () => {
+    delete process.env.CONNECTOR_MODE;
+
+    const result = await ga4Connector.listAccounts!();
+
+    expect(result.status).toBe("error");
   });
 });

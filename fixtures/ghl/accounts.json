@@ -1,0 +1,7 @@
+{
+  "locations": [
+    { "id": "loc_acme001", "name": "Acme Roofing" },
+    { "id": "loc_blueridge002", "name": "Blue Ridge Dental" },
+    { "id": "loc_desertlegal003", "name": "Desert Legal Group" }
+  ]
+}

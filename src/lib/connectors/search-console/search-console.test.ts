@@ -1,7 +1,8 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
-const { queryMock, googleAuthMock, searchconsoleMock } = vi.hoisted(() => ({
+const { queryMock, sitesListMock, googleAuthMock, searchconsoleMock } = vi.hoisted(() => ({
   queryMock: vi.fn(),
+  sitesListMock: vi.fn(),
   googleAuthMock: vi.fn(),
   searchconsoleMock: vi.fn(),
 }));
@@ -36,8 +37,9 @@ describe("searchConsoleConnector", () => {
   beforeEach(() => {
     process.env.CONNECTOR_MODE = "fixture";
     queryMock.mockReset();
+    sitesListMock.mockReset();
     searchconsoleMock.mockReset();
-    searchconsoleMock.mockReturnValue({ searchanalytics: { query: queryMock } });
+    searchconsoleMock.mockReturnValue({ searchanalytics: { query: queryMock }, sites: { list: sitesListMock } });
   });
 
   afterEach(() => {
@@ -123,5 +125,65 @@ describe("searchConsoleConnector", () => {
 
     expect(result.status).toBe("error");
     expect(queryMock).toHaveBeenCalledTimes(4); // initial attempt + 3 retries
+  });
+});
+
+describe("searchConsoleConnector.listAccounts", () => {
+  beforeEach(() => {
+    process.env.CONNECTOR_MODE = "fixture";
+    sitesListMock.mockReset();
+    searchconsoleMock.mockReset();
+    searchconsoleMock.mockReturnValue({ searchanalytics: { query: queryMock }, sites: { list: sitesListMock } });
+  });
+
+  afterEach(() => {
+    delete process.env.CONNECTOR_MODE;
+    delete process.env.SEARCH_CONSOLE_ACCOUNTS_FIXTURE;
+    delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  });
+
+  it("maps site entries to discovered accounts, using the URL/domain as both id and name", async () => {
+    const result = await searchConsoleConnector.listAccounts!();
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toHaveLength(3);
+    expect(result.accounts[0]).toEqual({
+      id: "https://acmeroofing.com/",
+      name: "https://acmeroofing.com/",
+      extra: "siteOwner",
+    });
+    expect(result.accounts[1].id).toBe("sc-domain:blueridgedental.com");
+  });
+
+  it("returns error when the fixture file is missing", async () => {
+    process.env.SEARCH_CONSOLE_ACCOUNTS_FIXTURE = "does-not-exist.json";
+
+    const result = await searchConsoleConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+
+  it("returns a friendly access-denied message on 403, not a raw status code", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.GOOGLE_SERVICE_ACCOUNT_JSON = JSON.stringify({
+      client_email: "test@test.iam.gserviceaccount.com",
+      private_key: "test",
+    });
+    sitesListMock.mockRejectedValue(httpError(403, "403 Forbidden"));
+
+    const result = await searchConsoleConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toMatch(/No access to Search Console properties/);
+  });
+
+  it("returns error when credentials aren't configured", async () => {
+    delete process.env.CONNECTOR_MODE;
+
+    const result = await searchConsoleConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
   });
 });
