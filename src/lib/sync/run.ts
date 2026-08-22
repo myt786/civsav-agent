@@ -75,6 +75,7 @@ export async function runSync(now: Date = new Date()): Promise<SyncRunSummary> {
         clientTimezone: client.timezone,
         platform: account.platform,
         externalId: account.externalId,
+        credentialLabel: account.credentialLabel,
       };
 
       try {
@@ -121,10 +122,14 @@ export async function runSync(now: Date = new Date()): Promise<SyncRunSummary> {
             platform: account.platform,
             date: dateKey,
             metrics: validated.data as object,
+            verified: false,
           })
           .onConflictDoUpdate({
             target: [metricSnapshots.clientId, metricSnapshots.platform, metricSnapshots.date],
-            set: { metrics: validated.data as object },
+            // A re-synced day is unreconciled again even if the old numbers
+            // it's replacing had been checked by hand — verification never
+            // carries forward onto new data.
+            set: { metrics: validated.data as object, verified: false },
           });
       } catch (err) {
         // A connector must never take the whole run down with it.

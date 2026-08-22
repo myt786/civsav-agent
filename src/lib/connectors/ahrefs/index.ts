@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
-import type { Connector, ConnectorResult, PlatformAccount, DateRange } from "../types";
-import { ahrefsProvider } from "./client";
+import type { Connector, ConnectorResult, DiscoveryResult, PlatformAccount, DateRange } from "../types";
+import { ahrefsProvider, listAhrefsProjects } from "./client";
 import { ahrefsResponseSchema, seoDataSchema, type SeoData } from "./schema";
 
 const DATE_FORMAT = "yyyy-MM-dd";
@@ -42,5 +42,9 @@ export const ahrefsConnector: Connector<SeoData> = {
     }
 
     return { status: "ok", data: dataParsed.data, raw };
+  },
+
+  async listAccounts(): Promise<DiscoveryResult> {
+    return listAhrefsProjects();
   },
 };

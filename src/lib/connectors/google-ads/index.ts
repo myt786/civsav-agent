@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
-import type { Connector, ConnectorResult, PlatformAccount, DateRange } from "../types";
-import { fetchRawCampaignReport } from "./client";
+import type { Connector, ConnectorResult, DiscoveryResult, PlatformAccount, DateRange } from "../types";
+import { fetchRawCampaignReport, listGoogleAdsAccounts } from "./client";
 import {
   googleAdsResponseSchema,
   googleAdsDataSchema,
@@ -58,5 +58,9 @@ export const googleAdsConnector: Connector<GoogleAdsData> = {
     }
 
     return { status: "ok", data: dataParsed.data, raw };
+  },
+
+  async listAccounts(): Promise<DiscoveryResult> {
+    return listGoogleAdsAccounts();
   },
 };

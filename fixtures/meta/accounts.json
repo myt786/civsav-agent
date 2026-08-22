@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "id": "act_1234567890", "name": "Acme Roofing", "currency": "USD", "account_status": 1 },
+    { "id": "act_2345678901", "name": "Blue Ridge Dental", "currency": "USD", "account_status": 1 },
+    { "id": "act_3456789012", "name": "Coastal HVAC - Paused", "currency": "USD", "account_status": 2 }
+  ]
+}

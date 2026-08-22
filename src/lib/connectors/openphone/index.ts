@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
-import type { Connector, ConnectorResult, PlatformAccount, DateRange } from "../types";
-import { openPhoneProvider } from "./client";
+import type { Connector, ConnectorResult, DiscoveryResult, PlatformAccount, DateRange } from "../types";
+import { openPhoneProvider, listOpenPhoneNumbers } from "./client";
 import { openPhoneResponseSchema, telephonyDataSchema, type TelephonyData } from "./schema";
 
 const DATE_FORMAT = "yyyy-MM-dd";
@@ -50,5 +50,9 @@ export const openPhoneConnector: Connector<TelephonyData> = {
     }
 
     return { status: "ok", data: dataParsed.data, raw };
+  },
+
+  async listAccounts(): Promise<DiscoveryResult> {
+    return listOpenPhoneNumbers();
   },
 };

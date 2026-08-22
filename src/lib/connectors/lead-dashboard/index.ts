@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
-import type { Connector, ConnectorResult, PlatformAccount, DateRange } from "../types";
-import { fetchRawLeads } from "./client";
+import type { Connector, ConnectorResult, DiscoveryResult, PlatformAccount, DateRange } from "../types";
+import { fetchRawLeads, listLeadDashboardClients } from "./client";
 import {
   leadDashboardResponseSchema,
   leadDashboardDataSchema,
@@ -53,5 +53,9 @@ export const leadDashboardConnector: Connector<LeadDashboardData> = {
     }
 
     return { status: "ok", data: dataParsed.data, raw };
+  },
+
+  async listAccounts(): Promise<DiscoveryResult> {
+    return listLeadDashboardClients();
   },
 };

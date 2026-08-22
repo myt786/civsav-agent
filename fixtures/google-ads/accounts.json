@@ -1,0 +1,38 @@
+[
+  {
+    "customer_client": {
+      "id": 1234567890,
+      "descriptive_name": "Acme Roofing",
+      "status": "ENABLED",
+      "manager": false,
+      "currency_code": "USD"
+    }
+  },
+  {
+    "customer_client": {
+      "id": 2345678901,
+      "descriptive_name": "Blue Ridge Dental",
+      "status": "ENABLED",
+      "manager": false,
+      "currency_code": "USD"
+    }
+  },
+  {
+    "customer_client": {
+      "id": 3456789012,
+      "descriptive_name": "Coastal HVAC",
+      "status": "SUSPENDED",
+      "manager": false,
+      "currency_code": "USD"
+    }
+  },
+  {
+    "customer_client": {
+      "id": 9999999999,
+      "descriptive_name": "Agency MCC",
+      "status": "ENABLED",
+      "manager": true,
+      "currency_code": "USD"
+    }
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "id": "location-a1b2c3d4", "name": "Acme Roofing" },
+    { "id": "location-e5f6a7b8", "name": "Blue Ridge Dental" },
+    { "id": "location-c9d0e1f2", "name": "Coastal HVAC" }
+  ]
+}

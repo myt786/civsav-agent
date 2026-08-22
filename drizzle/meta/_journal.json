@@ -8,6 +8,27 @@
       "when": 1787314060299,
       "tag": "0000_loving_nomad",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787331104782,
+      "tag": "0001_spicy_master_chief",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787333645836,
+      "tag": "0002_warm_darkstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787358219375,
+      "tag": "0003_little_spot",
+      "breakpoints": true
     }
   ]
 }

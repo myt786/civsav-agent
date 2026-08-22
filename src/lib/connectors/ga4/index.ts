@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
-import type { Connector, ConnectorResult, PlatformAccount, DateRange } from "../types";
-import { fetchRawAnalyticsReport } from "./client";
+import type { Connector, ConnectorResult, DiscoveryResult, PlatformAccount, DateRange } from "../types";
+import { fetchRawAnalyticsReport, listGa4Properties } from "./client";
 import { ga4ResponseSchema, ga4DataSchema, type Ga4Data } from "./schema";
 
 const DATE_FORMAT = "yyyy-MM-dd";
@@ -58,5 +58,9 @@ export const ga4Connector: Connector<Ga4Data> = {
     }
 
     return { status: "ok", data: dataParsed.data, raw };
+  },
+
+  async listAccounts(): Promise<DiscoveryResult> {
+    return listGa4Properties();
   },
 };

@@ -1,6 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
-import type { Connector, ConnectorResult, PlatformAccount, DateRange } from "../types";
-import { fetchRawOpportunities } from "./client";
+import type { Connector, ConnectorResult, DiscoveryResult, PlatformAccount, DateRange } from "../types";
+import { fetchRawOpportunities, listGhlLocations } from "./client";
 import { ghlResponseSchema, ghlDataSchema, type GhlData } from "./schema";
 
 const DATE_FORMAT = "yyyy-MM-dd";
@@ -50,5 +50,9 @@ export const ghlConnector: Connector<GhlData> = {
     }
 
     return { status: "ok", data: dataParsed.data, raw };
+  },
+
+  async listAccounts(): Promise<DiscoveryResult> {
+    return listGhlLocations();
   },
 };

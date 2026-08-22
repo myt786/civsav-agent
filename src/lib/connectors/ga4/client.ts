@@ -1,9 +1,10 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
+import { google } from "googleapis";
 import { formatInTimeZone } from "date-fns-tz";
 import { RateLimiter } from "../shared/http";
-import type { PlatformAccount, DateRange } from "../types";
+import type { PlatformAccount, DateRange, DiscoveredAccount, DiscoveryResult } from "../types";
 
 // Configurable per connector, per the contract's rate-limit requirement.
 const rateLimiter = new RateLimiter({ requestsPerSecond: 5 });
@@ -94,4 +95,77 @@ export async function fetchRawAnalyticsReport(
   );
 
   return { trafficSourceReport, conversionEventReport };
+}
+
+interface AccountSummary {
+  displayName?: string | null;
+  propertySummaries?: { property?: string | null; displayName?: string | null }[];
+}
+
+// The mapping's externalId is a numeric GA4 *property* ID, not an account
+// — so discovery flattens every account's properties into one list rather
+// than surfacing accounts, which nobody would actually pick.
+function flattenPropertySummaries(summaries: AccountSummary[]): DiscoveredAccount[] {
+  const accounts: DiscoveredAccount[] = [];
+  for (const account of summaries) {
+    for (const property of account.propertySummaries ?? []) {
+      const propertyId = property.property?.split("/")[1];
+      if (!propertyId || !property.displayName) continue;
+      accounts.push({
+        id: propertyId,
+        name: property.displayName,
+        extra: account.displayName ?? undefined,
+      });
+    }
+  }
+  return accounts;
+}
+
+export async function listGa4Properties(): Promise<DiscoveryResult> {
+  if (process.env.CONNECTOR_MODE === "fixture") {
+    const fixtureName = process.env.GA4_ACCOUNTS_FIXTURE ?? "accounts.json";
+    try {
+      const raw = await readFile(path.join(FIXTURES_DIR, fixtureName), "utf-8");
+      const parsed = JSON.parse(raw) as { accountSummaries?: AccountSummary[] };
+      return { status: "ok", accounts: flattenPropertySummaries(parsed.accountSummaries ?? []) };
+    } catch (err) {
+      return { status: "error", error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccountJson) {
+    return { status: "error", error: "GOOGLE_SERVICE_ACCOUNT_JSON not configured." };
+  }
+
+  await rateLimiter.wait();
+
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(serviceAccountJson),
+      scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
+    });
+    const analyticsadmin = google.analyticsadmin({ version: "v1beta", auth });
+
+    const accounts: DiscoveredAccount[] = [];
+    let pageToken: string | undefined;
+    do {
+      const response = await withRetry(() =>
+        analyticsadmin.accountSummaries.list({ pageSize: 200, pageToken }),
+      );
+      accounts.push(...flattenPropertySummaries(response.data.accountSummaries ?? []));
+      pageToken = response.data.nextPageToken ?? undefined;
+    } while (pageToken);
+
+    return { status: "ok", accounts };
+  } catch (err) {
+    const status = getStatusCode(err);
+    if (status === 401 || status === 403) {
+      return {
+        status: "error",
+        error: "No access to GA4 properties. Check the service account has Viewer access on this property.",
+      };
+    }
+    return { status: "error", error: err instanceof Error ? err.message : String(err) };
+  }
 }

@@ -1,14 +1,15 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
-const { reportMock, customerMock, googleAdsApiMock } = vi.hoisted(() => {
+const { reportMock, queryMock, customerMock, googleAdsApiMock } = vi.hoisted(() => {
   const reportMock = vi.fn();
-  const customerMock = vi.fn(() => ({ report: reportMock }));
+  const queryMock = vi.fn();
+  const customerMock = vi.fn(() => ({ report: reportMock, query: queryMock }));
   // GoogleAdsApi is called with `new` in client.ts, so its mock implementation
   // must be a real function — an arrow function can't be constructed.
   const googleAdsApiMock = vi.fn(function GoogleAdsApiMock() {
     return { Customer: customerMock };
   });
-  return { reportMock, customerMock, googleAdsApiMock };
+  return { reportMock, queryMock, customerMock, googleAdsApiMock };
 });
 
 vi.mock("google-ads-api", () => ({
@@ -48,7 +49,7 @@ describe("googleAdsConnector", () => {
     process.env.CONNECTOR_MODE = "fixture";
     reportMock.mockReset();
     customerMock.mockReset();
-    customerMock.mockReturnValue({ report: reportMock });
+    customerMock.mockReturnValue({ report: reportMock, query: queryMock });
     googleAdsApiMock.mockReset();
     googleAdsApiMock.mockImplementation(function GoogleAdsApiMock() {
       return { Customer: customerMock };
@@ -138,5 +139,83 @@ describe("googleAdsConnector", () => {
 
     expect(result.status).toBe("error");
     expect(reportMock).toHaveBeenCalledTimes(4); // initial attempt + 3 retries
+  });
+});
+
+describe("googleAdsConnector.listAccounts", () => {
+  beforeEach(() => {
+    process.env.CONNECTOR_MODE = "fixture";
+    queryMock.mockReset();
+    customerMock.mockReturnValue({ report: reportMock, query: queryMock });
+  });
+
+  afterEach(() => {
+    delete process.env.CONNECTOR_MODE;
+    delete process.env.GOOGLE_ADS_ACCOUNTS_FIXTURE;
+    delete process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    delete process.env.GOOGLE_ADS_CLIENT_ID;
+    delete process.env.GOOGLE_ADS_CLIENT_SECRET;
+    delete process.env.GOOGLE_ADS_REFRESH_TOKEN;
+    delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+    vi.useRealTimers();
+  });
+
+  it("returns discovered accounts, excluding manager/sub-manager rows", async () => {
+    const result = await googleAdsConnector.listAccounts!();
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toHaveLength(3);
+    expect(result.accounts[0]).toEqual({ id: "1234567890", name: "Acme Roofing", extra: "USD · ENABLED" });
+    expect(result.accounts.some((a) => a.name === "Agency MCC")).toBe(false);
+  });
+
+  it("returns error when the fixture file is missing", async () => {
+    process.env.GOOGLE_ADS_ACCOUNTS_FIXTURE = "does-not-exist.json";
+
+    const result = await googleAdsConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+
+  it("returns a friendly access-denied message on 403, not a raw status code", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.GOOGLE_ADS_DEVELOPER_TOKEN = "dev-token";
+    process.env.GOOGLE_ADS_CLIENT_ID = "client-id";
+    process.env.GOOGLE_ADS_CLIENT_SECRET = "client-secret";
+    process.env.GOOGLE_ADS_REFRESH_TOKEN = "refresh-token";
+    process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID = "1112223333";
+    queryMock.mockRejectedValue(httpError(403, "403 Forbidden"));
+
+    vi.useFakeTimers();
+    const resultPromise = googleAdsConnector.listAccounts!();
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toMatch(/No access to Google Ads accounts/);
+  });
+
+  it("returns error when credentials aren't configured", async () => {
+    delete process.env.CONNECTOR_MODE;
+
+    const result = await googleAdsConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+
+  it("returns error when GOOGLE_ADS_LOGIN_CUSTOMER_ID isn't configured", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.GOOGLE_ADS_DEVELOPER_TOKEN = "dev-token";
+    process.env.GOOGLE_ADS_CLIENT_ID = "client-id";
+    process.env.GOOGLE_ADS_CLIENT_SECRET = "client-secret";
+    process.env.GOOGLE_ADS_REFRESH_TOKEN = "refresh-token";
+
+    const result = await googleAdsConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toMatch(/GOOGLE_ADS_LOGIN_CUSTOMER_ID/);
   });
 });

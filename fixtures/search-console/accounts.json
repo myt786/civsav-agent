@@ -1,0 +1,7 @@
+{
+  "siteEntry": [
+    { "siteUrl": "https://acmeroofing.com/", "permissionLevel": "siteOwner" },
+    { "siteUrl": "sc-domain:blueridgedental.com", "permissionLevel": "siteFullUser" },
+    { "siteUrl": "https://coastalhvac.com/", "permissionLevel": "siteRestrictedUser" }
+  ]
+}

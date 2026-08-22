@@ -112,3 +112,55 @@ describe("ghlConnector", () => {
     expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 });
+
+describe("ghlConnector.listAccounts", () => {
+  beforeEach(() => {
+    process.env.CONNECTOR_MODE = "fixture";
+    fetchMock.mockReset();
+  });
+
+  afterEach(() => {
+    delete process.env.CONNECTOR_MODE;
+    delete process.env.GHL_ACCOUNTS_FIXTURE;
+    delete process.env.GHL_API_BASE_URL;
+    delete process.env.GHL_AGENCY_API_KEY;
+  });
+
+  it("returns discovered locations from the fixture", async () => {
+    const result = await ghlConnector.listAccounts!();
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toHaveLength(3);
+    expect(result.accounts[0]).toEqual({ id: "loc_acme001", name: "Acme Roofing" });
+  });
+
+  it("returns error when the fixture file is missing", async () => {
+    process.env.GHL_ACCOUNTS_FIXTURE = "does-not-exist.json";
+
+    const result = await ghlConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+
+  it("returns a friendly access-denied message on 401/403, not a raw status code", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.GHL_API_BASE_URL = "https://services.leadconnectorhq.com";
+    process.env.GHL_AGENCY_API_KEY = "test-key";
+    fetchMock.mockResolvedValue(mockResponse(403));
+
+    const result = await ghlConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toMatch(/No access to GoHighLevel locations/);
+  });
+
+  it("returns error when credentials aren't configured", async () => {
+    delete process.env.CONNECTOR_MODE;
+
+    const result = await ghlConnector.listAccounts!();
+
+    expect(result.status).toBe("error");
+  });
+});
