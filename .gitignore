@@ -24,6 +24,13 @@
 .DS_Store
 *.pem
 
+# GCP service account keys downloaded to the repo root (content belongs in
+# GOOGLE_SERVICE_ACCOUNT_JSON in .env.local, not as a loose file)
+/*-*-*.json
+!/package.json
+!/tsconfig.json
+!/components.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*
