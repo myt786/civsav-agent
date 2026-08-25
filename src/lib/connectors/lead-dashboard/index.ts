@@ -29,20 +29,23 @@ export const leadDashboardConnector: Connector<LeadDashboardData> = {
       return { status: "error", error: parsed.error.message };
     }
 
-    if (parsed.data.leads.length === 0) {
+    if (parsed.data.data.length === 0) {
       return { status: "no_data", raw };
     }
 
     // Bucketed on the client's own timezone — never the platform's default
     // and never the server's.
     const byStatus: Record<string, number> = {};
-    for (const lead of parsed.data.leads) {
+    let spamLeads = 0;
+    for (const lead of parsed.data.data) {
       byStatus[lead.status] = (byStatus[lead.status] ?? 0) + 1;
+      if (lead.is_spam) spamLeads += 1;
     }
 
     const data: LeadDashboardData = {
-      totalLeads: parsed.data.leads.length,
+      totalLeads: parsed.data.data.length,
       byStatus: byStatus as LeadDashboardData["byStatus"],
+      spamLeads,
       rangeStart: formatInTimeZone(range.start, account.clientTimezone, DATE_FORMAT),
       rangeEnd: formatInTimeZone(range.end, account.clientTimezone, DATE_FORMAT),
     };

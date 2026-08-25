@@ -18,7 +18,7 @@ const account: PlatformAccount = {
   clientId: "client-1",
   clientTimezone: "America/New_York",
   platform: "lead_dashboard",
-  externalId: "location-123",
+  externalId: "1",
 };
 
 const range: DateRange = {
@@ -29,11 +29,14 @@ const range: DateRange = {
 describe("leadDashboardConnector", () => {
   beforeEach(() => {
     process.env.CONNECTOR_MODE = "fixture";
+    fetchMock.mockReset();
   });
 
   afterEach(() => {
     delete process.env.CONNECTOR_MODE;
     delete process.env.LEAD_DASHBOARD_FIXTURE;
+    delete process.env.LEAD_DASHBOARD_API_BASE_URL;
+    delete process.env.LEAD_DASHBOARD_API_KEY;
   });
 
   it("returns ok with normalized data on a healthy response", async () => {
@@ -44,13 +47,8 @@ describe("leadDashboardConnector", () => {
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");
     expect(result.data.totalLeads).toBe(6);
-    expect(result.data.byStatus).toEqual({
-      new: 2,
-      contacted: 1,
-      qualified: 1,
-      won: 1,
-      lost: 1,
-    });
+    expect(result.data.byStatus).toEqual({ completed: 4, abandoned: 2 });
+    expect(result.data.spamLeads).toBe(1);
     expect(result.data.rangeStart).toBe("2026-08-18");
     expect(result.raw).toBeDefined();
   });
@@ -82,6 +80,34 @@ describe("leadDashboardConnector", () => {
 
     expect(result.status).toBe("error");
   });
+
+  it("does not retry a 429 and returns error immediately", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.LEAD_DASHBOARD_API_BASE_URL = "https://leaman.civsav.com";
+    process.env.LEAD_DASHBOARD_API_KEY = "test-key";
+    fetchMock.mockResolvedValue(mockResponse(429, { message: "rate limited" }));
+
+    const result = await leadDashboardConnector.fetch(account, range);
+
+    expect(result.status).toBe("error");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a 500 with backoff and eventually returns error", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.LEAD_DASHBOARD_API_BASE_URL = "https://leaman.civsav.com";
+    process.env.LEAD_DASHBOARD_API_KEY = "test-key";
+    fetchMock.mockResolvedValue(mockResponse(500));
+
+    vi.useFakeTimers();
+    const resultPromise = leadDashboardConnector.fetch(account, range);
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+    vi.useRealTimers();
+
+    expect(result.status).toBe("error");
+    expect(fetchMock).toHaveBeenCalledTimes(4); // initial attempt + 3 retries
+  });
 });
 
 describe("leadDashboardConnector.listAccounts", () => {
@@ -97,13 +123,13 @@ describe("leadDashboardConnector.listAccounts", () => {
     delete process.env.LEAD_DASHBOARD_API_KEY;
   });
 
-  it("returns discovered clients from the fixture", async () => {
+  it("returns discovered sites from the fixture", async () => {
     const result = await leadDashboardConnector.listAccounts!();
 
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");
     expect(result.accounts).toHaveLength(3);
-    expect(result.accounts[0]).toEqual({ id: "location-a1b2c3d4", name: "Acme Roofing" });
+    expect(result.accounts[0]).toEqual({ id: "1", name: "Acme Roofing" });
   });
 
   it("returns error when the fixture file is missing", async () => {
@@ -116,7 +142,7 @@ describe("leadDashboardConnector.listAccounts", () => {
 
   it("returns a friendly access-denied message on 401/403, not a raw status code", async () => {
     delete process.env.CONNECTOR_MODE;
-    process.env.LEAD_DASHBOARD_API_BASE_URL = "https://api.leaddashboard.test";
+    process.env.LEAD_DASHBOARD_API_BASE_URL = "https://leaman.civsav.com";
     process.env.LEAD_DASHBOARD_API_KEY = "test-key";
     fetchMock.mockResolvedValue(mockResponse(403));
 
@@ -124,7 +150,7 @@ describe("leadDashboardConnector.listAccounts", () => {
 
     expect(result.status).toBe("error");
     if (result.status !== "error") throw new Error("expected error");
-    expect(result.error).toMatch(/No access to the lead dashboard client list/);
+    expect(result.error).toMatch(/No access to the lead dashboard site list/);
   });
 
   it("returns error when credentials aren't configured", async () => {

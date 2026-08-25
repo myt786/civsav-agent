@@ -144,7 +144,7 @@ actually does, don't force everything into one shape:
 
 | Connector | Raw envelope | Empty condition |
 |---|---|---|
-| lead-dashboard | `{ leads: [...] }` | `leads.length === 0` |
+| lead-dashboard | `{ data: [...] }` (client.ts flattens the platform's own paginated `{ data, meta }` pages into this before handing off) | `data.length === 0` |
 | search-console | `{ rows?: [...] }` | `rows` absent or `[]` |
 | google-ads | bare `[...]` (no wrapper) | `array.length === 0` |
 | ga4 | `{ trafficSourceReport, conversionEventReport }` | primary report has no rows |
