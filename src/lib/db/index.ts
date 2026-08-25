@@ -9,7 +9,15 @@ async function createDb() {
   if (process.env.DATABASE_URL) {
     const { drizzle } = await import("drizzle-orm/postgres-js");
     const postgres = (await import("postgres")).default;
-    const client = postgres(process.env.DATABASE_URL);
+    // Serverless-appropriate pool size: postgres-js defaults to up to 10
+    // connections per instantiation, and nothing else here ever closes
+    // them. Under real traffic, every concurrent Vercel function instance
+    // opening its own 10-connection pool exhausts a small managed
+    // Postgres' connection ceiling fast — confirmed live (DigitalOcean
+    // refused new connections entirely: "remaining connection slots are
+    // reserved for roles with the SUPERUSER attribute"). idle_timeout
+    // releases a connection back once this instance goes quiet.
+    const client = postgres(process.env.DATABASE_URL, { max: 3, idle_timeout: 20 });
     return drizzle(client, { schema });
   }
 
