@@ -55,6 +55,20 @@ describe("leadDashboardConnector", () => {
     expect(result.raw).toBeDefined();
   });
 
+  it("includes a zero count for a status that did not occur that day, not a missing key", async () => {
+    // leadDashboardDataSchema's byStatus is a Zod record keyed by the
+    // status enum, which requires every enum key present — a day with
+    // only "completed" leads must still report abandoned: 0, or the
+    // normalized-data validation itself fails.
+    process.env.LEAD_DASHBOARD_FIXTURE = "all-one-status.json";
+
+    const result = await leadDashboardConnector.fetch(account, range);
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.data.byStatus).toEqual({ completed: 2, abandoned: 0 });
+  });
+
   it("returns no_data (not a zero) when the API returns an empty list", async () => {
     process.env.LEAD_DASHBOARD_FIXTURE = "empty.json";
 

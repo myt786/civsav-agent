@@ -4,6 +4,7 @@ import { fetchRawLeads, listLeadDashboardClients } from "./client";
 import {
   leadDashboardResponseSchema,
   leadDashboardDataSchema,
+  leadStatusSchema,
   type LeadDashboardData,
 } from "./schema";
 
@@ -33,12 +34,16 @@ export const leadDashboardConnector: Connector<LeadDashboardData> = {
       return { status: "no_data", raw };
     }
 
-    // Bucketed on the client's own timezone — never the platform's default
-    // and never the server's.
-    const byStatus: Record<string, number> = {};
+    // leadDashboardDataSchema's byStatus is a record keyed by the status
+    // enum, and Zod requires every enum key present — a day with zero
+    // "abandoned" leads still needs that key at 0, not absent, or
+    // validation fails below. Pre-seed every status before counting.
+    const byStatus: Record<string, number> = Object.fromEntries(
+      leadStatusSchema.options.map((status) => [status, 0]),
+    );
     let spamLeads = 0;
     for (const lead of parsed.data.data) {
-      byStatus[lead.status] = (byStatus[lead.status] ?? 0) + 1;
+      byStatus[lead.status] += 1;
       if (lead.is_spam) spamLeads += 1;
     }
 
