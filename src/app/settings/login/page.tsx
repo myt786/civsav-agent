@@ -1,5 +1,6 @@
 import { LoginForm } from "./login-form";
 import { NavBrand } from "@/components/nav-brand";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function LoginPage({
   searchParams,
@@ -11,8 +12,9 @@ export default async function LoginPage({
   return (
     <div className="flex flex-1 items-center justify-center px-6 py-16">
       <div className="flex w-full max-w-sm flex-col gap-6">
-        <div className="flex justify-center">
+        <div className="flex items-center justify-center gap-3">
           <NavBrand />
+          <ThemeToggle />
         </div>
         <div className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6 shadow-sm">
           <div className="flex flex-col gap-1">

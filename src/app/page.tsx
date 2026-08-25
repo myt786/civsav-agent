@@ -3,6 +3,7 @@ import { getDashboardData } from "@/lib/dashboard/queries";
 import { SyncStatusStrip } from "@/components/dashboard/sync-status-strip";
 import { ClientsTable } from "@/components/dashboard/clients-table";
 import { NavBrand } from "@/components/nav-brand";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Next can't see into the Drizzle calls inside getDashboardData() to know
 // this page depends on live data, so without this it gets prerendered once
@@ -31,6 +32,7 @@ export default async function DashboardPage() {
             <Link href="/settings/clients" className="text-muted-foreground hover:text-foreground hover:underline">
               Settings
             </Link>
+            <ThemeToggle />
           </nav>
         </div>
       </div>

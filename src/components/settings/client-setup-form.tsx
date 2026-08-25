@@ -37,6 +37,20 @@ function emptyRow(): RowState {
 export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }) {
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState(defaultTimezone);
+
+  // Suggest the browser's own timezone once the client mounts, rather
+  // than always defaulting to DEFAULT_CLIENT_TIMEZONE — most new clients
+  // are being added by someone in roughly the client's own region. Runs
+  // once, before anyone's had a chance to pick something themselves, so
+  // overwriting the initial (server-rendered) default here is safe.
+  useEffect(() => {
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (detected) setTimezone(detected);
+    } catch {
+      // Unsupported environment — keep the server-provided default.
+    }
+  }, []);
   const [discovery, setDiscovery] = useState<Record<Platform, DiscoveryState>>(() =>
     Object.fromEntries(PLATFORM_ORDER.map((p) => [p, { status: "loading" }])) as Record<Platform, DiscoveryState>,
   );

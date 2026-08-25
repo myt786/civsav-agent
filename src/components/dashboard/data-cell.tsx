@@ -49,9 +49,17 @@ export function DataCell<T>({
 
   if (state.kind === "unverified") {
     return (
-      <span className={cn("flex items-center gap-1.5 font-mono tabular-nums text-muted-foreground italic", alignClass)}>
+      <span
+        className={cn(
+          "flex items-center gap-1.5 font-mono tabular-nums text-amber-700 dark:text-amber-500",
+          alignClass,
+        )}
+      >
         {text}
-        <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px] font-sans leading-none not-italic">
+        <Badge
+          variant="outline"
+          className="h-4 shrink-0 border-amber-600/30 px-1 text-[10px] font-sans leading-none text-amber-700 dark:text-amber-500"
+        >
           unverified
         </Badge>
       </span>

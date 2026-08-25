@@ -17,12 +17,28 @@ export const metadata: Metadata = {
   description: "Read-only daily ops dashboard across connected platforms",
 };
 
+// Runs before paint so the stored theme (or dark, the default) applies
+// immediately — without this, the page would flash light-then-dark (or
+// dark-then-light) on every load, waiting on React to hydrate the toggle.
+const themeInitScript = `
+  try {
+    var t = localStorage.getItem("theme");
+    document.documentElement.classList.add(t === "light" ? "light" : "dark");
+  } catch (e) {
+    document.documentElement.classList.add("dark");
+  }
+`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>{children}</body>
     </html>
   );

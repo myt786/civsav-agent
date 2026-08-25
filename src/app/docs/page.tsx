@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, ClockAlertIcon, MinusCircleIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavBrand } from "@/components/nav-brand";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { PLATFORM_HELP, PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/connectors/platform-labels";
 import { STALE_HOURS } from "@/lib/dashboard/constants";
 
@@ -43,6 +44,7 @@ export default function DocsPage() {
             <Link href="/settings/clients" className="text-muted-foreground hover:text-foreground hover:underline">
               Settings
             </Link>
+            <ThemeToggle />
           </nav>
         </div>
       </div>
@@ -85,9 +87,12 @@ export default function DocsPage() {
             <span className="font-mono tabular-nums text-foreground">1,204</span>
           </Swatch>
           <Swatch caption="A real number pulled from a live sync, but nobody has clicked Verify on this mapping yet — treat with a little less certainty.">
-            <span className="flex items-center gap-1.5 font-mono tabular-nums text-muted-foreground italic">
+            <span className="flex items-center gap-1.5 font-mono tabular-nums text-amber-700 dark:text-amber-500">
               1,204
-              <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px] font-sans leading-none not-italic">
+              <Badge
+                variant="outline"
+                className="h-4 shrink-0 border-amber-600/30 px-1 text-[10px] font-sans leading-none text-amber-700 dark:text-amber-500"
+              >
                 unverified
               </Badge>
             </span>

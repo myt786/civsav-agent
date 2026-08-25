@@ -34,6 +34,31 @@ function TooltipContentInner({
   );
 }
 
+// connectNulls={false} + dot={false} means a series with no two
+// consecutive non-null days draws nothing at all — indistinguishable
+// from a broken chart. Detects that case so the caller can show an
+// explicit "no data yet" pattern instead of empty space.
+function hasVisibleSegment(points: DailyPoint[]): boolean {
+  for (let i = 1; i < points.length; i++) {
+    if (points[i - 1].value !== null && points[i].value !== null) return true;
+  }
+  return false;
+}
+
+function EmptySparkline() {
+  return (
+    <div
+      className="flex h-14 items-center justify-center rounded-md text-[10px] text-muted-foreground/70"
+      style={{
+        backgroundImage:
+          "repeating-linear-gradient(135deg, var(--border) 0px, var(--border) 1px, transparent 1px, transparent 8px)",
+      }}
+    >
+      Not enough synced days yet
+    </div>
+  );
+}
+
 // A quiet 30-day line, one small multiple per metric. Gaps (null points)
 // are left as gaps rather than interpolated — a day with no data is not
 // visually the same as a day with a real zero.
@@ -46,6 +71,10 @@ export function Sparkline({ series, formatValue }: { series: Series[]; formatVal
     }
     return row;
   });
+
+  if (!series.some((s) => hasVisibleSegment(s.points))) {
+    return <EmptySparkline />;
+  }
 
   return (
     <ResponsiveContainer width="100%" height={56}>

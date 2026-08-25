@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { logout } from "../login/actions";
 import { Button } from "@/components/ui/button";
 import { NavBrand } from "@/components/nav-brand";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function SettingsLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
@@ -20,6 +21,7 @@ export default async function SettingsLayout({ children }: { children: ReactNode
             <Link href="/docs" className="text-muted-foreground hover:text-foreground hover:underline">
               Docs
             </Link>
+            <ThemeToggle />
           </nav>
         </div>
       </div>
