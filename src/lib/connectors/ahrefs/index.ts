@@ -34,10 +34,12 @@ export const ahrefsConnector: Connector<SeoData> = {
       organicKeywords: metrics.org_keywords,
       organicKeywordsTop3: metrics.org_keywords_1_3,
       organicTrafficEstimate: metrics.org_traffic,
-      organicCostValue: centsToUsd(metrics.org_cost),
+      // null means Ahrefs has no cost estimate for that side of traffic —
+      // treated as no cost to report, not a missing/error value.
+      organicCostValue: centsToUsd(metrics.org_cost ?? 0),
       paidKeywords: metrics.paid_keywords,
       paidTrafficEstimate: metrics.paid_traffic,
-      paidCostValue: centsToUsd(metrics.paid_cost),
+      paidCostValue: centsToUsd(metrics.paid_cost ?? 0),
       paidPages: metrics.paid_pages,
       rangeStart: snapshotDate,
       rangeEnd: snapshotDate,

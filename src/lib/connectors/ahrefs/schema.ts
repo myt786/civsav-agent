@@ -12,10 +12,13 @@ export const ahrefsMetricsSchema = z.object({
   org_keywords_1_3: z.number(),
   org_traffic: z.number(),
   // USD cents, per Ahrefs API convention — never rename before converting.
-  // Converted in exactly one place: centsToUsd below.
-  org_cost: z.number(),
+  // Converted in exactly one place: centsToUsd below. Confirmed live:
+  // null (not 0) when Ahrefs has no cost estimate for that side of
+  // traffic — e.g. a site with zero paid keywords returns paid_cost:
+  // null, and a totally uncrawled domain returns org_cost: null too.
+  org_cost: z.number().nullable(),
   paid_traffic: z.number(),
-  paid_cost: z.number(),
+  paid_cost: z.number().nullable(),
   paid_pages: z.number(),
 });
 

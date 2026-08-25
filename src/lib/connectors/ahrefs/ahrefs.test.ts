@@ -71,6 +71,17 @@ describe("ahrefsConnector", () => {
     expect(result.raw).toBeDefined();
   });
 
+  it("treats a null paid_cost (no cost estimate for that side of traffic) as zero, not an error", async () => {
+    process.env.AHREFS_FIXTURE = "null-cost.json";
+
+    const result = await ahrefsConnector.fetch(account, range);
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.data.organicCostValue).toBe(102.39);
+    expect(result.data.paidCostValue).toBe(0);
+  });
+
   it("returns no_data (not a zero) when Ahrefs has no crawl data for the domain", async () => {
     process.env.AHREFS_FIXTURE = "empty.json";
 
