@@ -1,5 +1,5 @@
 {
   "calls": [
-    { "id": "AC001", "status": "missed", "duration": "47", "forwarded": true }
+    { "id": "AC001", "status": "missed", "duration": "47", "forwardedFrom": null, "forwardedTo": null }
   ]
 }

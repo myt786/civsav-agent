@@ -26,10 +26,13 @@ export const openPhoneConnector: Connector<TelephonyData> = {
       return { status: "no_data", raw };
     }
 
+    const isForwarded = (call: (typeof parsed.data.calls)[number]) =>
+      call.forwardedFrom !== null || call.forwardedTo !== null;
+
     const missedCalls = parsed.data.calls.filter((call) => call.status === "missed").length;
-    const forwardedCalls = parsed.data.calls.filter((call) => call.forwarded).length;
+    const forwardedCalls = parsed.data.calls.filter(isForwarded).length;
     const missedAndForwardedCalls = parsed.data.calls.filter(
-      (call) => call.status === "missed" && call.forwarded,
+      (call) => call.status === "missed" && isForwarded(call),
     ).length;
 
     // Bucketed on the client's own timezone — never the platform's default

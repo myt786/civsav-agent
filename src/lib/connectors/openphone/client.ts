@@ -50,6 +50,59 @@ function humanizeLabel(label: string): string {
     .join(" ");
 }
 
+// Real API paging envelope, shared by /phone-numbers, /conversations, and
+// /calls: { data: [...], totalItems, nextPageToken }.
+interface QuoPage<T> {
+  data?: T[];
+  nextPageToken?: string | null;
+}
+
+async function paginate<T>(
+  buildUrl: (pageToken: string | null) => URL,
+  apiKey: string,
+): Promise<T[]> {
+  const items: T[] = [];
+  let pageToken: string | null = null;
+  for (;;) {
+    await rateLimiter.wait();
+    const response = await fetchWithRetry(buildUrl(pageToken), {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!response.ok) {
+      throw new HttpError(response.status, `${response.status} ${response.statusText}`);
+    }
+    const body = (await response.json()) as QuoPage<T>;
+    items.push(...(body.data ?? []));
+    if (!body.nextPageToken) break;
+    pageToken = body.nextPageToken;
+  }
+  return items;
+}
+
+// account.externalId is the E.164 number (see the comment on
+// toDiscoveredAccounts below for why), but /v1/calls and /v1/conversations
+// both require the internal PN... id — so every real fetch resolves the
+// number against /phone-numbers first.
+async function resolvePhoneNumberId(baseUrl: string, apiKey: string, number: string): Promise<string> {
+  await rateLimiter.wait();
+  const response = await fetchWithRetry(new URL(`${baseUrl}/phone-numbers`), {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!response.ok) {
+    throw new HttpError(response.status, `${response.status} ${response.statusText}`);
+  }
+  const body = (await response.json()) as { data?: { id: string; number: string }[] };
+  const match = (body.data ?? []).find((entry) => entry.number === number);
+  if (!match) {
+    throw new Error(`No OpenPhone number found matching ${number}`);
+  }
+  return match.id;
+}
+
+interface ConversationEntry {
+  participants: string[];
+}
+
 export const openPhoneProvider: Telephony = {
   async fetchCallSummary(account: PlatformAccount, range: DateRange): Promise<unknown> {
     if (process.env.CONNECTOR_MODE === "fixture") {
@@ -68,22 +121,46 @@ export const openPhoneProvider: Telephony = {
       );
     }
 
-    await rateLimiter.wait();
+    const phoneNumberId = await resolvePhoneNumberId(baseUrl, apiKey, account.externalId);
+    const rangeStart = range.start.toISOString();
+    const rangeEnd = range.end.toISOString();
 
-    const url = new URL(`${baseUrl}/calls`);
-    url.searchParams.set("phoneNumberId", account.externalId);
-    url.searchParams.set("start", range.start.toISOString());
-    url.searchParams.set("end", range.end.toISOString());
+    // /v1/calls has no bulk mode — it's hard-scoped to one participant's
+    // 1:1 conversation per query (confirmed against the real API and
+    // docs). So this first enumerates every conversation active in the
+    // window to discover participants, then fetches calls per participant
+    // and combines them.
+    const conversations = await paginate<ConversationEntry>((pageToken) => {
+      const url = new URL(`${baseUrl}/conversations`);
+      url.searchParams.set("phoneNumbers", phoneNumberId);
+      url.searchParams.set("maxResults", "100");
+      url.searchParams.set("updatedAfter", rangeStart);
+      url.searchParams.set("updatedBefore", rangeEnd);
+      if (pageToken) url.searchParams.set("pageToken", pageToken);
+      return url;
+    }, apiKey);
 
-    const response = await fetchWithRetry(url, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-
-    if (!response.ok) {
-      throw new HttpError(response.status, `${response.status} ${response.statusText}`);
+    const participants = new Set<string>();
+    for (const conversation of conversations) {
+      for (const participant of conversation.participants) participants.add(participant);
     }
 
-    return response.json();
+    const calls: unknown[] = [];
+    for (const participant of participants) {
+      const participantCalls = await paginate<unknown>((pageToken) => {
+        const url = new URL(`${baseUrl}/calls`);
+        url.searchParams.set("phoneNumberId", phoneNumberId);
+        url.searchParams.set("participants", participant);
+        url.searchParams.set("maxResults", "100");
+        url.searchParams.set("createdAfter", rangeStart);
+        url.searchParams.set("createdBefore", rangeEnd);
+        if (pageToken) url.searchParams.set("pageToken", pageToken);
+        return url;
+      }, apiKey);
+      calls.push(...participantCalls);
+    }
+
+    return { calls };
   },
 };
 

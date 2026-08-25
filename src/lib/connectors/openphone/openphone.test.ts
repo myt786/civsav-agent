@@ -6,7 +6,7 @@ const account: PlatformAccount = {
   clientId: "client-1",
   clientTimezone: "America/New_York",
   platform: "openphone",
-  externalId: "PN123",
+  externalId: "+14155551234",
 };
 
 const range: DateRange = {
@@ -304,5 +304,152 @@ describe("openPhoneConnector.fetch — picks the key matching the mapping's cred
     expect(result.status).toBe("error");
     if (result.status !== "error") throw new Error("expected error");
     expect(result.error).toContain("OPENPHONE_API_KEY__NORTHEAST");
+  });
+});
+
+// /v1/calls has no bulk mode — it only returns calls for one participant's
+// 1:1 conversation per query (confirmed against the real API). These
+// exercise the resolve-number -> list-conversations -> per-participant-
+// calls fan-out this forces, which the fixture-mode happy-path test above
+// never touches (fixture mode returns canned JSON directly, bypassing
+// client.ts entirely).
+describe("openPhoneConnector.fetch — real-API fan-out (resolve -> conversations -> calls)", () => {
+  beforeEach(() => {
+    delete process.env.CONNECTOR_MODE;
+    fetchMock.mockReset();
+    process.env.OPENPHONE_API_BASE_URL = "https://api.openphone.com/v1";
+    process.env.OPENPHONE_API_KEY = "test-key";
+  });
+
+  afterEach(() => {
+    delete process.env.OPENPHONE_API_BASE_URL;
+    delete process.env.OPENPHONE_API_KEY;
+  });
+
+  it("resolves the number to its PN id, discovers participants via conversations, then fetches and combines calls per participant", async () => {
+    fetchMock.mockImplementation((url: URL) => {
+      const path = url.pathname;
+      if (path.endsWith("/phone-numbers")) {
+        return Promise.resolve(mockResponse(200, { data: [{ id: "PNabc123", number: "+14155551234" }] }));
+      }
+      if (path.endsWith("/conversations")) {
+        expect(url.searchParams.get("phoneNumbers")).toBe("PNabc123");
+        return Promise.resolve(
+          mockResponse(200, {
+            data: [{ participants: ["+19995551111"] }, { participants: ["+19995552222"] }],
+            nextPageToken: null,
+          }),
+        );
+      }
+      if (path.endsWith("/calls")) {
+        expect(url.searchParams.get("phoneNumberId")).toBe("PNabc123");
+        const participant = url.searchParams.get("participants");
+        if (participant === "+19995551111") {
+          return Promise.resolve(
+            mockResponse(200, {
+              data: [{ id: "AC001", status: "completed", duration: 100, forwardedFrom: null, forwardedTo: null }],
+              nextPageToken: null,
+            }),
+          );
+        }
+        return Promise.resolve(
+          mockResponse(200, {
+            data: [{ id: "AC002", status: "missed", duration: 0, forwardedFrom: null, forwardedTo: null }],
+            nextPageToken: null,
+          }),
+        );
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    const result = await openPhoneConnector.fetch(account, range);
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.data.totalCalls).toBe(2);
+    expect(result.data.missedCalls).toBe(1);
+    // 1 phone-numbers lookup + 1 conversations page + 1 calls request per
+    // participant (2 participants).
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("dedupes a participant appearing in more than one conversation into a single /calls request", async () => {
+    fetchMock.mockImplementation((url: URL) => {
+      const path = url.pathname;
+      if (path.endsWith("/phone-numbers")) {
+        return Promise.resolve(mockResponse(200, { data: [{ id: "PNabc123", number: "+14155551234" }] }));
+      }
+      if (path.endsWith("/conversations")) {
+        return Promise.resolve(
+          mockResponse(200, {
+            data: [{ participants: ["+19995551111"] }, { participants: ["+19995551111"] }],
+            nextPageToken: null,
+          }),
+        );
+      }
+      if (path.endsWith("/calls")) {
+        return Promise.resolve(
+          mockResponse(200, {
+            data: [{ id: "AC001", status: "completed", duration: 100, forwardedFrom: null, forwardedTo: null }],
+            nextPageToken: null,
+          }),
+        );
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    const result = await openPhoneConnector.fetch(account, range);
+
+    expect(result.status).toBe("ok");
+    // 1 phone-numbers + 1 conversations page + exactly 1 calls request
+    // (not 2) for the one distinct participant.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("follows nextPageToken across multiple conversation pages", async () => {
+    fetchMock.mockImplementation((url: URL) => {
+      const path = url.pathname;
+      if (path.endsWith("/phone-numbers")) {
+        return Promise.resolve(mockResponse(200, { data: [{ id: "PNabc123", number: "+14155551234" }] }));
+      }
+      if (path.endsWith("/conversations")) {
+        if (!url.searchParams.get("pageToken")) {
+          return Promise.resolve(
+            mockResponse(200, { data: [{ participants: ["+19995551111"] }], nextPageToken: "page2" }),
+          );
+        }
+        expect(url.searchParams.get("pageToken")).toBe("page2");
+        return Promise.resolve(
+          mockResponse(200, { data: [{ participants: ["+19995552222"] }], nextPageToken: null }),
+        );
+      }
+      if (path.endsWith("/calls")) {
+        return Promise.resolve(
+          mockResponse(200, {
+            data: [{ id: "AC001", status: "completed", duration: 10, forwardedFrom: null, forwardedTo: null }],
+            nextPageToken: null,
+          }),
+        );
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    const result = await openPhoneConnector.fetch(account, range);
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    // Both pages' participants got a /calls request: 1 total call each.
+    expect(result.data.totalCalls).toBe(2);
+  });
+
+  it("returns error when the number cannot be resolved to a PN id", async () => {
+    fetchMock.mockResolvedValue(mockResponse(200, { data: [] }));
+
+    const result = await openPhoneConnector.fetch(account, range);
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toMatch(/No OpenPhone number found/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,10 +1,10 @@
 {
   "calls": [
-    { "id": "AC001", "status": "completed", "duration": 184, "forwarded": false },
-    { "id": "AC002", "status": "missed", "duration": 0, "forwarded": false },
-    { "id": "AC003", "status": "missed", "duration": 47, "forwarded": true },
-    { "id": "AC004", "status": "completed", "duration": 302, "forwarded": true },
-    { "id": "AC005", "status": "voicemail", "duration": 22, "forwarded": false },
-    { "id": "AC006", "status": "missed", "duration": 0, "forwarded": true }
+    { "id": "AC001", "status": "completed", "duration": 184, "forwardedFrom": null, "forwardedTo": null },
+    { "id": "AC002", "status": "missed", "duration": 0, "forwardedFrom": null, "forwardedTo": null },
+    { "id": "AC003", "status": "missed", "duration": 47, "forwardedFrom": "+15551112222", "forwardedTo": null },
+    { "id": "AC004", "status": "completed", "duration": 302, "forwardedFrom": null, "forwardedTo": "+15553334444" },
+    { "id": "AC005", "status": "no-answer", "duration": 22, "forwardedFrom": null, "forwardedTo": null },
+    { "id": "AC006", "status": "missed", "duration": 0, "forwardedFrom": "+15555556666", "forwardedTo": null }
   ]
 }
