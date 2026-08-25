@@ -12,6 +12,7 @@ import { externalIdSchemas } from "@/lib/settings/validation";
 import { connectorRegistry } from "@/lib/connectors/registry";
 import { getAllDiscoveredAccounts, type DiscoveredAccounts } from "@/lib/connectors/discovery-cache";
 import type { Platform, PlatformAccount, DateRange, ConnectorResult } from "@/lib/connectors/types";
+import { runSync } from "@/lib/sync/run";
 import { format, subDays } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
@@ -260,6 +261,24 @@ export async function verifyMapping(clientId: string, platform: Platform): Promi
   if (result.status === "error") return { status: "error", message: result.error };
   if (result.status === "no_data") return { status: "no_data" };
   return { status: "ok", figures: summarizeFigures(result.data) };
+}
+
+export interface SyncNowResult {
+  status: "completed" | "completed_with_errors" | "failed";
+  attempted: number;
+  errorCount: number;
+}
+
+// The manual trigger next to the sync status strip in /settings/clients —
+// calls the same runSync() the Vercel Cron hits (src/app/api/cron/sync/),
+// just in-process from a Server Action instead of over HTTP, so it's gated
+// by the existing session middleware rather than needing its own auth.
+export async function runSyncNow(): Promise<SyncNowResult> {
+  await requireSession();
+  const summary = await runSync();
+  revalidatePath("/settings/clients");
+  revalidatePath("/");
+  return { status: summary.status, attempted: summary.attempted, errorCount: summary.errors.length };
 }
 
 export interface NewMappingInput {

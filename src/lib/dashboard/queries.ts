@@ -30,6 +30,7 @@ import type {
   DashboardData,
   SourceBreakdownItem,
   SparklineMetric,
+  SyncStatusStrip,
 } from "./types";
 
 // "Yesterday" and back, in the CLIENT's own timezone — the same anchoring
@@ -129,7 +130,7 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
   const fetchSince = subDays(now, SPARKLINE_DAYS + 3);
   const fetchSinceKey = format(fetchSince, "yyyy-MM-dd");
 
-  const [snapshotRows, rawRows, mappingRows, latestRunRows] = clientIds.length
+  const [snapshotRows, rawRows, mappingRows] = clientIds.length
     ? await Promise.all([
         db
           .select()
@@ -141,9 +142,8 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
           .where(and(inArray(rawResponses.clientId, clientIds), gte(rawResponses.fetchedAt, fetchSince)))
           .orderBy(desc(rawResponses.fetchedAt)),
         db.select().from(clientPlatformAccounts).where(inArray(clientPlatformAccounts.clientId, clientIds)),
-        db.select().from(syncRuns).orderBy(desc(syncRuns.startedAt)).limit(1),
       ])
-    : [[], [], [], []];
+    : [[], [], []];
 
   const snapshotsByClient = groupSnapshots(snapshotRows);
   const latestAttempt = latestAttemptByClientPlatform(rawRows);
@@ -316,16 +316,18 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
     details[client.id] = { clientId: client.id, sparklines, breakdown };
   }
 
-  const syncStatus = await getSyncStatusStrip(db, now, latestRunRows[0] ?? null);
+  const syncStatus = await getSyncStatus(now);
 
   return { generatedAt: now, syncStatus, rows, details };
 }
 
-async function getSyncStatusStrip(
-  db: Awaited<ReturnType<typeof getDb>>,
-  now: Date,
-  latestRun: (typeof syncRuns.$inferSelect) | null,
-): Promise<DashboardData["syncStatus"]> {
+// Standalone (not folded into getDashboardData's batched queries) so
+// /settings/clients can show sync status next to the "Sync now" button
+// without pulling in the full per-client metrics computation above.
+export async function getSyncStatus(now: Date = new Date()): Promise<SyncStatusStrip> {
+  const db = await getDb();
+  const [latestRun] = await db.select().from(syncRuns).orderBy(desc(syncRuns.startedAt)).limit(1);
+
   const lastSyncRows = await db
     .select({ platform: metricSnapshots.platform, lastSync: sql<string | null>`max(${metricSnapshots.createdAt})` })
     .from(metricSnapshots)
