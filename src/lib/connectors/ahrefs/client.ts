@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { formatInTimeZone } from "date-fns-tz";
 import { fetchWithRetry, HttpError, RateLimiter } from "../shared/http";
 import type { PlatformAccount, DateRange, DiscoveredAccount, DiscoveryResult } from "../types";
 
@@ -38,10 +39,14 @@ export const ahrefsProvider: SeoDataProvider = {
 
     await rateLimiter.wait();
 
-    const url = new URL(`${baseUrl}/site-explorer/metrics-summary`);
+    // A single-day snapshot, not a range — range.start and range.end fall
+    // on the same calendar day in the client's timezone (the sync engine
+    // always calls fetch with one full day), so range.end's date is used.
+    const date = formatInTimeZone(range.end, account.clientTimezone, "yyyy-MM-dd");
+
+    const url = new URL(`${baseUrl}/site-explorer/metrics`);
     url.searchParams.set("target", account.externalId);
-    url.searchParams.set("date_from", range.start.toISOString());
-    url.searchParams.set("date_to", range.end.toISOString());
+    url.searchParams.set("date", date);
 
     const response = await fetchWithRetry(url, {
       headers: { Authorization: `Bearer ${apiToken}` },

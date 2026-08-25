@@ -1,11 +1,12 @@
 {
   "metrics": {
-    "domain_rating": "54",
-    "org_traffic": 18400,
-    "keywords_summary": {
-      "top3": 12,
-      "top10": 47,
-      "top100": 310
-    }
+    "org_keywords": "16",
+    "paid_keywords": 4,
+    "org_keywords_1_3": 4,
+    "org_traffic": 37,
+    "org_cost": 4447,
+    "paid_traffic": 8,
+    "paid_cost": 299,
+    "paid_pages": 6
   }
 }

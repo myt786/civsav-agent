@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { ahrefsConnector } from "./index";
+import { centsToUsd } from "./schema";
 import type { PlatformAccount, DateRange } from "../types";
 
 const account: PlatformAccount = {
@@ -26,6 +27,14 @@ function mockResponse(status: number, body: unknown = {}) {
   } as Response;
 }
 
+describe("centsToUsd", () => {
+  it("divides by 100 to convert cents to dollars", () => {
+    expect(centsToUsd(4447)).toBe(44.47);
+    expect(centsToUsd(100)).toBe(1);
+    expect(centsToUsd(0)).toBe(0);
+  });
+});
+
 describe("ahrefsConnector", () => {
   beforeEach(() => {
     process.env.CONNECTOR_MODE = "fixture";
@@ -47,10 +56,18 @@ describe("ahrefsConnector", () => {
 
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");
-    expect(result.data.domainRating).toBe(54);
-    expect(result.data.trafficEstimate).toBe(18400);
-    expect(result.data.keywordPositions).toEqual({ top3: 12, top10: 47, top100: 310 });
-    expect(result.data.rangeStart).toBe("2026-08-18");
+    expect(result.data.organicKeywords).toBe(16);
+    expect(result.data.organicKeywordsTop3).toBe(4);
+    expect(result.data.organicTrafficEstimate).toBe(37);
+    expect(result.data.organicCostValue).toBe(44.47);
+    expect(result.data.paidKeywords).toBe(4);
+    expect(result.data.paidTrafficEstimate).toBe(8);
+    expect(result.data.paidCostValue).toBe(2.99);
+    expect(result.data.paidPages).toBe(6);
+    // range.end is used (a single-day snapshot) — 2026-08-21T23:59:59Z is
+    // still 2026-08-21 in America/New_York.
+    expect(result.data.rangeStart).toBe("2026-08-21");
+    expect(result.data.rangeEnd).toBe("2026-08-21");
     expect(result.raw).toBeDefined();
   });
 

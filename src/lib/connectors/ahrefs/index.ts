@@ -1,7 +1,7 @@
 import { formatInTimeZone } from "date-fns-tz";
 import type { Connector, ConnectorResult, DiscoveryResult, PlatformAccount, DateRange } from "../types";
 import { ahrefsProvider, listAhrefsProjects } from "./client";
-import { ahrefsResponseSchema, seoDataSchema, type SeoData } from "./schema";
+import { ahrefsResponseSchema, seoDataSchema, centsToUsd, type SeoData } from "./schema";
 
 const DATE_FORMAT = "yyyy-MM-dd";
 
@@ -26,14 +26,21 @@ export const ahrefsConnector: Connector<SeoData> = {
       return { status: "no_data", raw };
     }
 
-    // Bucketed on the client's own timezone — never the platform's default
-    // and never the server's.
+    // A single-day snapshot — rangeStart/rangeEnd are the same date, kept
+    // as a pair only for shape consistency with the other connectors.
+    const snapshotDate = formatInTimeZone(range.end, account.clientTimezone, DATE_FORMAT);
+    const metrics = parsed.data.metrics;
     const data: SeoData = {
-      domainRating: parsed.data.metrics.domain_rating,
-      trafficEstimate: parsed.data.metrics.org_traffic,
-      keywordPositions: parsed.data.metrics.keywords_summary,
-      rangeStart: formatInTimeZone(range.start, account.clientTimezone, DATE_FORMAT),
-      rangeEnd: formatInTimeZone(range.end, account.clientTimezone, DATE_FORMAT),
+      organicKeywords: metrics.org_keywords,
+      organicKeywordsTop3: metrics.org_keywords_1_3,
+      organicTrafficEstimate: metrics.org_traffic,
+      organicCostValue: centsToUsd(metrics.org_cost),
+      paidKeywords: metrics.paid_keywords,
+      paidTrafficEstimate: metrics.paid_traffic,
+      paidCostValue: centsToUsd(metrics.paid_cost),
+      paidPages: metrics.paid_pages,
+      rangeStart: snapshotDate,
+      rangeEnd: snapshotDate,
     };
 
     const dataParsed = seoDataSchema.safeParse(data);
