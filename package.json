@@ -13,7 +13,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate-legacy-clients": "tsx scripts/migrate-legacy-clients.ts",
     "db:seed:demo": "tsx scripts/seed-demo.ts",
-    "sync": "tsx scripts/run-sync.ts"
+    "sync": "tsx scripts/run-sync.ts",
+    "backfill": "tsx scripts/backfill-sync.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.5",

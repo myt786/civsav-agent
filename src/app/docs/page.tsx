@@ -61,11 +61,17 @@ export default function DocsPage() {
           <a href="#numbers" className="text-primary hover:underline">
             Reading a number
           </a>
+          <a href="#compare" className="text-primary hover:underline">
+            What to compare
+          </a>
+          <a href="#metrics" className="text-primary hover:underline">
+            How each column is computed
+          </a>
           <a href="#verify" className="text-primary hover:underline">
             Verified vs. unverified
           </a>
           <a href="#sync" className="text-primary hover:underline">
-            Sync status
+            Sync status &amp; how data is fetched
           </a>
           <a href="#freshness" className="text-primary hover:underline">
             Freshness
@@ -109,6 +115,73 @@ export default function DocsPage() {
         </div>
       </Section>
 
+      <Section id="compare" title="What to compare">
+        <p>
+          The table always shows two windows at once, plus a longer trend — each answers a different question.
+        </p>
+        <ul className="ml-4 list-disc space-y-1">
+          <li>
+            <strong>Leads 7d / Calls / Spend / CPL / Sessions / Conversions / Avg. position</strong> — the trailing 7
+            full days (not including today, which is still incomplete). This is the number to compare{" "}
+            <em>across clients</em> at a glance.
+          </li>
+          <li>
+            <strong>vs prev 7d</strong> — that same 7-day window compared to the 7 days immediately before it. A
+            change under ±5% renders muted (—) rather than a false-precision +2.1%, since day-to-day noise at that
+            size usually isn&apos;t a real trend.
+          </li>
+          <li>
+            <strong>30-day trend</strong> (in the row&apos;s detail sheet) — the shape over time, for spotting a
+            slow decline or a spike a single week&apos;s number would hide. Gaps in the line are real gaps — a day
+            with no data is never interpolated into a fake value.
+          </li>
+        </ul>
+        <p>
+          One caveat when comparing <em>between</em> clients: an <strong>unverified</strong> number and a plain
+          confirmed one can sit side by side and look identical in weight — check the badge before treating two
+          clients&apos; figures as equally trustworthy.
+        </p>
+      </Section>
+
+      <Section id="metrics" title="How each column is computed">
+        <p>All figures are summed (or averaged, for Avg. position) over the daily numbers each connector reports.</p>
+        <div className="overflow-hidden rounded-lg border border-border">
+          {[
+            { label: "Leads 7d", body: "Sum of daily lead counts from Lead Dashboard over the window." },
+            {
+              label: "vs prev 7d",
+              body: "Percent change of Leads 7d against the prior 7-day window. Muted when within ±5%.",
+            },
+            {
+              label: "Calls / Missed",
+              body: "Total calls from OpenPhone, summed. Missed = missedCalls minus calls that were flagged missed but actually forwarded and answered elsewhere — never double-counted as both.",
+            },
+            {
+              label: "Spend (Google + Meta)",
+              body: "Google Ads cost plus Meta Ads spend, summed together over the window.",
+            },
+            {
+              label: "CPL",
+              body: "Spend ÷ Leads for the same window. Shows — (not $0) when there are no leads to divide by.",
+            },
+            { label: "Sessions / Conversions", body: "Summed from GA4 over the window." },
+            {
+              label: "Avg. position",
+              body: "Averaged (not summed) from Search Console across the days with data — lower is better.",
+            },
+            {
+              label: "Last synced",
+              body: "The most recent successful fetch for this client, across any platform.",
+            },
+          ].map((row) => (
+            <div key={row.label} className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-b-0">
+              <span className="text-sm font-medium text-foreground">{row.label}</span>
+              <p className="text-sm text-muted-foreground">{row.body}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
       <Section id="verify" title="Verified vs. unverified">
         <p>
           Each client&apos;s platform connection (in <Link href="/settings/clients" className="text-primary hover:underline">Settings</Link>) carries its own status, set by clicking{" "}
@@ -148,11 +221,22 @@ export default function DocsPage() {
         </p>
       </Section>
 
-      <Section id="sync" title="Sync status">
+      <Section id="sync" title="Sync status & how data is fetched">
+        <p>
+          Once a day (plus on demand), a sync run goes through every active client and every platform mapped to
+          them, and asks each connector for exactly one day: <strong>yesterday, in that client&apos;s own
+          timezone</strong> — never the platform&apos;s default timezone, never the server&apos;s. Two clients synced
+          in the same run can land on different calendar days if their timezones differ.
+        </p>
+        <p>
+          Each attempt is recorded twice: the untouched raw API response (for the audit trail and for debugging a
+          connector), and — if it succeeded — the normalized daily figures that actually power the table. A day
+          that returns real-but-empty data is stored as a genuine absence, never coerced into a zero; a day that
+          fails to fetch is recorded as an error, not silently skipped.
+        </p>
         <p>
           <strong>Last sync run</strong> (shown at the top of the dashboard and in Settings) reports on the most
-          recent time data was pulled from every connected platform for every active client — automatically, once a
-          day, plus on demand.
+          recent time this ran across every connected platform.
         </p>
         <ul className="ml-4 list-disc space-y-1">
           <li>
@@ -170,9 +254,10 @@ export default function DocsPage() {
           </li>
         </ul>
         <p>
-          Syncing happens automatically once a day. In <Link href="/settings/clients" className="text-primary hover:underline">Settings</Link>, a{" "}
-          <strong>Sync now</strong> button also triggers one on demand — useful right after fixing a broken mapping,
-          without waiting for the next scheduled run.
+          In <Link href="/settings/clients" className="text-primary hover:underline">Settings</Link>, a{" "}
+          <strong>Sync now</strong> button triggers a run on demand — useful right after fixing a broken mapping,
+          without waiting for the next scheduled run. It only ever fetches yesterday, same as the scheduled run — it
+          doesn&apos;t go back and fill in older days.
         </p>
       </Section>
 
