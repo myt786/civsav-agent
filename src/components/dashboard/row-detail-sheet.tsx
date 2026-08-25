@@ -62,7 +62,7 @@ export function RowDetailSheet({
 
             <SparklineBlock label="Leads">
               <Sparkline
-                series={[{ label: "Leads", points: byKey.leads.points, stroke: "var(--foreground)" }]}
+                series={[{ label: "Leads", points: byKey.leads.points, stroke: "var(--chart-1)" }]}
                 formatValue={formatInteger}
               />
             </SparklineBlock>
@@ -70,7 +70,7 @@ export function RowDetailSheet({
             <SparklineBlock label="Calls">
               <Sparkline
                 series={[
-                  { label: "Total", points: byKey.callsTotal.points, stroke: "var(--foreground)" },
+                  { label: "Total", points: byKey.callsTotal.points, stroke: "var(--chart-2)" },
                   { label: "Missed", points: byKey.callsMissed.points, stroke: "var(--destructive)" },
                 ]}
                 formatValue={formatInteger}
@@ -79,28 +79,28 @@ export function RowDetailSheet({
 
             <SparklineBlock label="Spend">
               <Sparkline
-                series={[{ label: "Spend", points: byKey.spend.points, stroke: "var(--foreground)" }]}
+                series={[{ label: "Spend", points: byKey.spend.points, stroke: "var(--chart-3)" }]}
                 formatValue={formatCurrency}
               />
             </SparklineBlock>
 
             <SparklineBlock label="Sessions">
               <Sparkline
-                series={[{ label: "Sessions", points: byKey.sessions.points, stroke: "var(--foreground)" }]}
+                series={[{ label: "Sessions", points: byKey.sessions.points, stroke: "var(--chart-4)" }]}
                 formatValue={formatInteger}
               />
             </SparklineBlock>
 
             <SparklineBlock label="Conversions">
               <Sparkline
-                series={[{ label: "Conversions", points: byKey.conversions.points, stroke: "var(--foreground)" }]}
+                series={[{ label: "Conversions", points: byKey.conversions.points, stroke: "var(--chart-5)" }]}
                 formatValue={formatInteger}
               />
             </SparklineBlock>
 
             <SparklineBlock label="Avg. position" caption="lower is better">
               <Sparkline
-                series={[{ label: "Position", points: byKey.avgPosition.points, stroke: "var(--foreground)" }]}
+                series={[{ label: "Position", points: byKey.avgPosition.points, stroke: "var(--chart-6)" }]}
                 formatValue={formatPosition}
               />
             </SparklineBlock>
