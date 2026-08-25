@@ -26,6 +26,25 @@ function sortByCell<K extends keyof ClientRow>(key: K): SortFn<Features, ClientR
   };
 }
 
+// Dotted underline hints "hover me" the same way a native <abbr> does —
+// every column except Client carries one, explaining exactly what window
+// and formula produced the number (same wording as the /docs reference).
+function ColumnHeader({ label, tooltip }: { label: string; tooltip: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          tabIndex={0}
+          className="block cursor-help border-b border-dotted border-muted-foreground/50 text-right outline-none"
+        >
+          {label}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64 text-pretty">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function createClientColumns(now: Date) {
   return columnHelper.columns([
   columnHelper.accessor("clientName", {
@@ -36,13 +55,20 @@ export function createClientColumns(now: Date) {
   }),
   columnHelper.accessor("leads", {
     id: "leads",
-    header: () => <span className="block text-right">Leads 7d</span>,
+    header: () => (
+      <ColumnHeader label="Leads 7d" tooltip="Sum of daily lead counts from Lead Dashboard over the trailing 7 full days (not including today, which is still incomplete)." />
+    ),
     cell: (info) => <DataCell state={info.getValue()} format={formatInteger} />,
     sortFn: sortByCell("leads"),
   }),
   columnHelper.accessor("leadsDelta", {
     id: "leadsDelta",
-    header: () => <span className="block text-right">vs prev 7d</span>,
+    header: () => (
+      <ColumnHeader
+        label="vs prev 7d"
+        tooltip="Percent change in Leads 7d against the 7 days immediately before that window. Shown muted (—) when the change is within ±5% — day-to-day noise at that size usually isn't a real trend."
+      />
+    ),
     cell: (info) => <DeltaCellView delta={info.getValue()} />,
     sortFn: (rowA, rowB) => {
       const a = rowA.original.leadsDelta.pct ?? Number.NEGATIVE_INFINITY;
@@ -52,7 +78,12 @@ export function createClientColumns(now: Date) {
   }),
   columnHelper.accessor("calls", {
     id: "calls",
-    header: () => <span className="block text-right">Calls / Missed</span>,
+    header: () => (
+      <ColumnHeader
+        label="Calls / Missed"
+        tooltip="Total calls from OpenPhone over 7 days, summed. Missed excludes any call that was flagged missed but actually forwarded and answered elsewhere — never double-counted."
+      />
+    ),
     cell: (info) => (
       <DataCell<CallsValue>
         state={info.getValue()}
@@ -69,37 +100,56 @@ export function createClientColumns(now: Date) {
   }),
   columnHelper.accessor("spend", {
     id: "spend",
-    header: () => <span className="block text-right">Spend (Google + Meta)</span>,
+    header: () => (
+      <ColumnHeader
+        label="Spend (Google + Meta)"
+        tooltip="Google Ads cost plus Meta Ads spend, combined and summed over the trailing 7 days."
+      />
+    ),
     cell: (info) => <DataCell state={info.getValue()} format={formatCurrency} />,
     sortFn: sortByCell("spend"),
   }),
   columnHelper.accessor("cpl", {
     id: "cpl",
-    header: () => <span className="block text-right">CPL</span>,
+    header: () => (
+      <ColumnHeader
+        label="CPL"
+        tooltip="Cost per lead: Spend ÷ Leads for the same 7-day window. Shows — (not $0) when there are no leads to divide by."
+      />
+    ),
     cell: (info) => <DataCell state={info.getValue()} format={formatCurrency} />,
     sortFn: sortByCell("cpl"),
   }),
   columnHelper.accessor("sessions", {
     id: "sessions",
-    header: () => <span className="block text-right">Sessions</span>,
+    header: () => <ColumnHeader label="Sessions" tooltip="Website sessions from GA4, summed over the trailing 7 days." />,
     cell: (info) => <DataCell state={info.getValue()} format={formatInteger} />,
     sortFn: sortByCell("sessions"),
   }),
   columnHelper.accessor("conversions", {
     id: "conversions",
-    header: () => <span className="block text-right">Conversions</span>,
+    header: () => (
+      <ColumnHeader label="Conversions" tooltip="On-site conversion events from GA4, summed over the trailing 7 days." />
+    ),
     cell: (info) => <DataCell state={info.getValue()} format={formatInteger} />,
     sortFn: sortByCell("conversions"),
   }),
   columnHelper.accessor("avgPosition", {
     id: "avgPosition",
-    header: () => <span className="block text-right">Avg position</span>,
+    header: () => (
+      <ColumnHeader
+        label="Avg position"
+        tooltip="Average organic search ranking position from Search Console, averaged (not summed) across the days with data. Lower is better."
+      />
+    ),
     cell: (info) => <DataCell state={info.getValue()} format={formatPosition} />,
     sortFn: sortByCell("avgPosition"),
   }),
   columnHelper.accessor("lastSyncedAt", {
     id: "lastSynced",
-    header: () => <span className="block text-right">Last synced</span>,
+    header: () => (
+      <ColumnHeader label="Last synced" tooltip="The most recent successful data fetch for this client, across any connected platform." />
+    ),
     cell: (info) => {
       const at = info.getValue();
       const stale = (info.row.original.staleHours ?? 0) > STALE_HOURS;

@@ -60,9 +60,11 @@ export default async function ClientsListPage() {
                   <TableCell className="text-muted-foreground">{client.timezone}</TableCell>
                   <TableCell>
                     {client.active ? (
-                      <Badge variant="outline">active</Badge>
+                      <Badge variant="outline" className="border-emerald-600/30 text-emerald-700 dark:text-emerald-500">
+                        active
+                      </Badge>
                     ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
+                      <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
                         inactive
                       </Badge>
                     )}
