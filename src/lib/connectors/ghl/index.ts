@@ -28,7 +28,7 @@ export const ghlConnector: Connector<GhlData> = {
 
     const stageCounts = new Map<string, number>();
     for (const opportunity of parsed.data.opportunities) {
-      stageCounts.set(opportunity.stageName, (stageCounts.get(opportunity.stageName) ?? 0) + 1);
+      stageCounts.set(opportunity.pipelineStageId, (stageCounts.get(opportunity.pipelineStageId) ?? 0) + 1);
     }
 
     // Bucketed on the client's own timezone — never the platform's default

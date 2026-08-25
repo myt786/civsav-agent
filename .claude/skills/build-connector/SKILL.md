@@ -283,7 +283,7 @@ implementation to justify the indirection.
 |---|---|---|
 | Per-client bearer token, header | lead-dashboard, ahrefs, openphone, meta* | `Authorization: Bearer <token>` |
 | Shared service account, one credential for many clients | search-console, ga4 | `GOOGLE_SERVICE_ACCOUNT_JSON`, same env var, both connectors |
-| Shared agency token, one credential for many clients | ghl | `GHL_AGENCY_API_KEY`, `account.externalId` is just the locationId, not a secret |
+| Per-tenant credential (one key per client) | ghl, openphone | `GHL_AGENCY_API_KEY__<LABEL>` / `OPENPHONE_API_KEY__<LABEL>` |
 | OAuth refresh token + developer token | google-ads | `GOOGLE_ADS_*` (4 required vars, 1 optional MCC var) |
 
 \* meta is the one outlier even within "bearer token": Graph API takes the
@@ -340,8 +340,19 @@ the same suspicion until proven otherwise.
   three distinct counts. The connector does not try to resolve the
   ambiguity itself (i.e. does not decide the "true" missed count) — it only
   makes the ambiguity visible so a downstream consumer can correct it.
+- **Trusting a platform's own "agency-level" framing (ghl)**: GHL's docs
+  describe their API as agency-level, and a Private Integration token
+  *looks* agency-wide (it can call `/locations/search` and see the whole
+  agency's directory). It isn't — confirmed live, a token created with
+  every scope checked still gets 403 "does not have access to this
+  location" for any location other than the one it was created inside.
+  The platform's own docs and a token's apparent reach are not proof of
+  its actual authorization boundary; only a real call against a second
+  account proves it. Fix: one `GHL_AGENCY_API_KEY__<LABEL>` per client
+  location, same per-tenant-credential shape as OpenPhone, not the single
+  shared key the docs' framing suggested.
 
-The pattern behind all four: **when an API's own representation is
+The pattern behind all five: **when an API's own representation is
 ambiguous or trap-prone, don't resolve the ambiguity inside the connector.
 Preserve enough distinct raw signal in the normalized data that the
 downstream consumer (dashboard, analyst, future you) can resolve it

@@ -1,7 +1,6 @@
 {
   "locations": [
-    { "id": "loc_acme001", "name": "Acme Roofing" },
-    { "id": "loc_blueridge002", "name": "Blue Ridge Dental" },
-    { "id": "loc_desertlegal003", "name": "Desert Legal Group" }
+    { "id": "", "name": "Enter the Acme Roofing location ID manually", "credentialLabel": "ACME_ROOFING" },
+    { "id": "", "name": "Enter the Blue Ridge Dental location ID manually", "credentialLabel": "BLUE_RIDGE_DENTAL" }
   ]
 }

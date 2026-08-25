@@ -1,5 +1,5 @@
 {
   "opportunities": [
-    { "id": "opp_001", "stageName": "New Lead", "monetaryValue": "2500" }
+    { "id": "opp_001", "pipelineStageId": "c26f0050-3bf3-4f71-bfb7-040fe1a4dd2e", "monetaryValue": "2500" }
   ]
 }

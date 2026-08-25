@@ -1,9 +1,9 @@
 {
   "opportunities": [
-    { "id": "opp_001", "stageName": "New Lead", "monetaryValue": 2500 },
-    { "id": "opp_002", "stageName": "New Lead", "monetaryValue": 1800 },
-    { "id": "opp_003", "stageName": "Contacted", "monetaryValue": 3200 },
-    { "id": "opp_004", "stageName": "Quote Sent", "monetaryValue": 5400 },
-    { "id": "opp_005", "stageName": "Won", "monetaryValue": 6100 }
+    { "id": "opp_001", "pipelineStageId": "c26f0050-3bf3-4f71-bfb7-040fe1a4dd2e", "monetaryValue": 2500 },
+    { "id": "opp_002", "pipelineStageId": "c26f0050-3bf3-4f71-bfb7-040fe1a4dd2e", "monetaryValue": 1800 },
+    { "id": "opp_003", "pipelineStageId": "da596195-00be-454c-9a36-31ec5f747e1f", "monetaryValue": 3200 },
+    { "id": "opp_004", "pipelineStageId": "9f6a2b3c-1d4e-4a5f-8b6c-7d8e9f0a1b2c", "monetaryValue": 5400 },
+    { "id": "opp_005", "pipelineStageId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", "monetaryValue": 6100 }
   ]
 }
