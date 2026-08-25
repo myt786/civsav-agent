@@ -46,8 +46,10 @@ describe("leadDashboardConnector", () => {
 
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");
-    expect(result.data.totalLeads).toBe(6);
-    expect(result.data.byStatus).toEqual({ completed: 4, abandoned: 2 });
+    expect(result.data.totalLeads).toBe(7);
+    expect(result.data.byStatus).toEqual({ completed: 5, abandoned: 2 });
+    // A null is_spam (not yet classified) is never counted as spam —
+    // only a strict `true` is.
     expect(result.data.spamLeads).toBe(1);
     expect(result.data.rangeStart).toBe("2026-08-18");
     expect(result.raw).toBeDefined();

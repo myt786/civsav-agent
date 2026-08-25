@@ -10,7 +10,10 @@ export const leadStatusSchema = z.enum(["completed", "abandoned"]);
 export const leadRecordSchema = z.object({
   id: z.union([z.string(), z.number()]),
   status: leadStatusSchema,
-  is_spam: z.boolean(),
+  // null means "not yet spam-classified" — distinct from false ("checked,
+  // not spam"). Aggregation only counts a strict `true` as spam, so an
+  // unclassified lead is never miscounted either way.
+  is_spam: z.boolean().nullable(),
   created_at: z.string(),
 });
 
