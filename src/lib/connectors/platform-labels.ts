@@ -40,9 +40,10 @@ export const PLATFORM_HELP: Record<Platform, PlatformHelp> = {
     ifEmpty: "This client hasn't been set up in the lead dashboard yet — ask whoever manages onboarding there to create it first.",
   },
   ghl: {
-    what: "Connects to this client's sub-account in GoHighLevel, which is where their opportunities and pipeline activity come from.",
+    what: "Connects to this client's sub-account in GoHighLevel, which is where their opportunities and pipeline activity come from. GoHighLevel keys are per sub-account, not agency-wide, so each client needs its own key and location ID.",
     ifWrong: "The dashboard would show another client's opportunities, or a location that doesn't exist would just fail every sync.",
-    ifEmpty: "We don't see any GoHighLevel sub-accounts yet — check that this client has been added under our agency account in GHL.",
+    ifEmpty:
+      "GoHighLevel doesn't let us look up sub-accounts for you — there's no list to browse, so this always needs the location ID typed in by hand. To find it: log into that client's sub-account in GoHighLevel and look at the address bar — the ID is the string right after /location/ (e.g. app.gohighlevel.com/v2/location/THIS-PART/...). Then pick that client's credential in the Workspace dropdown next to it — the key was created inside that same sub-account's Settings → Private Integrations.",
   },
   google_ads: {
     what: "Connects to this client's Google Ads account, which is where spend, clicks, and results for their ad campaigns come from.",

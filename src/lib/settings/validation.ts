@@ -102,7 +102,7 @@ export const externalIdHints: Record<Platform, string> = {
   search_console: "Site URL, e.g. https://example.com/ or sc-domain:example.com",
   google_ads: "Customer ID, e.g. 123-456-7890 or 1234567890 (dashes are stripped automatically).",
   meta: "Ad account ID, e.g. act_123456789 or 123456789 (stored with the act_ prefix).",
-  ghl: "GoHighLevel location ID.",
+  ghl: "GoHighLevel location ID — from the sub-account's URL: app.gohighlevel.com/v2/location/<locationId>/...",
   ahrefs: "Domain, no protocol — e.g. example.com.",
   openphone: "Phone number in E.164 format, e.g. +14155551234.",
   lead_dashboard: "Internal lead-dashboard client ID.",
