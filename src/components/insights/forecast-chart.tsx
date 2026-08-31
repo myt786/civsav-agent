@@ -1,8 +1,12 @@
 "use client";
 
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { formatInteger } from "@/lib/dashboard/format";
+import { formatCurrency, formatInteger } from "@/lib/dashboard/format";
 import type { MetricForecast } from "@/lib/insights/types";
+
+function unitFormatter(unit: MetricForecast["unit"]) {
+  return unit === "currency" ? formatCurrency : formatInteger;
+}
 
 interface ChartRow {
   date: string;
@@ -26,13 +30,23 @@ function toChartRows(metric: MetricForecast): ChartRow[] {
   return [...actual, ...projected];
 }
 
-function TooltipContentInner({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number }[]; label?: string }) {
+function TooltipContentInner({
+  active,
+  payload,
+  label,
+  format,
+}: {
+  active?: boolean;
+  payload?: { name: string; value: number }[];
+  label?: string;
+  format: (v: number) => string;
+}) {
   if (!active || !payload?.length) return null;
   const point = payload[0];
   return (
     <div className="rounded-md border border-border bg-popover px-2 py-1.5 text-xs shadow-none">
       <div className="mb-0.5 font-mono text-muted-foreground">{label}</div>
-      <div className="font-mono tabular-nums text-foreground">{formatInteger(point.value)}</div>
+      <div className="font-mono tabular-nums text-foreground">{format(point.value)}</div>
     </div>
   );
 }
@@ -47,6 +61,7 @@ const TREND_LABEL: Record<MetricForecast["trend"], string> = {
 export function ForecastChart({ clientName, metric }: { clientName: string; metric: MetricForecast }) {
   const rows = toChartRows(metric);
   const hasForecast = metric.forecast.length > 0;
+  const format = unitFormatter(metric.unit);
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-3 py-3">
@@ -58,7 +73,7 @@ export function ForecastChart({ clientName, metric }: { clientName: string; metr
         <ResponsiveContainer width="100%" height={90}>
           <LineChart data={rows} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
             <XAxis dataKey="date" hide />
-            <Tooltip content={<TooltipContentInner />} cursor={{ stroke: "var(--border)", strokeWidth: 1 }} />
+            <Tooltip content={<TooltipContentInner format={format} />} cursor={{ stroke: "var(--border)", strokeWidth: 1 }} />
             <Line type="monotone" dataKey="actual" stroke="var(--chart-1)" strokeWidth={1.5} dot={false} connectNulls={false} isAnimationActive={false} />
             <Line
               type="monotone"

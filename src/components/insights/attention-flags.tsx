@@ -8,6 +8,8 @@ const KIND_LABEL: Record<AttentionFlag["kind"], string> = {
   leads_down: "Leads down",
   missed_calls_high: "Missed calls",
   position_worsening: "SEO position",
+  spend_spike: "Spend spike",
+  sessions_drop: "Sessions drop",
 };
 
 // Deterministic, rule-based flags — computed from the same cells the table

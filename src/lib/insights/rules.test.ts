@@ -28,6 +28,15 @@ function baseRow(overrides: Partial<ClientRow> = {}): ClientRow {
   };
 }
 
+// Small, steady noise (values close to 5) to use as a 13-day baseline —
+// long enough to clear MIN_BASELINE_DAYS, varied enough for a real
+// (non-zero) standard deviation.
+const BASELINE_NOISE_AROUND_5 = [5, 5.2, 4.8, 5.1, 4.9, 5, 5.2, 4.8, 5, 5.1, 4.9, 5, 5.1];
+
+function seriesFromValues(values: number[]): DailyPoint[] {
+  return values.map((value, i) => ({ date: `2026-08-${String(i + 1).padStart(2, "0")}`, value }));
+}
+
 function dataWith(row: ClientRow, detail?: Partial<ClientDetail>): DashboardData {
   return {
     generatedAt: new Date("2026-08-31T00:00:00Z"),
@@ -94,24 +103,71 @@ describe("computeAttentionFlags", () => {
     expect(flags.some((f) => f.kind === "missed_calls_high")).toBe(false);
   });
 
-  it("flags a worsening (rising) average search position trend", () => {
-    const points: DailyPoint[] = Array.from({ length: 10 }, (_, i) => ({
-      date: `2026-08-${String(i + 1).padStart(2, "0")}`,
-      value: 5 + i, // climbing every day = getting worse
-    }));
+  it("flags average search position as a statistically real step worse than its baseline", () => {
+    // 13 noisy-but-steady baseline days around 5, then a clean step to 9
+    // for the most recent 7 (WINDOW_DAYS) — a real regime change, not noise.
+    const points = seriesFromValues([
+      ...BASELINE_NOISE_AROUND_5,
+      9, 9, 9, 9, 9, 9, 9,
+    ]);
     const data = dataWith(baseRow(), { sparklines: [{ key: "avgPosition", label: "Avg. position", points }] });
     const flags = computeAttentionFlags(data);
     expect(flags.some((f) => f.kind === "position_worsening")).toBe(true);
   });
 
-  it("does not flag a flat or improving position trend", () => {
-    const points: DailyPoint[] = Array.from({ length: 10 }, (_, i) => ({
-      date: `2026-08-${String(i + 1).padStart(2, "0")}`,
-      value: 10 - i * 0.1,
-    }));
+  it("does not flag ordinary week-to-week noise around a steady position", () => {
+    const points = seriesFromValues([...BASELINE_NOISE_AROUND_5, 5.1, 4.9, 5.2, 4.8, 5, 5.1, 4.9]);
     const data = dataWith(baseRow(), { sparklines: [{ key: "avgPosition", label: "Avg. position", points }] });
     const flags = computeAttentionFlags(data);
     expect(flags.some((f) => f.kind === "position_worsening")).toBe(false);
+  });
+
+  it("does not flag an improving (lower) position even if it moved a lot", () => {
+    const points = seriesFromValues([...BASELINE_NOISE_AROUND_5, 1, 1, 1, 1, 1, 1, 1]);
+    const data = dataWith(baseRow(), { sparklines: [{ key: "avgPosition", label: "Avg. position", points }] });
+    const flags = computeAttentionFlags(data);
+    expect(flags.some((f) => f.kind === "position_worsening")).toBe(false);
+  });
+
+  it("does not flag position with too little baseline history to judge", () => {
+    const points = seriesFromValues([5, 5, 9, 9, 9, 9, 9]);
+    const data = dataWith(baseRow(), { sparklines: [{ key: "avgPosition", label: "Avg. position", points }] });
+    const flags = computeAttentionFlags(data);
+    expect(flags.some((f) => f.kind === "position_worsening")).toBe(false);
+  });
+
+  it("flags a real spend spike above its own baseline", () => {
+    const points = seriesFromValues([
+      ...BASELINE_NOISE_AROUND_5.map((v) => v * 100), // ~$500/day baseline
+      1500, 1500, 1500, 1500, 1500, 1500, 1500,
+    ]);
+    const data = dataWith(baseRow(), { sparklines: [{ key: "spend", label: "Spend", points }] });
+    const flags = computeAttentionFlags(data);
+    expect(flags.some((f) => f.kind === "spend_spike")).toBe(true);
+  });
+
+  it("does not flag spend that dropped, only spend that spiked", () => {
+    const points = seriesFromValues([...BASELINE_NOISE_AROUND_5.map((v) => v * 100), 50, 50, 50, 50, 50, 50, 50]);
+    const data = dataWith(baseRow(), { sparklines: [{ key: "spend", label: "Spend", points }] });
+    const flags = computeAttentionFlags(data);
+    expect(flags.some((f) => f.kind === "spend_spike")).toBe(false);
+  });
+
+  it("flags a real sessions drop below its own baseline", () => {
+    const points = seriesFromValues([
+      ...BASELINE_NOISE_AROUND_5.map((v) => v * 100), // ~$500/day baseline
+      50, 50, 50, 50, 50, 50, 50,
+    ]);
+    const data = dataWith(baseRow(), { sparklines: [{ key: "sessions", label: "Sessions", points }] });
+    const flags = computeAttentionFlags(data);
+    expect(flags.some((f) => f.kind === "sessions_drop")).toBe(true);
+  });
+
+  it("does not flag sessions that rose, only sessions that dropped", () => {
+    const points = seriesFromValues([...BASELINE_NOISE_AROUND_5.map((v) => v * 100), 1500, 1500, 1500, 1500, 1500, 1500, 1500]);
+    const data = dataWith(baseRow(), { sparklines: [{ key: "sessions", label: "Sessions", points }] });
+    const flags = computeAttentionFlags(data);
+    expect(flags.some((f) => f.kind === "sessions_drop")).toBe(false);
   });
 });
 
@@ -122,7 +178,7 @@ describe("computeForecast", () => {
       { date: "2026-08-02", value: 12 },
       { date: "2026-08-03", value: null },
     ];
-    const result = computeForecast("leads", "Leads", points, 7, 5);
+    const result = computeForecast("leads", "Leads", "count", points, 7, 5);
     expect(result.forecast).toEqual([]);
     expect(result.trend).toBe("unknown");
   });
@@ -132,7 +188,7 @@ describe("computeForecast", () => {
       date: `2026-08-${String(i + 1).padStart(2, "0")}`,
       value: 10 + i * 2,
     }));
-    const result = computeForecast("leads", "Leads", points, 3, 5);
+    const result = computeForecast("leads", "Leads", "count", points, 3, 5);
     expect(result.trend).toBe("up");
     expect(result.forecast).toHaveLength(3);
     // Each projected point should keep climbing, never go negative.
@@ -147,7 +203,7 @@ describe("computeForecast", () => {
       date: `2026-08-${String(i + 1).padStart(2, "0")}`,
       value: Math.max(0, 5 - i),
     }));
-    const result = computeForecast("leads", "Leads", points, 5, 5);
+    const result = computeForecast("leads", "Leads", "count", points, 5, 5);
     for (const p of result.forecast) {
       expect(p.value).toBeGreaterThanOrEqual(0);
     }
@@ -158,7 +214,7 @@ describe("computeForecast", () => {
       date: `2026-08-${String(i + 1).padStart(2, "0")}`,
       value: 50 + (i % 2 === 0 ? 1 : -1),
     }));
-    const result = computeForecast("leads", "Leads", points, 3, 5);
+    const result = computeForecast("leads", "Leads", "count", points, 3, 5);
     expect(result.trend).toBe("flat");
   });
 });

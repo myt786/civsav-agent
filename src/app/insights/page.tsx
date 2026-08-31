@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getDashboardData } from "@/lib/dashboard/queries";
-import { buildLeadsForecasts, computeAttentionFlags } from "@/lib/insights/rules";
+import { buildForecasts, computeAttentionFlags } from "@/lib/insights/rules";
 import { NOISE_BAND_PCT, SPARKLINE_DAYS } from "@/lib/dashboard/constants";
 import { NavBrand } from "@/components/nav-brand";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -19,7 +19,9 @@ export default async function InsightsPage() {
   const now = new Date();
   const data = await getDashboardData(now);
   const flags = computeAttentionFlags(data);
-  const leadsForecasts = buildLeadsForecasts(data, FORECAST_DAYS, NOISE_BAND_PCT);
+  const forecasts = buildForecasts(data, FORECAST_DAYS, NOISE_BAND_PCT);
+  const leadsForecasts = forecasts.filter((f) => f.metric.key === "leads");
+  const spendForecasts = forecasts.filter((f) => f.metric.key === "spend");
 
   return (
     <div className="flex flex-col">
@@ -71,6 +73,21 @@ export default async function InsightsPage() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {leadsForecasts.map((f) => (
+                <ForecastChart key={f.clientId} clientName={f.clientName} metric={f.metric} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Spend forecast — next {FORECAST_DAYS} days (from the last {SPARKLINE_DAYS})
+          </h2>
+          {spendForecasts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active clients to forecast.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {spendForecasts.map((f) => (
                 <ForecastChart key={f.clientId} clientName={f.clientName} metric={f.metric} />
               ))}
             </div>

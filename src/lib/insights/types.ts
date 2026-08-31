@@ -7,7 +7,9 @@ export type FlagKind =
   | "stale_sync"
   | "leads_down"
   | "missed_calls_high"
-  | "position_worsening";
+  | "position_worsening"
+  | "spend_spike"
+  | "sessions_drop";
 
 export interface AttentionFlag {
   kind: FlagKind;
@@ -25,15 +27,10 @@ export interface ForecastPoint {
 // A metric's recent history plus a short linear projection built from it.
 // `forecast` is empty when there isn't enough history to fit a trend line.
 export interface MetricForecast {
-  key: "leads";
+  key: "leads" | "spend";
   label: string;
+  unit: "count" | "currency";
   history: DailyPoint[];
   forecast: ForecastPoint[];
   trend: "up" | "down" | "flat" | "unknown";
-}
-
-export interface ClientForecast {
-  clientId: string;
-  clientName: string;
-  metric: MetricForecast;
 }
