@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, ClockAlertIcon, MinusCircleIcon } from "lucide-react";
+import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, ClockAlertIcon, MinusCircleIcon, SparklesIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavBrand } from "@/components/nav-brand";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -8,7 +8,7 @@ import { STALE_HOURS } from "@/lib/dashboard/constants";
 
 export const metadata = {
   title: "Docs — Client Dashboard",
-  description: "What the numbers, badges, and sync states on the dashboard mean.",
+  description: "What the numbers, badges, sync states, and Insights flags on the dashboard mean.",
 };
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -57,8 +57,8 @@ export default function DocsPage() {
         <p className="text-xs font-medium tracking-wide text-primary uppercase">Reference</p>
         <h1 className="text-2xl font-medium text-foreground">Understanding the dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          What every badge, icon, and status on the client dashboard and settings pages means — and what to do about
-          it.
+          What every badge, icon, and status on the client dashboard, Insights, and settings pages means — and what
+          to do about it.
         </p>
         <nav className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <a href="#numbers" className="text-primary hover:underline">
@@ -78,6 +78,9 @@ export default function DocsPage() {
           </a>
           <a href="#freshness" className="text-primary hover:underline">
             Freshness
+          </a>
+          <a href="#insights" className="text-primary hover:underline">
+            Insights: flags, forecast, AI summary &amp; chat
           </a>
           <a href="#platforms" className="text-primary hover:underline">
             Connected platforms
@@ -275,6 +278,70 @@ export default function DocsPage() {
             18h ago
           </span>
         </Swatch>
+      </Section>
+
+      <Section id="insights" title="Insights: flags, forecast, AI summary & chat">
+        <p>
+          <Link href="/insights" className="text-primary hover:underline">
+            Insights
+          </Link>{" "}
+          layers four things on top of the same data the dashboard already shows — nothing here is a separate
+          fetch or a separate source of truth, and none of it can disagree with what the table displays.
+        </p>
+
+        <p className="text-foreground">Attention flags</p>
+        <p>
+          A small set of rule-based checks, computed instantly with no model call. The same check that flags a
+          client on the Insights page also puts a warning icon next to that client&apos;s name on the main
+          dashboard table:
+        </p>
+        <Swatch caption="Hover it on the dashboard for the same message shown in full on Insights.">
+          <span className="flex items-center gap-1.5 font-medium text-foreground">
+            <AlertTriangleIcon className="size-3.5 text-amber-600 dark:text-amber-500" aria-hidden />
+            Acme Roofing
+          </span>
+        </Swatch>
+        <div className="overflow-hidden rounded-lg border border-border">
+          {[
+            { label: "Sync error", body: "A metric failed to fetch on the last attempt. The only critical-severity flag — everything else is a warning." },
+            { label: "Stale sync", body: `No successful sync for this client in over ${STALE_HOURS} hours.` },
+            { label: "Leads down", body: "The same vs prev 7d delta shown on the dashboard, when it's down beyond the ±5% noise band." },
+            { label: "Missed calls high", body: "Over 30% of this week's calls were missed, on at least 5 calls (too little volume to mean anything below that)." },
+            {
+              label: "SEO position worsening / Spend spike / Sessions drop",
+              body: "Statistical, not a fixed threshold: this week's average is compared to that client's own baseline from the rest of the last 30 days, scaled by how much that client's own numbers normally move. A client that's naturally volatile won't trigger on a normal swing; a steady one will trigger on a much smaller real shift.",
+            },
+          ].map((row) => (
+            <div key={row.label} className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-b-0">
+              <span className="text-sm font-medium text-foreground">{row.label}</span>
+              <p className="text-sm text-muted-foreground">{row.body}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-foreground">Lead & spend forecast</p>
+        <p>
+          A short (7-day) straight-line projection from each client&apos;s last 30 days, shown as a dashed
+          continuation of the solid history line. It never projects a negative number, and it refuses to guess at
+          all — showing “not enough history” instead — with fewer than 5 known days behind it.
+        </p>
+
+        <p className="text-foreground">AI summary</p>
+        <p>
+          <span className="inline-flex items-center gap-1 align-text-bottom">
+            <SparklesIcon className="size-3.5 text-primary" aria-hidden />
+          </span>{" "}
+          Generated on demand (not on every page load) by turning this week&apos;s numbers and attention flags into
+          plain English. It&apos;s given the same computed figures shown elsewhere on the page and instructed to
+          only describe those — it can&apos;t introduce a number that isn&apos;t already visible somewhere else in
+          the app.
+        </p>
+
+        <p className="text-foreground">Chat</p>
+        <p>
+          Answers questions by calling the same read-only data functions the dashboard itself uses — it looks
+          numbers up in real time rather than guessing or relying on anything said earlier in the conversation.
+        </p>
       </Section>
 
       <Section id="platforms" title="Connected platforms">
