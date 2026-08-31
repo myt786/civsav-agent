@@ -26,6 +26,9 @@ export default async function DashboardPage() {
         <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-3">
           <NavBrand />
           <nav className="flex items-center gap-5 text-sm">
+            <Link href="/insights" className="text-muted-foreground hover:text-foreground hover:underline">
+              Insights
+            </Link>
             <Link href="/docs" className="text-muted-foreground hover:text-foreground hover:underline">
               Docs
             </Link>

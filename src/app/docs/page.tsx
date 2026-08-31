@@ -41,6 +41,9 @@ export default function DocsPage() {
             <Link href="/" className="text-muted-foreground hover:text-foreground hover:underline">
               Dashboard
             </Link>
+            <Link href="/insights" className="text-muted-foreground hover:text-foreground hover:underline">
+              Insights
+            </Link>
             <Link href="/settings/clients" className="text-muted-foreground hover:text-foreground hover:underline">
               Settings
             </Link>
