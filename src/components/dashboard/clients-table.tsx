@@ -11,20 +11,30 @@ import { RowDetailSheet } from "./row-detail-sheet";
 import { cn } from "@/lib/utils";
 import { STALE_HOURS } from "@/lib/dashboard/constants";
 import type { ClientDetail, ClientRow } from "@/lib/dashboard/types";
+import type { AttentionFlag } from "@/lib/insights/types";
 
 export function ClientsTable({
   rows,
   details,
   now,
+  flags,
 }: {
   rows: ClientRow[];
   details: Record<string, ClientDetail>;
   now: Date;
+  flags: AttentionFlag[];
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
-  const columns = createClientColumns(now);
+  const flagsByClient = new Map<string, AttentionFlag[]>();
+  for (const flag of flags) {
+    const list = flagsByClient.get(flag.clientId) ?? [];
+    list.push(flag);
+    flagsByClient.set(flag.clientId, list);
+  }
+
+  const columns = createClientColumns(now, flagsByClient);
   const table = useTable({
     features: dashboardTableFeatures,
     data: rows,

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDashboardData } from "@/lib/dashboard/queries";
+import { computeAttentionFlags } from "@/lib/insights/rules";
 import { SyncStatusStrip } from "@/components/dashboard/sync-status-strip";
 import { ClientsTable } from "@/components/dashboard/clients-table";
 import { NavBrand } from "@/components/nav-brand";
@@ -19,6 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const now = new Date();
   const data = await getDashboardData(now);
+  const flags = computeAttentionFlags(data);
 
   return (
     <div className="flex flex-col">
@@ -53,7 +55,7 @@ export default async function DashboardPage() {
 
         <SyncStatusStrip data={data.syncStatus} now={now} />
 
-        <ClientsTable rows={data.rows} details={data.details} now={now} />
+        <ClientsTable rows={data.rows} details={data.details} now={now} flags={flags} />
       </div>
     </div>
   );

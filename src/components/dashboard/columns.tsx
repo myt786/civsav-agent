@@ -1,8 +1,9 @@
 "use client";
 
 import { createColumnHelper, type SortFn } from "@tanstack/react-table";
-import { ClockAlertIcon } from "lucide-react";
+import { AlertTriangleIcon, ClockAlertIcon } from "lucide-react";
 import type { CallsValue, CellState, ClientRow } from "@/lib/dashboard/types";
+import type { AttentionFlag } from "@/lib/insights/types";
 import { DataCell, DeltaCellView } from "./data-cell";
 import { formatCurrency, formatInteger, formatPosition, formatRelativeTime } from "@/lib/dashboard/format";
 import { STALE_HOURS } from "@/lib/dashboard/constants";
@@ -45,12 +46,48 @@ function ColumnHeader({ label, tooltip }: { label: string; tooltip: string }) {
   );
 }
 
-export function createClientColumns(now: Date) {
+// A row's flags, from sharpest to mildest — drives both which icon color
+// shows and which flag's message leads the tooltip when there's more than
+// one. Computed by the same rule-based checks /insights shows in full, so
+// this badge can never say something that page wouldn't back up.
+function worstSeverity(flags: AttentionFlag[]): AttentionFlag["severity"] {
+  return flags.some((f) => f.severity === "critical") ? "critical" : "warning";
+}
+
+export function createClientColumns(now: Date, flagsByClient: Map<string, AttentionFlag[]>) {
   return columnHelper.columns([
   columnHelper.accessor("clientName", {
     id: "client",
     header: "Client",
-    cell: (info) => <span className="font-medium text-foreground">{info.getValue()}</span>,
+    cell: (info) => {
+      const clientFlags = flagsByClient.get(info.row.original.clientId) ?? [];
+      return (
+        <span className="flex items-center gap-1.5 font-medium text-foreground">
+          {clientFlags.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertTriangleIcon
+                  tabIndex={0}
+                  className={cn(
+                    "size-3.5 shrink-0",
+                    worstSeverity(clientFlags) === "critical" ? "text-destructive" : "text-amber-600 dark:text-amber-500",
+                  )}
+                  aria-hidden
+                />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-72 text-pretty">
+                <ul className="flex flex-col gap-1">
+                  {clientFlags.map((f, i) => (
+                    <li key={i}>{f.message}</li>
+                  ))}
+                </ul>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {info.getValue()}
+        </span>
+      );
+    },
     sortFn: (rowA, rowB) => rowA.original.clientName.localeCompare(rowB.original.clientName),
   }),
   columnHelper.accessor("leads", {
