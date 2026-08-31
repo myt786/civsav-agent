@@ -18,6 +18,9 @@ export default async function SettingsLayout({ children }: { children: ReactNode
             <Link href="/" className="text-muted-foreground hover:text-foreground hover:underline">
               Dashboard
             </Link>
+            <Link href="/insights" className="text-muted-foreground hover:text-foreground hover:underline">
+              Insights
+            </Link>
             <Link href="/docs" className="text-muted-foreground hover:text-foreground hover:underline">
               Docs
             </Link>
