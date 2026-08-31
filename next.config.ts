@@ -7,12 +7,20 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite"],
   experimental: {
     // The build's webpack compile started OOM-killing on Vercel's 4-core/8GB
-    // build machine right after adding the `ai` SDK (large export surface,
-    // several new client bundles) — these two flags are Next's own knobs
-    // for lowering webpack's peak memory during that compile step, at some
-    // cost to build speed.
+    // build machine right after adding the `ai` SDK. webpackMemoryOptimizations
+    // is Next's own knob for lowering webpack-sources' string-buffer memory.
+    // webpackBuildWorker (moving compilation into a second process) made no
+    // difference in practice, so it isn't worth the extra process overhead.
     webpackMemoryOptimizations: true,
-    webpackBuildWorker: true,
+  },
+  webpack: (config) => {
+    // Next's default production build persists the entire module graph to a
+    // filesystem cache (webpack-config.js sets `cache: { type: 'filesystem' }`
+    // unconditionally). Serializing that graph is a well-known large memory
+    // consumer in webpack production builds. Costs some build speed (nothing
+    // to restore from between deploys) in exchange for a lower peak.
+    config.cache = false;
+    return config;
   },
 };
 
