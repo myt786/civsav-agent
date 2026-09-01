@@ -311,8 +311,9 @@ export default function DocsPage() {
 
         <p className="text-foreground">Chat</p>
         <p>
-          Answers questions by calling the same read-only data functions the dashboard itself uses — it looks
-          numbers up in real time rather than guessing or relying on anything said earlier in the conversation.
+          Opens from the sparkles icon at the top of every page (or the same icon in the sidebar on mobile), not just
+          Insights. Answers questions by calling the same read-only data functions the dashboard itself uses — it
+          looks numbers up in real time rather than guessing or relying on anything said earlier in the conversation.
         </p>
       </Section>
 

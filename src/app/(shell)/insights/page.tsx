@@ -1,11 +1,11 @@
-import { SparklesIcon } from "lucide-react";
+import { SparklesIcon, TrendingUpIcon } from "lucide-react";
 import { getDashboardData } from "@/lib/dashboard/queries";
 import { buildForecasts, computeAttentionFlags } from "@/lib/insights/rules";
 import { NOISE_BAND_PCT, SPARKLINE_DAYS } from "@/lib/dashboard/constants";
 import { AttentionFlags } from "@/components/insights/attention-flags";
 import { AiSummary } from "@/components/insights/ai-summary";
 import { ForecastChart } from "@/components/insights/forecast-chart";
-import { ChatPanel } from "@/components/insights/chat-panel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Same reasoning as the main dashboard: this reads live DB state on every
 // request and must never be frozen into a static build-time snapshot.
@@ -29,8 +29,8 @@ export default async function InsightsPage() {
           Insights
         </h1>
         <p className="text-sm text-muted-foreground">
-          Rule-based attention flags, an AI-narrated summary, a short-term lead forecast, and a chat you can ask about any
-          client — all grounded in the same data as the dashboard.
+          Rule-based attention flags, an AI-narrated summary, and a short-term forecast — all grounded in the same
+          data as the dashboard. Ask the assistant (sparkles icon, top right) about any client.
         </p>
       </header>
 
@@ -46,39 +46,44 @@ export default async function InsightsPage() {
         </section>
       </div>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Lead forecast — next {FORECAST_DAYS} days (from the last {SPARKLINE_DAYS})
-        </h2>
-        {leadsForecasts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active clients to forecast.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {leadsForecasts.map((f) => (
-              <ForecastChart key={f.clientId} clientName={f.clientName} metric={f.metric} />
-            ))}
-          </div>
-        )}
-      </section>
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            <TrendingUpIcon className="size-3.5" aria-hidden />
+            Forecast — next {FORECAST_DAYS} days (from the last {SPARKLINE_DAYS})
+          </h2>
+        </div>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Spend forecast — next {FORECAST_DAYS} days (from the last {SPARKLINE_DAYS})
-        </h2>
-        {spendForecasts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active clients to forecast.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {spendForecasts.map((f) => (
-              <ForecastChart key={f.clientId} clientName={f.clientName} metric={f.metric} />
-            ))}
-          </div>
-        )}
-      </section>
+        <Tabs defaultValue="leads">
+          <TabsList>
+            <TabsTrigger value="leads">Leads</TabsTrigger>
+            <TabsTrigger value="spend">Spend</TabsTrigger>
+          </TabsList>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Chat</h2>
-        <ChatPanel />
+          <TabsContent value="leads">
+            {leadsForecasts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active clients to forecast.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {leadsForecasts.map((f) => (
+                  <ForecastChart key={f.clientId} clientName={f.clientName} metric={f.metric} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="spend">
+            {spendForecasts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active clients to forecast.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {spendForecasts.map((f) => (
+                  <ForecastChart key={f.clientId} clientName={f.clientName} metric={f.metric} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </section>
     </div>
   );

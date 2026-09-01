@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
+import { AssistantChat } from "@/components/assistant-chat";
 import { cn } from "@/lib/utils";
 
 export const NAV_ITEMS = [
@@ -67,6 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -116,6 +118,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               type="button"
               variant="ghost"
               size="icon-sm"
+              onClick={() => setAssistantOpen(true)}
+              aria-label="Ask the assistant"
+            >
+              <SparklesIcon className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setMobileOpen(true)}
               aria-label="Open navigation"
             >
@@ -136,6 +147,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
       </div>
 
+      <button
+        type="button"
+        onClick={() => setAssistantOpen(true)}
+        aria-label="Ask the assistant"
+        className="fixed top-4 right-4 z-40 hidden size-10 items-center justify-center rounded-full border border-border bg-card text-primary shadow-md transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg md:flex"
+      >
+        <SparklesIcon className="size-4" aria-hidden />
+      </button>
+
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-64 gap-0 p-0">
           <SheetHeader className="border-b border-border">
@@ -151,6 +171,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </Sheet>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <AssistantChat open={assistantOpen} onOpenChange={setAssistantOpen} />
     </div>
   );
 }
