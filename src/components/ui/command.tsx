@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
+import { Dialog as DialogPrimitive } from "radix-ui"
 import { SearchIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -117,8 +118,37 @@ function CommandItem({
   )
 }
 
+function CommandDialog({
+  open,
+  onOpenChange,
+  children,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  children: React.ReactNode
+}) {
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        <DialogPrimitive.Content
+          className={cn(
+            "fixed top-[18%] left-1/2 z-50 w-full max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none",
+            "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          )}
+        >
+          <DialogPrimitive.Title className="sr-only">Command palette</DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">Jump to a page or run a quick action</DialogPrimitive.Description>
+          <Command className="[&_[cmdk-group-heading]]:px-2">{children}</Command>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
 export {
   Command,
+  CommandDialog,
   CommandInput,
   CommandList,
   CommandEmpty,

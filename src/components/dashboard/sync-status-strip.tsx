@@ -43,8 +43,19 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
           {data.connectors.map((connector) => (
             <div key={connector.platform} className="flex flex-col gap-1 bg-card p-2.5">
               <div className="flex items-center justify-between gap-1">
-                <span className="truncate text-xs font-medium text-foreground">
-                  {PLATFORM_LABELS[connector.platform]}
+                <span className="flex min-w-0 items-center gap-1.5 truncate text-xs font-medium text-foreground">
+                  <span
+                    className={cn(
+                      "size-1.5 shrink-0 rounded-full",
+                      connector.errorCountLastRun > 0
+                        ? "bg-destructive"
+                        : connector.lastSuccessfulSync
+                          ? "bg-emerald-500"
+                          : "bg-muted-foreground/30",
+                    )}
+                    aria-hidden
+                  />
+                  <span className="truncate">{PLATFORM_LABELS[connector.platform]}</span>
                 </span>
                 {connector.errorCountLastRun > 0 && (
                   <Tooltip>

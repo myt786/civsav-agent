@@ -3,32 +3,13 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth/require-session";
 import { logout } from "../login/actions";
 import { Button } from "@/components/ui/button";
-import { NavBrand } from "@/components/nav-brand";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { AppShell } from "@/components/app-shell";
 
 export default async function SettingsLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
 
   return (
-    <div className="flex flex-col">
-      <div className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-3">
-          <NavBrand />
-          <nav className="flex items-center gap-5 text-sm">
-            <Link href="/" className="text-muted-foreground hover:text-foreground hover:underline">
-              Dashboard
-            </Link>
-            <Link href="/insights" className="text-muted-foreground hover:text-foreground hover:underline">
-              Insights
-            </Link>
-            <Link href="/docs" className="text-muted-foreground hover:text-foreground hover:underline">
-              Docs
-            </Link>
-            <ThemeToggle />
-          </nav>
-        </div>
-      </div>
-
+    <AppShell>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
         <header className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
@@ -45,6 +26,6 @@ export default async function SettingsLayout({ children }: { children: ReactNode
         </header>
         {children}
       </div>
-    </div>
+    </AppShell>
   );
 }

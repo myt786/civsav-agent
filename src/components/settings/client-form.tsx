@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import type { ClientFormState } from "@/app/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "@/components/ui/toaster";
 
 const TIMEZONES = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
 
@@ -23,6 +24,14 @@ export function ClientForm({
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [active, setActive] = useState(defaultValues.active);
+
+  const wasPending = useRef(pending);
+  useEffect(() => {
+    if (wasPending.current && !pending && !state.error) {
+      toast({ variant: "success", title: "Client saved" });
+    }
+    wasPending.current = pending;
+  }, [pending, state.error]);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">

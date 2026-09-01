@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, MinusCircleIcon } from "lucide-react";
 import { upsertMapping, verifyMapping, type MappingFormState, type VerifyResult } from "@/app/settings/actions";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "@/components/ui/toaster";
 
 export interface MappingRowData {
   externalId: string;
@@ -115,11 +116,26 @@ export function MappingRow({
   const liveCheck = externalId.trim().length > 0 ? externalIdSchemas[platform].safeParse(externalId) : null;
   const liveError = liveCheck && !liveCheck.success ? liveCheck.error.issues[0]?.message : null;
 
+  const wasSaving = useRef(savePending);
+  useEffect(() => {
+    if (wasSaving.current && !savePending && !state.error) {
+      toast({ variant: "success", title: `${label} mapping saved` });
+    }
+    wasSaving.current = savePending;
+  }, [savePending, state.error, label]);
+
   function handleVerify() {
     startVerifying(async () => {
       const result = await verifyMapping(clientId, platform);
       setVerifyResult(result);
       router.refresh();
+      if (result.status === "error") {
+        toast({ variant: "error", title: `${label} verify failed`, description: result.message });
+      } else if (result.status === "no_data") {
+        toast({ variant: "default", title: `${label} verified`, description: "No data for this period" });
+      } else {
+        toast({ variant: "success", title: `${label} verified` });
+      }
     });
   }
 

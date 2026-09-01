@@ -1,10 +1,19 @@
 import Link from "next/link";
 import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, ClockAlertIcon, MinusCircleIcon, SparklesIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { NavBrand } from "@/components/nav-brand";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { PLATFORM_HELP, PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/connectors/platform-labels";
 import { STALE_HOURS } from "@/lib/dashboard/constants";
+
+const TOC = [
+  { id: "numbers", label: "Reading a number" },
+  { id: "compare", label: "What to compare" },
+  { id: "metrics", label: "How each column is computed" },
+  { id: "verify", label: "Verified vs. unverified" },
+  { id: "sync", label: "Sync status & how data is fetched" },
+  { id: "freshness", label: "Freshness" },
+  { id: "insights", label: "Insights: flags, forecast, AI summary & chat" },
+  { id: "platforms", label: "Connected platforms" },
+];
 
 export const metadata = {
   title: "Docs — Client Dashboard",
@@ -33,26 +42,8 @@ function Swatch({ children, caption }: { children: React.ReactNode; caption: str
 
 export default function DocsPage() {
   return (
-    <div className="flex flex-col">
-      <div className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-3">
-          <NavBrand />
-          <nav className="flex items-center gap-5 text-sm">
-            <Link href="/" className="text-muted-foreground hover:text-foreground hover:underline">
-              Dashboard
-            </Link>
-            <Link href="/insights" className="text-muted-foreground hover:text-foreground hover:underline">
-              Insights
-            </Link>
-            <Link href="/settings/clients" className="text-muted-foreground hover:text-foreground hover:underline">
-              Settings
-            </Link>
-            <ThemeToggle />
-          </nav>
-        </div>
-      </div>
-
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 py-10">
+    <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-10 px-6 py-10 lg:grid-cols-[1fr_220px]">
+      <div className="flex min-w-0 flex-col gap-10">
       <header className="flex flex-col gap-2 border-b border-border pb-6">
         <p className="text-xs font-medium tracking-wide text-primary uppercase">Reference</p>
         <h1 className="text-2xl font-medium text-foreground">Understanding the dashboard</h1>
@@ -60,31 +51,12 @@ export default function DocsPage() {
           What every badge, icon, and status on the client dashboard, Insights, and settings pages means — and what
           to do about it.
         </p>
-        <nav className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          <a href="#numbers" className="text-primary hover:underline">
-            Reading a number
-          </a>
-          <a href="#compare" className="text-primary hover:underline">
-            What to compare
-          </a>
-          <a href="#metrics" className="text-primary hover:underline">
-            How each column is computed
-          </a>
-          <a href="#verify" className="text-primary hover:underline">
-            Verified vs. unverified
-          </a>
-          <a href="#sync" className="text-primary hover:underline">
-            Sync status &amp; how data is fetched
-          </a>
-          <a href="#freshness" className="text-primary hover:underline">
-            Freshness
-          </a>
-          <a href="#insights" className="text-primary hover:underline">
-            Insights: flags, forecast, AI summary &amp; chat
-          </a>
-          <a href="#platforms" className="text-primary hover:underline">
-            Connected platforms
-          </a>
+        <nav className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm lg:hidden">
+          {TOC.map((item) => (
+            <a key={item.id} href={`#${item.id}`} className="text-primary hover:underline">
+              {item.label}
+            </a>
+          ))}
         </nav>
       </header>
 
@@ -369,6 +341,16 @@ export default function DocsPage() {
         </Link>
       </footer>
       </div>
+
+      <aside className="hidden lg:block">
+        <nav className="sticky top-8 flex flex-col gap-1 border-l border-border pl-4 text-sm">
+          {TOC.map((item) => (
+            <a key={item.id} href={`#${item.id}`} className="text-muted-foreground hover:text-foreground">
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </aside>
     </div>
   );
 }

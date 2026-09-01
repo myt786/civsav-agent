@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const STORAGE_KEY = "theme";
+import { isLightTheme, toggleTheme } from "@/lib/theme";
 
 // Dark is the default (see globals.css :root) — this only ever needs to
 // read back whichever explicit choice the inline anti-flash script in
@@ -13,19 +12,11 @@ export function ThemeToggle() {
   const [isLight, setIsLight] = useState(false);
 
   useEffect(() => {
-    setIsLight(document.documentElement.classList.contains("light"));
+    setIsLight(isLightTheme());
   }, []);
 
   function toggle() {
-    const next = isLight ? "dark" : "light";
-    document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Private browsing / storage blocked — theme just won't persist.
-    }
-    setIsLight(!isLight);
+    setIsLight(toggleTheme());
   }
 
   return (
