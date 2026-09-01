@@ -34,7 +34,7 @@ export function ClientsTable({
     flagsByClient.set(flag.clientId, list);
   }
 
-  const columns = createClientColumns(now, flagsByClient);
+  const columns = createClientColumns(now, flagsByClient, details);
   const table = useTable({
     features: dashboardTableFeatures,
     data: rows,
@@ -82,7 +82,7 @@ export function ClientsTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.map((row) => {
+            {table.getRowModel().rows.map((row, i) => {
               const stale = (row.original.staleHours ?? 0) > STALE_HOURS;
               return (
                 <TableRow
@@ -94,7 +94,11 @@ export function ClientsTable({
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") setSelectedClientId(row.original.clientId);
                   }}
-                  className={cn("h-12 cursor-pointer", stale && "bg-destructive/[0.035]")}
+                  className={cn(
+                    "h-12 cursor-pointer animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both",
+                    stale && "bg-destructive/[0.035]",
+                  )}
+                  style={{ animationDelay: `${Math.min(i, 10) * 40}ms`, animationDuration: "300ms" }}
                 >
                   {row.getAllCells().map((cell) => (
                     <TableCell key={cell.id} className="py-0">

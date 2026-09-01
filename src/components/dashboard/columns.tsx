@@ -2,9 +2,10 @@
 
 import { createColumnHelper, type SortFn } from "@tanstack/react-table";
 import { AlertTriangleIcon, ClockAlertIcon } from "lucide-react";
-import type { CallsValue, CellState, ClientRow } from "@/lib/dashboard/types";
+import type { CallsValue, CellState, ClientDetail, ClientRow } from "@/lib/dashboard/types";
 import type { AttentionFlag } from "@/lib/insights/types";
 import { DataCell, DeltaCellView } from "./data-cell";
+import { MiniSparkline } from "./mini-sparkline";
 import { formatCurrency, formatInteger, formatPosition, formatRelativeTime } from "@/lib/dashboard/format";
 import { STALE_HOURS } from "@/lib/dashboard/constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -54,7 +55,11 @@ function worstSeverity(flags: AttentionFlag[]): AttentionFlag["severity"] {
   return flags.some((f) => f.severity === "critical") ? "critical" : "warning";
 }
 
-export function createClientColumns(now: Date, flagsByClient: Map<string, AttentionFlag[]>) {
+export function createClientColumns(
+  now: Date,
+  flagsByClient: Map<string, AttentionFlag[]>,
+  detailsByClient: Record<string, ClientDetail>,
+) {
   return columnHelper.columns([
   columnHelper.accessor("clientName", {
     id: "client",
@@ -95,7 +100,15 @@ export function createClientColumns(now: Date, flagsByClient: Map<string, Attent
     header: () => (
       <ColumnHeader label="Leads 7d" tooltip="Sum of daily lead counts from Lead Dashboard over the trailing 7 full days (not including today, which is still incomplete)." />
     ),
-    cell: (info) => <DataCell state={info.getValue()} format={formatInteger} />,
+    cell: (info) => {
+      const leadsSeries = detailsByClient[info.row.original.clientId]?.sparklines.find((s) => s.key === "leads");
+      return (
+        <span className="flex items-center justify-end gap-2">
+          {leadsSeries && <MiniSparkline points={leadsSeries.points} stroke="var(--chart-1)" />}
+          <DataCell state={info.getValue()} format={formatInteger} />
+        </span>
+      );
+    },
     sortFn: sortByCell("leads"),
   }),
   columnHelper.accessor("leadsDelta", {

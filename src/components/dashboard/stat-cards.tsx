@@ -1,32 +1,56 @@
+"use client";
+
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import { formatCurrency, formatInteger } from "@/lib/dashboard/format";
+import { useCountUp } from "@/lib/use-count-up";
 import { cn } from "@/lib/utils";
+
+// formatKind (not a function prop) because these are server components
+// building the stats array — a raw function reference can't cross the
+// server/client boundary, only serializable data and already-rendered
+// elements (icon is a ReactNode for the same reason: rendered server-side,
+// not a component reference).
+export type StatFormatKind = "integer" | "currency";
+
+const FORMATTERS: Record<StatFormatKind, (n: number) => string> = {
+  integer: formatInteger,
+  currency: formatCurrency,
+};
 
 export interface Stat {
   label: string;
-  value: string;
-  icon: LucideIcon;
+  value: number | null;
+  formatKind: StatFormatKind;
+  icon: ReactNode;
   tone?: "default" | "warning";
   href?: string;
 }
 
-function StatCard({ stat }: { stat: Stat }) {
-  const Icon = stat.icon;
+const TONE_CHIP: Record<NonNullable<Stat["tone"]>, string> = {
+  default: "bg-primary/10 text-primary",
+  warning: "bg-amber-500/15 text-amber-600 dark:text-amber-500",
+};
+
+function StatCard({ stat, delayMs }: { stat: Stat; delayMs: number }) {
+  const animated = useCountUp(stat.value ?? 0);
+  const display = stat.value === null ? "—" : FORMATTERS[stat.formatKind](animated);
+
   const body = (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-colors",
-        stat.href && "hover:border-primary/40",
+        "group flex animate-in flex-col gap-3 rounded-lg border border-border bg-card p-4 fade-in-0 slide-in-from-bottom-1 transition-all duration-200 fill-mode-both",
+        stat.href && "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
       )}
+      style={{ animationDelay: `${delayMs}ms`, animationDuration: "400ms" }}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{stat.label}</span>
-        <Icon
-          className={cn("size-4 shrink-0", stat.tone === "warning" ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground/50")}
-          aria-hidden
-        />
+        <span className={cn("flex size-7 items-center justify-center rounded-md", TONE_CHIP[stat.tone ?? "default"])}>
+          {stat.icon}
+        </span>
       </div>
-      <span className="font-mono text-2xl tabular-nums text-foreground">{stat.value}</span>
+      <span className="font-mono text-2xl tabular-nums text-foreground">{display}</span>
     </div>
   );
 
@@ -47,8 +71,8 @@ function StatCard({ stat }: { stat: Stat }) {
 export function StatCards({ stats }: { stats: Stat[] }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {stats.map((stat) => (
-        <StatCard key={stat.label} stat={stat} />
+      {stats.map((stat, i) => (
+        <StatCard key={stat.label} stat={stat} delayMs={i * 60} />
       ))}
     </div>
   );

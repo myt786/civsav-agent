@@ -42,11 +42,11 @@ function Swatch({ children, caption }: { children: React.ReactNode; caption: str
 
 export default function DocsPage() {
   return (
-    <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-10 px-6 py-10 lg:grid-cols-[1fr_220px]">
+    <div className="mx-auto grid w-full max-w-5xl animate-in grid-cols-1 gap-10 px-6 py-10 fade-in-0 duration-300 lg:grid-cols-[1fr_220px]">
       <div className="flex min-w-0 flex-col gap-10">
       <header className="flex flex-col gap-2 border-b border-border pb-6">
         <p className="text-xs font-medium tracking-wide text-primary uppercase">Reference</p>
-        <h1 className="text-2xl font-medium text-foreground">Understanding the dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Understanding the dashboard</h1>
         <p className="text-sm text-muted-foreground">
           What every badge, icon, and status on the client dashboard, Insights, and settings pages means — and what
           to do about it.

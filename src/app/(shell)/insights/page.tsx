@@ -22,10 +22,10 @@ export default async function InsightsPage() {
   const spendForecasts = forecasts.filter((f) => f.metric.key === "spend");
 
   return (
-    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8 px-6 py-8">
+    <div className="mx-auto flex w-full max-w-[1400px] animate-in flex-col gap-8 px-6 py-8 fade-in-0 duration-300">
       <header className="flex flex-col gap-1">
-        <h1 className="flex items-center gap-2 text-lg font-medium text-foreground">
-          <SparklesIcon className="size-4 text-primary" aria-hidden />
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
+          <SparklesIcon className="size-5 text-primary" aria-hidden />
           Insights
         </h1>
         <p className="text-sm text-muted-foreground">

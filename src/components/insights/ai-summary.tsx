@@ -38,7 +38,9 @@ export function AiSummary() {
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <SparklesIcon className="size-4 text-primary" aria-hidden />
+          <span className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <SparklesIcon className="size-3.5" aria-hidden />
+          </span>
           AI summary
         </div>
         <Button variant="ghost" size="sm" onClick={generate} disabled={state.status === "loading"} className="h-7 gap-1.5 text-xs">
@@ -64,7 +66,7 @@ export function AiSummary() {
       {state.status === "error" && <p className="text-sm text-destructive">{state.message}</p>}
 
       {state.status === "ok" && (
-        <div className="flex flex-col gap-3 text-sm">
+        <div className="flex animate-in flex-col gap-3 text-sm fade-in-0 slide-in-from-bottom-1 duration-300">
           <p className="text-foreground">{state.narrative.fleetSummary}</p>
           {state.narrative.clientNotes.length > 0 && (
             <ul className="flex flex-col gap-1.5 border-t border-border pt-3">

@@ -29,9 +29,16 @@ export function AttentionFlags({ flags }: { flags: AttentionFlag[] }) {
   const sorted = [...flags].sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "critical" ? -1 : 1));
 
   return (
-    <div className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card">
+    <div className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
       {sorted.map((flag, i) => (
-        <div key={`${flag.clientId}-${flag.kind}-${i}`} className="flex items-start gap-3 px-4 py-3 text-sm">
+        <div
+          key={`${flag.clientId}-${flag.kind}-${i}`}
+          className={cn(
+            "flex animate-in items-start gap-3 border-l-2 px-4 py-3 text-sm fade-in-0 slide-in-from-left-1 fill-mode-both",
+            flag.severity === "critical" ? "border-l-destructive bg-destructive/[0.03]" : "border-l-amber-500 bg-amber-500/[0.03]",
+          )}
+          style={{ animationDelay: `${Math.min(i, 8) * 50}ms`, animationDuration: "300ms" }}
+        >
           <AlertTriangleIcon
             className={cn(
               "mt-0.5 size-4 shrink-0",

@@ -124,7 +124,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <main className="flex flex-1 flex-col">{children}</main>
+        <main className="relative flex flex-1 flex-col">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72"
+            style={{
+              background: "radial-gradient(60% 100% at 50% 0%, color-mix(in oklch, var(--primary), transparent 92%), transparent)",
+            }}
+            aria-hidden
+          />
+          {children}
+        </main>
       </div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>

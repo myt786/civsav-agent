@@ -17,7 +17,7 @@ export default async function ClientsListPage() {
   const [clients, syncStatus] = await Promise.all([listClients(), getSyncStatus(now)]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex animate-in flex-col gap-6 fade-in-0 duration-300">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-base font-medium text-foreground">Sync</h2>
