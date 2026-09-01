@@ -1,5 +1,6 @@
 "use client";
 
+import { MinusIcon, TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { formatCurrency, formatInteger } from "@/lib/dashboard/format";
 import type { MetricForecast } from "@/lib/insights/types";
@@ -51,11 +52,15 @@ function TooltipContentInner({
   );
 }
 
-const TREND_LABEL: Record<MetricForecast["trend"], string> = {
-  up: "trending up",
-  down: "trending down",
-  flat: "holding flat",
-  unknown: "not enough history yet",
+// Direction is shown with a neutral icon, never green/red — "spend up" and
+// "leads up" aren't equally good news, and the app is careful elsewhere
+// (muted deltas under the noise band, no_data vs. a real 0) never to imply
+// a judgment the data doesn't actually support. Same reasoning here.
+const TREND_META: Record<MetricForecast["trend"], { label: string; icon: typeof TrendingUpIcon }> = {
+  up: { label: "trending up", icon: TrendingUpIcon },
+  down: { label: "trending down", icon: TrendingDownIcon },
+  flat: { label: "holding flat", icon: MinusIcon },
+  unknown: { label: "not enough history yet", icon: MinusIcon },
 };
 
 export function ForecastChart({ clientName, metric }: { clientName: string; metric: MetricForecast }) {
@@ -63,15 +68,29 @@ export function ForecastChart({ clientName, metric }: { clientName: string; metr
   const hasForecast = metric.forecast.length > 0;
   const format = unitFormatter(metric.unit);
   const gradientId = `forecast-${clientName}-${metric.key}`.replace(/[^a-zA-Z0-9-]/g, "");
+  const projectedTotal = hasForecast ? metric.forecast.reduce((sum, p) => sum + p.value, 0) : null;
+  const trend = TREND_META[metric.trend];
+  const TrendIcon = trend.icon;
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-3 py-3 transition-colors hover:border-primary/30">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-medium text-foreground">{clientName}</span>
-        <span className="text-xs text-muted-foreground">{metric.label} — {TREND_LABEL[metric.trend]}</span>
+        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+          <TrendIcon className="size-3" aria-hidden />
+          {trend.label}
+        </span>
       </div>
+
+      {projectedTotal !== null && (
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-mono text-lg font-medium tabular-nums text-foreground">{format(projectedTotal)}</span>
+          <span className="text-xs text-muted-foreground">projected, next 7d</span>
+        </div>
+      )}
+
       {hasForecast ? (
-        <ResponsiveContainer width="100%" height={110}>
+        <ResponsiveContainer width="100%" height={90}>
           <AreaChart data={rows} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -107,7 +126,7 @@ export function ForecastChart({ clientName, metric }: { clientName: string; metr
           </AreaChart>
         </ResponsiveContainer>
       ) : (
-        <div className="flex h-[110px] items-center justify-center text-xs text-muted-foreground/70">
+        <div className="flex h-[90px] items-center justify-center text-xs text-muted-foreground/70">
           Not enough synced days to project a trend
         </div>
       )}

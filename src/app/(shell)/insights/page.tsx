@@ -5,7 +5,9 @@ import { NOISE_BAND_PCT, SPARKLINE_DAYS } from "@/lib/dashboard/constants";
 import { AttentionFlags } from "@/components/insights/attention-flags";
 import { AiSummary } from "@/components/insights/ai-summary";
 import { ForecastChart } from "@/components/insights/forecast-chart";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { MetricForecast } from "@/lib/insights/types";
 
 // Same reasoning as the main dashboard: this reads live DB state on every
 // request and must never be frozen into a static build-time snapshot.
@@ -13,13 +15,23 @@ export const dynamic = "force-dynamic";
 
 const FORECAST_DAYS = 7;
 
+// Down-trending forecasts are the most actionable to spot at a glance —
+// surfacing them first here complements (never duplicates) the Needs
+// attention panel, which already flags a *statistically significant* drop.
+// This is just an ordinary sort by direction, not another judgment call.
+const TREND_PRIORITY: Record<MetricForecast["trend"], number> = { down: 0, flat: 1, up: 2, unknown: 3 };
+
+function sortByTrend<T extends { metric: MetricForecast }>(items: T[]): T[] {
+  return [...items].sort((a, b) => TREND_PRIORITY[a.metric.trend] - TREND_PRIORITY[b.metric.trend]);
+}
+
 export default async function InsightsPage() {
   const now = new Date();
   const data = await getDashboardData(now);
   const flags = computeAttentionFlags(data);
   const forecasts = buildForecasts(data, FORECAST_DAYS, NOISE_BAND_PCT);
-  const leadsForecasts = forecasts.filter((f) => f.metric.key === "leads");
-  const spendForecasts = forecasts.filter((f) => f.metric.key === "spend");
+  const leadsForecasts = sortByTrend(forecasts.filter((f) => f.metric.key === "leads"));
+  const spendForecasts = sortByTrend(forecasts.filter((f) => f.metric.key === "spend"));
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] animate-in flex-col gap-8 px-6 py-8 fade-in-0 duration-300">
@@ -36,7 +48,14 @@ export default async function InsightsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="flex flex-col gap-2">
-          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Needs attention</h2>
+          <h2 className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Needs attention
+            {flags.length > 0 && (
+              <Badge variant="outline" className="h-4 border-amber-600/30 px-1.5 text-[10px] text-amber-700 dark:text-amber-500">
+                {flags.length}
+              </Badge>
+            )}
+          </h2>
           <AttentionFlags flags={flags} />
         </section>
 
