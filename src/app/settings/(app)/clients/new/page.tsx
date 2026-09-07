@@ -1,15 +1,25 @@
 import { ClientSetupForm } from "@/components/settings/client-setup-form";
+import Link from "next/link";
 
-const DEFAULT_TIMEZONE = process.env.DEFAULT_CLIENT_TIMEZONE ?? "America/New_York";
+const DEFAULT_TIMEZONE =
+  process.env.DEFAULT_CLIENT_TIMEZONE ?? "America/New_York";
 
 export default function NewClientPage() {
   return (
     <div className="flex flex-col gap-4">
+      <Link
+        href="/settings/clients"
+        className="text-xs text-muted-foreground hover:text-foreground"
+      >
+        ← Back to client directory
+      </Link>
       <div className="flex flex-col gap-1">
-        <h2 className="text-base font-medium text-foreground">Add client</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">
+          Welcome a new client
+        </h2>
         <p className="text-sm text-muted-foreground">
-          We never ask you to look up or paste a platform ID — pick the matching account from each list, or search
-          if it&apos;s not the one we guessed.
+          Add their profile, then choose the accounts that belong to them.
+          Connections can also be added later.
         </p>
       </div>
 

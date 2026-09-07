@@ -28,7 +28,10 @@ export interface SyncRunSummary {
 // Buckets "yesterday" in the CLIENT's own timezone, never the server's and
 // never a platform default — two clients synced in the same run can land
 // on different UTC windows for what they each call "yesterday".
-function getClientSyncWindow(clientTimezone: string, now: Date): { dateKey: string; range: DateRange } {
+function getClientSyncWindow(
+  clientTimezone: string,
+  now: Date,
+): { dateKey: string; range: DateRange } {
   const yesterdayInTz = subDays(toZonedTime(now, clientTimezone), 1);
   const dateKey = format(yesterdayInTz, "yyyy-MM-dd");
   return {
@@ -51,7 +54,10 @@ export async function runSync(now: Date = new Date()): Promise<SyncRunSummary> {
   const errors: SyncError[] = [];
   let attempted = 0;
 
-  const activeClients = await db.select().from(clients).where(eq(clients.active, true));
+  const activeClients = await db
+    .select()
+    .from(clients)
+    .where(eq(clients.active, true));
 
   for (const client of activeClients) {
     const accounts = await db
@@ -84,7 +90,8 @@ export async function runSync(now: Date = new Date()): Promise<SyncRunSummary> {
         // The 'error' variant carries no raw payload by contract (there may
         // be nothing to store — a network failure has no response body).
         // We still persist a record of the run so sync history isn't a gap.
-        const rawPayload = result.status === "error" ? { error: result.error } : result.raw;
+        const rawPayload =
+          result.status === "error" ? { error: result.error } : result.raw;
 
         await db.insert(rawResponses).values({
           syncRunId: syncRun.id,
@@ -95,7 +102,11 @@ export async function runSync(now: Date = new Date()): Promise<SyncRunSummary> {
         });
 
         if (result.status === "error") {
-          errors.push({ clientId: client.id, platform: account.platform, message: result.error });
+          errors.push({
+            clientId: client.id,
+            platform: account.platform,
+            message: result.error,
+          });
           continue;
         }
 
@@ -125,11 +136,21 @@ export async function runSync(now: Date = new Date()): Promise<SyncRunSummary> {
             verified: false,
           })
           .onConflictDoUpdate({
-            target: [metricSnapshots.clientId, metricSnapshots.platform, metricSnapshots.date],
+            target: [
+              metricSnapshots.clientId,
+              metricSnapshots.platform,
+              metricSnapshots.date,
+            ],
             // A re-synced day is unreconciled again even if the old numbers
             // it's replacing had been checked by hand — verification never
             // carries forward onto new data.
-            set: { metrics: validated.data as object, verified: false },
+            // This timestamp is also the dashboard's last successful data
+            // refresh. Re-fetching an existing day must advance it too.
+            set: {
+              metrics: validated.data as object,
+              verified: false,
+              createdAt: new Date(),
+            },
           });
       } catch (err) {
         // A connector must never take the whole run down with it.
@@ -143,7 +164,11 @@ export async function runSync(now: Date = new Date()): Promise<SyncRunSummary> {
   }
 
   const status: SyncRunSummary["status"] =
-    errors.length === 0 ? "completed" : errors.length === attempted && attempted > 0 ? "failed" : "completed_with_errors";
+    errors.length === 0
+      ? "completed"
+      : errors.length === attempted && attempted > 0
+        ? "failed"
+        : "completed_with_errors";
 
   await db
     .update(syncRuns)

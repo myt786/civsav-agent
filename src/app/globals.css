@@ -4,12 +4,140 @@
 
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  color-scheme: light;
+  --background: #f7f7f2;
+  --foreground: #292b26;
+  --card: #ffffff;
+  --card-foreground: #292b26;
+  --popover: #ffffff;
+  --popover-foreground: #292b26;
+  --primary: #ac491f;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f0ea;
+  --secondary-foreground: #45473f;
+  --muted: #f1f2ec;
+  --muted-foreground: #6d7065;
+  --accent: #faeee5;
+  --accent-foreground: #99421d;
+  --destructive: #b33737;
+  --border: #e4e5dc;
+  --input: #dddfd5;
+  --ring: #ac491f;
+  --chart-1: #b35b35;
+  --chart-2: #647e92;
+  --chart-3: #827260;
+  --chart-4: #658c88;
+  --chart-5: #777f99;
+  --chart-6: #938065;
+  --radius: 0.625rem;
+  --sidebar: #f1f2eb;
+  --sidebar-foreground: #45483e;
+  --sidebar-primary: #ac491f;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e7e9df;
+  --sidebar-accent-foreground: #292b26;
+  --sidebar-border: #e0e3d7;
+  --sidebar-ring: #ac491f;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-variant-numeric: tabular-nums;
+  }
+  html {
+    @apply font-sans;
+  }
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 4px;
+  }
+  ::selection {
+    background: #efddc9;
+  }
+}
+
+@layer components {
+  .workspace {
+    @apply mx-auto flex w-full max-w-[1440px] flex-col gap-7 px-5 py-7 lg:px-10 lg:py-9;
+  }
+  .page-title {
+    @apply text-[28px] font-semibold leading-tight tracking-[-0.035em] sm:text-[32px];
+  }
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground;
+  }
+  .panel {
+    @apply rounded-xl border border-border bg-card;
+  }
+  .section-title {
+    @apply text-base font-semibold tracking-[-0.02em];
+  }
+  .field-control {
+    @apply h-10 rounded-lg border border-input bg-card px-3 text-sm text-foreground;
+  }
+  .quiet-link {
+    @apply text-sm font-medium text-primary underline-offset-4 hover:underline;
+  }
+  .health-label {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium;
+  }
+  .health-label::before {
+    content: "";
+    @apply size-1.5 shrink-0 rounded-full bg-current;
+  }
+  .health-critical {
+    color: #b33737;
+  }
+  .health-attention {
+    color: #96600c;
+  }
+  .health-insufficient {
+    color: #6d7065;
+  }
+  .health-clear {
+    color: #397257;
+  }
+  .nav-tab {
+    @apply inline-flex min-h-11 items-center border-b-2 border-transparent px-1 text-sm font-medium text-muted-foreground;
+  }
+  .nav-tab[aria-current="page"] {
+    @apply border-primary text-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-geist-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -47,133 +175,4 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-/* Brand: civsav's own site runs a dark, high-contrast theme with an
-   orange/amber accent — this app defaults to that same dark theme (a
-   theme-toggle in the nav switches to .light), using the same accent hue
-   in both rather than inventing an unrelated palette. */
-:root {
-  --background: oklch(0.16 0.008 40);
-  --foreground: oklch(0.97 0.004 40);
-  --card: oklch(0.2 0.01 40);
-  --card-foreground: oklch(0.97 0.004 40);
-  --popover: oklch(0.2 0.01 40);
-  --popover-foreground: oklch(0.97 0.004 40);
-  --primary: oklch(0.7 0.18 45);
-  --primary-foreground: oklch(0.16 0.01 40);
-  --secondary: oklch(0.27 0.012 40);
-  --secondary-foreground: oklch(0.97 0.004 40);
-  --muted: oklch(0.27 0.012 40);
-  --muted-foreground: oklch(0.68 0.015 40);
-  --accent: oklch(0.3 0.05 50);
-  --accent-foreground: oklch(0.88 0.06 55);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.18 45 / 45%);
-  /* Sparkline/chart palette: one distinct hue per metric family, kept out
-     of destructive-red and success-emerald territory (those stay reserved
-     for status semantics elsewhere) so a chart line is never mistaken for
-     a status color. */
-  --chart-1: oklch(0.7 0.18 45); /* leads — brand orange */
-  --chart-2: oklch(0.68 0.15 250); /* calls — blue */
-  --chart-3: oklch(0.66 0.17 300); /* spend — violet */
-  --chart-4: oklch(0.7 0.12 195); /* sessions — teal */
-  --chart-5: oklch(0.7 0.15 155); /* conversions — green */
-  --chart-6: oklch(0.62 0.15 275); /* avg. position — indigo */
-  --radius: 0.625rem;
-  --sidebar: oklch(0.2 0.01 40);
-  --sidebar-foreground: oklch(0.97 0.004 40);
-  --sidebar-primary: oklch(0.7 0.18 45);
-  --sidebar-primary-foreground: oklch(0.16 0.01 40);
-  --sidebar-accent: oklch(0.3 0.05 50);
-  --sidebar-accent-foreground: oklch(0.88 0.06 55);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.7 0.18 45 / 45%);
-}
-
-/* Explicit class the toggle sets — identical to :root's default, but
-   named so the toggle script can always target "dark" specifically
-   rather than relying on "absence of .light". */
-.dark {
-  --background: oklch(0.16 0.008 40);
-  --foreground: oklch(0.97 0.004 40);
-  --card: oklch(0.2 0.01 40);
-  --card-foreground: oklch(0.97 0.004 40);
-  --popover: oklch(0.2 0.01 40);
-  --popover-foreground: oklch(0.97 0.004 40);
-  --primary: oklch(0.7 0.18 45);
-  --primary-foreground: oklch(0.16 0.01 40);
-  --secondary: oklch(0.27 0.012 40);
-  --secondary-foreground: oklch(0.97 0.004 40);
-  --muted: oklch(0.27 0.012 40);
-  --muted-foreground: oklch(0.68 0.015 40);
-  --accent: oklch(0.3 0.05 50);
-  --accent-foreground: oklch(0.88 0.06 55);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.18 45 / 45%);
-  --chart-1: oklch(0.7 0.18 45);
-  --chart-2: oklch(0.68 0.15 250);
-  --chart-3: oklch(0.66 0.17 300);
-  --chart-4: oklch(0.7 0.12 195);
-  --chart-5: oklch(0.7 0.15 155);
-  --chart-6: oklch(0.62 0.15 275);
-  --sidebar: oklch(0.2 0.01 40);
-  --sidebar-foreground: oklch(0.97 0.004 40);
-  --sidebar-primary: oklch(0.7 0.18 45);
-  --sidebar-primary-foreground: oklch(0.16 0.01 40);
-  --sidebar-accent: oklch(0.3 0.05 50);
-  --sidebar-accent-foreground: oklch(0.88 0.06 55);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.7 0.18 45 / 45%);
-}
-
-.light {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.16 0.01 40);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0.01 40);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.16 0.01 40);
-  --primary: oklch(0.62 0.19 41);
-  --primary-foreground: oklch(0.99 0.005 40);
-  --secondary: oklch(0.97 0.006 40);
-  --secondary-foreground: oklch(0.24 0.015 40);
-  --muted: oklch(0.97 0.006 40);
-  --muted-foreground: oklch(0.52 0.02 40);
-  --accent: oklch(0.95 0.035 55);
-  --accent-foreground: oklch(0.4 0.13 35);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.008 40);
-  --input: oklch(0.91 0.008 40);
-  --ring: oklch(0.62 0.19 41 / 45%);
-  --chart-1: oklch(0.62 0.19 41);
-  --chart-2: oklch(0.6 0.16 250);
-  --chart-3: oklch(0.56 0.19 300);
-  --chart-4: oklch(0.64 0.13 195);
-  --chart-5: oklch(0.62 0.16 155);
-  --chart-6: oklch(0.5 0.15 275);
-  --sidebar: oklch(0.985 0.003 40);
-  --sidebar-foreground: oklch(0.16 0.01 40);
-  --sidebar-primary: oklch(0.62 0.19 41);
-  --sidebar-primary-foreground: oklch(0.99 0.005 40);
-  --sidebar-accent: oklch(0.95 0.035 55);
-  --sidebar-accent-foreground: oklch(0.4 0.13 35);
-  --sidebar-border: oklch(0.91 0.008 40);
-  --sidebar-ring: oklch(0.62 0.19 41 / 45%);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
-  }
 }

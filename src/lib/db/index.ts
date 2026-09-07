@@ -17,7 +17,10 @@ async function createDb() {
     // refused new connections entirely: "remaining connection slots are
     // reserved for roles with the SUPERUSER attribute"). idle_timeout
     // releases a connection back once this instance goes quiet.
-    const client = postgres(process.env.DATABASE_URL, { max: 3, idle_timeout: 20 });
+    const client = postgres(process.env.DATABASE_URL, {
+      max: 3,
+      idle_timeout: 20,
+    });
     return drizzle(client, { schema });
   }
 
@@ -27,11 +30,19 @@ async function createDb() {
   return drizzle(client, { schema });
 }
 
-let dbPromise: ReturnType<typeof createDb> | undefined;
+// Next's development compiler can reload this module while another route
+// still holds the embedded database. Keep one connection across those
+// bundles; opening PGlite twice on the same directory can stall requests.
+const databaseGlobal = globalThis as typeof globalThis & {
+  __civsavDatabase?: ReturnType<typeof createDb>;
+};
 
 export function getDb() {
-  if (!dbPromise) {
-    dbPromise = createDb();
+  if (!databaseGlobal.__civsavDatabase) {
+    databaseGlobal.__civsavDatabase = createDb().catch((error) => {
+      databaseGlobal.__civsavDatabase = undefined;
+      throw error;
+    });
   }
-  return dbPromise;
+  return databaseGlobal.__civsavDatabase;
 }

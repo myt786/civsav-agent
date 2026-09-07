@@ -17,18 +17,40 @@ export function LoginForm({ next }: { next: string }) {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" placeholder="you@company.com" required autoFocus />
-        <p className="text-xs text-muted-foreground">Used to attribute changes in the audit log.</p>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="username"
+          placeholder="you@company.com"
+          required
+          autoFocus
+          className="h-11"
+        />
+        <p className="text-xs text-muted-foreground">
+          Used to attribute changes in the audit log.
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" required />
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          className="h-11"
+        />
       </div>
 
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {state.error}
+        </p>
+      )}
 
-      <Button type="submit" disabled={pending} className="mt-1">
+      <Button type="submit" disabled={pending} className="mt-1 h-11">
         {pending ? "Signing in…" : "Sign in"}
       </Button>
     </form>

@@ -10,8 +10,16 @@ import { clients, clientPlatformAccounts } from "@/lib/db/schema";
 import { logChange, logChanges } from "@/lib/settings/audit";
 import { externalIdSchemas } from "@/lib/settings/validation";
 import { connectorRegistry } from "@/lib/connectors/registry";
-import { getAllDiscoveredAccounts, type DiscoveredAccounts } from "@/lib/connectors/discovery-cache";
-import type { Platform, PlatformAccount, DateRange, ConnectorResult } from "@/lib/connectors/types";
+import {
+  getAllDiscoveredAccounts,
+  type DiscoveredAccounts,
+} from "@/lib/connectors/discovery-cache";
+import type {
+  Platform,
+  PlatformAccount,
+  DateRange,
+  ConnectorResult,
+} from "@/lib/connectors/types";
 import { runSync } from "@/lib/sync/run";
 import { format, subDays } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
@@ -26,8 +34,15 @@ function isValidTimezone(tz: string): boolean {
 }
 
 const clientSchema = z.object({
-  name: z.string().trim().min(1, "Name is required.").max(200, "Name is too long."),
-  timezone: z.string().trim().refine(isValidTimezone, "Not a recognized IANA timezone."),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name is required.")
+    .max(200, "Name is too long."),
+  timezone: z
+    .string()
+    .trim()
+    .refine(isValidTimezone, "Not a recognized IANA timezone."),
   active: z.boolean(),
 });
 
@@ -50,16 +65,27 @@ export async function updateClient(
 ): Promise<ClientFormState> {
   const session = await requireSession();
   const parsed = readClientFormData(formData);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  if (!parsed.success)
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
   const db = await getDb();
-  const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
   if (!existing) return { error: "Client not found." };
 
   await db.update(clients).set(parsed.data).where(eq(clients.id, clientId));
 
   await logChanges(db, [
-    { userEmail: session.email, clientId, field: "name", oldValue: existing.name, newValue: parsed.data.name },
+    {
+      userEmail: session.email,
+      clientId,
+      field: "name",
+      oldValue: existing.name,
+      newValue: parsed.data.name,
+    },
     {
       userEmail: session.email,
       clientId,
@@ -78,16 +104,26 @@ export async function updateClient(
 
   revalidatePath("/settings/clients");
   revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/");
+  revalidatePath("/insights");
   return {};
 }
 
 export async function deactivateClient(clientId: string): Promise<void> {
   const session = await requireSession();
   const db = await getDb();
-  const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
   if (!existing || !existing.active) return;
 
-  await db.update(clients).set({ active: false }).where(eq(clients.id, clientId));
+  await db
+    .update(clients)
+    .set({ active: false })
+    .where(eq(clients.id, clientId));
   await logChange(db, {
     userEmail: session.email,
     clientId,
@@ -98,6 +134,9 @@ export async function deactivateClient(clientId: string): Promise<void> {
 
   revalidatePath("/settings/clients");
   revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/");
+  revalidatePath("/insights");
 }
 
 // Powers both /settings/clients/new (all 8 at once, for smart defaults) and
@@ -105,7 +144,9 @@ export async function deactivateClient(clientId: string): Promise<void> {
 // with no credentials configured, or a real API error, still comes back as
 // a normal { status: "error" } entry so one bad platform never blocks the
 // other seven from rendering.
-export async function discoverAllAccounts(forceRefresh = false): Promise<DiscoveredAccounts[]> {
+export async function discoverAllAccounts(
+  forceRefresh = false,
+): Promise<DiscoveredAccounts[]> {
   await requireSession();
   return getAllDiscoveredAccounts({ forceRefresh });
 }
@@ -128,7 +169,10 @@ export async function upsertMapping(
   // (OpenPhone) — empty string means "the platform's single default
   // credential," normalized to null for storage.
   const rawCredentialLabel = formData.get("credentialLabel");
-  const credentialLabel = typeof rawCredentialLabel === "string" && rawCredentialLabel.length > 0 ? rawCredentialLabel : null;
+  const credentialLabel =
+    typeof rawCredentialLabel === "string" && rawCredentialLabel.length > 0
+      ? rawCredentialLabel
+      : null;
 
   const idParsed = externalIdSchemas[platform].safeParse(rawExternalId);
   if (!idParsed.success) {
@@ -139,14 +183,28 @@ export async function upsertMapping(
   const [existing] = await db
     .select()
     .from(clientPlatformAccounts)
-    .where(and(eq(clientPlatformAccounts.clientId, clientId), eq(clientPlatformAccounts.platform, platform)))
+    .where(
+      and(
+        eq(clientPlatformAccounts.clientId, clientId),
+        eq(clientPlatformAccounts.platform, platform),
+      ),
+    )
     .limit(1);
 
   await db
     .insert(clientPlatformAccounts)
-    .values({ clientId, platform, externalId: idParsed.data, active, credentialLabel })
+    .values({
+      clientId,
+      platform,
+      externalId: idParsed.data,
+      active,
+      credentialLabel,
+    })
     .onConflictDoUpdate({
-      target: [clientPlatformAccounts.clientId, clientPlatformAccounts.platform],
+      target: [
+        clientPlatformAccounts.clientId,
+        clientPlatformAccounts.platform,
+      ],
       set: { externalId: idParsed.data, active, credentialLabel },
     });
 
@@ -178,6 +236,9 @@ export async function upsertMapping(
   ]);
 
   revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/");
+  revalidatePath("/insights");
   return {};
 }
 
@@ -190,7 +251,11 @@ function summarizeFigures(data: unknown): Record<string, string> {
   if (typeof data !== "object" || data === null) return {};
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-    if (typeof value === "number" || typeof value === "string" || typeof value === "boolean") {
+    if (
+      typeof value === "number" ||
+      typeof value === "string" ||
+      typeof value === "boolean"
+    ) {
       out[key] = String(value);
     }
   }
@@ -210,24 +275,42 @@ function last7DayWindow(timezone: string, now: Date): DateRange {
   };
 }
 
-export async function verifyMapping(clientId: string, platform: Platform): Promise<VerifyResult> {
+export async function verifyMapping(
+  clientId: string,
+  platform: Platform,
+): Promise<VerifyResult> {
   await requireSession();
 
   const db = await getDb();
-  const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  const [client] = await db
+    .select()
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
   const [mapping] = await db
     .select()
     .from(clientPlatformAccounts)
-    .where(and(eq(clientPlatformAccounts.clientId, clientId), eq(clientPlatformAccounts.platform, platform)))
+    .where(
+      and(
+        eq(clientPlatformAccounts.clientId, clientId),
+        eq(clientPlatformAccounts.platform, platform),
+      ),
+    )
     .limit(1);
 
   if (!client || !mapping) {
-    return { status: "error", message: "Save the mapping before verifying it." };
+    return {
+      status: "error",
+      message: "Save the mapping before verifying it.",
+    };
   }
 
   const connector = connectorRegistry[platform];
   if (!connector) {
-    return { status: "error", message: `No connector is registered for ${platform} yet.` };
+    return {
+      status: "error",
+      message: `No connector is registered for ${platform} yet.`,
+    };
   }
 
   const account: PlatformAccount = {
@@ -243,7 +326,10 @@ export async function verifyMapping(clientId: string, platform: Platform): Promi
   try {
     result = await connector.fetch(account, range);
   } catch (err) {
-    result = { status: "error", error: err instanceof Error ? err.message : String(err) };
+    result = {
+      status: "error",
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 
   const now = new Date();
@@ -257,8 +343,12 @@ export async function verifyMapping(clientId: string, platform: Platform): Promi
     .where(eq(clientPlatformAccounts.id, mapping.id));
 
   revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/");
+  revalidatePath("/insights");
 
-  if (result.status === "error") return { status: "error", message: result.error };
+  if (result.status === "error")
+    return { status: "error", message: result.error };
   if (result.status === "no_data") return { status: "no_data" };
   return { status: "ok", figures: summarizeFigures(result.data) };
 }
@@ -278,7 +368,13 @@ export async function runSyncNow(): Promise<SyncNowResult> {
   const summary = await runSync();
   revalidatePath("/settings/clients");
   revalidatePath("/");
-  return { status: summary.status, attempted: summary.attempted, errorCount: summary.errors.length };
+  revalidatePath("/insights");
+  revalidatePath("/clients/[id]", "page");
+  return {
+    status: summary.status,
+    attempted: summary.attempted,
+    errorCount: summary.errors.length,
+  };
 }
 
 export interface NewMappingInput {
@@ -309,13 +405,21 @@ export async function createClientWithMappings(
     return { error: parsedClient.error.issues[0]?.message ?? "Invalid input." };
   }
 
-  const parsedMappings: { platform: Platform; externalId: string; active: boolean; credentialLabel: string | null }[] =
-    [];
+  const parsedMappings: {
+    platform: Platform;
+    externalId: string;
+    active: boolean;
+    credentialLabel: string | null;
+  }[] = [];
   for (const mapping of mappings) {
     if (mapping.externalId.trim().length === 0) continue;
-    const idParsed = externalIdSchemas[mapping.platform].safeParse(mapping.externalId);
+    const idParsed = externalIdSchemas[mapping.platform].safeParse(
+      mapping.externalId,
+    );
     if (!idParsed.success) {
-      return { error: `${mapping.platform}: ${idParsed.error.issues[0]?.message ?? "Invalid value."}` };
+      return {
+        error: `${mapping.platform}: ${idParsed.error.issues[0]?.message ?? "Invalid value."}`,
+      };
     }
     parsedMappings.push({
       platform: mapping.platform,
@@ -326,7 +430,10 @@ export async function createClientWithMappings(
   }
 
   const db = await getDb();
-  const [created] = await db.insert(clients).values(parsedClient.data).returning();
+  const [created] = await db
+    .insert(clients)
+    .values(parsedClient.data)
+    .returning();
 
   if (parsedMappings.length > 0) {
     await db.insert(clientPlatformAccounts).values(
@@ -341,7 +448,13 @@ export async function createClientWithMappings(
   }
 
   await logChanges(db, [
-    { userEmail: session.email, clientId: created.id, field: "name", oldValue: null, newValue: created.name },
+    {
+      userEmail: session.email,
+      clientId: created.id,
+      field: "name",
+      oldValue: null,
+      newValue: created.name,
+    },
     {
       userEmail: session.email,
       clientId: created.id,
@@ -377,5 +490,7 @@ export async function createClientWithMappings(
   ]);
 
   revalidatePath("/settings/clients");
+  revalidatePath("/");
+  revalidatePath("/insights");
   redirect(`/settings/clients/${created.id}`);
 }

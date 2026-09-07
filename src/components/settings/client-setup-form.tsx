@@ -4,17 +4,36 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { AccountCombobox, type DiscoveryState } from "@/components/settings/account-combobox";
+import {
+  AccountCombobox,
+  type DiscoveryState,
+} from "@/components/settings/account-combobox";
 import { PlatformHelpPopover } from "@/components/settings/platform-help-popover";
 import { RefreshDiscoveryButton } from "@/components/settings/refresh-discovery-button";
-import { createClientWithMappings, discoverAllAccounts } from "@/app/settings/actions";
-import { PLATFORM_HELP, PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/connectors/platform-labels";
+import {
+  createClientWithMappings,
+  discoverAllAccounts,
+} from "@/app/settings/actions";
+import {
+  PLATFORM_HELP,
+  PLATFORM_LABELS,
+  PLATFORM_ORDER,
+} from "@/lib/connectors/platform-labels";
 import { bestMatch } from "@/lib/settings/fuzzy-match";
 import type { Platform } from "@/lib/connectors/types";
 
-const TIMEZONES = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+const TIMEZONES =
+  typeof Intl.supportedValuesOf === "function"
+    ? ["UTC", ...Intl.supportedValuesOf("timeZone")]
+    : ["UTC"];
 
 interface RowState {
   externalId: string;
@@ -31,10 +50,19 @@ interface RowState {
 }
 
 function emptyRow(): RowState {
-  return { externalId: "", active: true, credentialLabel: null, autoFilled: false };
+  return {
+    externalId: "",
+    active: true,
+    credentialLabel: null,
+    autoFilled: false,
+  };
 }
 
-export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }) {
+export function ClientSetupForm({
+  defaultTimezone,
+}: {
+  defaultTimezone: string;
+}) {
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState(defaultTimezone);
 
@@ -51,11 +79,18 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
       // Unsupported environment — keep the server-provided default.
     }
   }, []);
-  const [discovery, setDiscovery] = useState<Record<Platform, DiscoveryState>>(() =>
-    Object.fromEntries(PLATFORM_ORDER.map((p) => [p, { status: "loading" }])) as Record<Platform, DiscoveryState>,
+  const [discovery, setDiscovery] = useState<Record<Platform, DiscoveryState>>(
+    () =>
+      Object.fromEntries(
+        PLATFORM_ORDER.map((p) => [p, { status: "loading" }]),
+      ) as Record<Platform, DiscoveryState>,
   );
-  const [rows, setRows] = useState<Record<Platform, RowState>>(() =>
-    Object.fromEntries(PLATFORM_ORDER.map((p) => [p, emptyRow()])) as Record<Platform, RowState>,
+  const [rows, setRows] = useState<Record<Platform, RowState>>(
+    () =>
+      Object.fromEntries(PLATFORM_ORDER.map((p) => [p, emptyRow()])) as Record<
+        Platform,
+        RowState
+      >,
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
@@ -84,7 +119,12 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
   const debouncedName = useDebouncedValue(name, 400);
 
   const suggestions = useMemo(() => {
-    const out: Partial<Record<Platform, { id: string; score: number; credentialLabel: string | null }>> = {};
+    const out: Partial<
+      Record<
+        Platform,
+        { id: string; score: number; credentialLabel: string | null }
+      >
+    > = {};
     if (!debouncedName.trim()) return out;
     for (const platform of PLATFORM_ORDER) {
       const state = discovery[platform];
@@ -118,7 +158,10 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
           }
           continue;
         }
-        if ((row.autoFilled || row.externalId === "") && row.externalId !== suggestion.id) {
+        if (
+          (row.autoFilled || row.externalId === "") &&
+          row.externalId !== suggestion.id
+        ) {
           next[platform] = {
             externalId: suggestion.id,
             active: true,
@@ -133,12 +176,17 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
   }, [suggestions]);
 
   function updateRow(platform: Platform, partial: Partial<RowState>) {
-    setRows((prev) => ({ ...prev, [platform]: { ...prev[platform], ...partial, autoFilled: false } }));
+    setRows((prev) => ({
+      ...prev,
+      [platform]: { ...prev[platform], ...partial, autoFilled: false },
+    }));
   }
 
   function handleSave() {
     setError(null);
-    const mappings = PLATFORM_ORDER.filter((p) => rows[p].externalId.trim().length > 0).map((platform) => ({
+    const mappings = PLATFORM_ORDER.filter(
+      (p) => rows[p].externalId.trim().length > 0,
+    ).map((platform) => ({
       platform,
       externalId: rows[platform].externalId,
       active: rows[platform].active,
@@ -153,7 +201,9 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="max-w-md rounded-lg border border-border p-4">
+      <div className="panel max-w-xl p-6">
+        <p className="eyebrow mb-2">01 · Client identity</p>
+        <h3 className="section-title mb-5">Start with the essentials</h3>
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Name</Label>
@@ -174,7 +224,7 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
                 <SelectValue placeholder="Select a timezone" />
               </SelectTrigger>
               <SelectContent>
-                {TIMEZONES.map((tz) => (
+                {Array.from(new Set([timezone, ...TIMEZONES])).map((tz) => (
                   <SelectItem key={tz} value={tz}>
                     {tz}
                   </SelectItem>
@@ -185,13 +235,14 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
         </div>
       </div>
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
+      <section className="panel flex flex-col gap-5 p-5">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex flex-col">
-            <h3 className="text-sm font-medium text-foreground">Platform mappings</h3>
+            <p className="eyebrow mb-2">02 · Connections</p>
+            <h3 className="section-title mb-1">Connect their platforms</h3>
             <p className="text-xs text-muted-foreground">
-              Matching accounts are suggested automatically as you type the client&apos;s name — confirm or search
-              instead.
+              Matching accounts are suggested automatically as you type the
+              client&apos;s name — confirm or search instead.
             </p>
           </div>
           <RefreshDiscoveryButton onRefresh={() => loadDiscovery(true)} />
@@ -199,7 +250,10 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
 
         <div className="overflow-hidden rounded-lg border border-border">
           {PLATFORM_ORDER.map((platform) => (
-            <div key={platform} className="flex flex-col gap-2 border-b border-border px-4 py-3.5 last:border-b-0">
+            <div
+              key={platform}
+              className="flex flex-col gap-2 border-b border-border px-4 py-3.5 last:border-b-0"
+            >
               <div className="flex items-center gap-1.5">
                 <span className="w-32 shrink-0 text-sm font-medium text-foreground">
                   {PLATFORM_LABELS[platform]}
@@ -207,21 +261,28 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
                 <PlatformHelpPopover help={PLATFORM_HELP[platform]} />
               </div>
               <div className="flex flex-wrap items-start gap-3">
-                <div className="min-w-64 flex-1">
+                <div className="min-w-0 basis-full sm:min-w-64 sm:basis-0 sm:flex-1">
                   <AccountCombobox
                     platform={platform}
                     value={rows[platform].externalId}
-                    onChange={(value) => updateRow(platform, { externalId: value })}
+                    onChange={(value) =>
+                      updateRow(platform, { externalId: value })
+                    }
                     discovery={discovery[platform]}
                     suggestedId={suggestions[platform]?.id}
                     credentialLabel={rows[platform].credentialLabel}
-                    onCredentialLabelChange={(credentialLabel) => updateRow(platform, { credentialLabel })}
+                    onCredentialLabelChange={(credentialLabel) =>
+                      updateRow(platform, { credentialLabel })
+                    }
                   />
                 </div>
                 <div className="flex items-center gap-1.5 pt-1.5">
                   <Switch
+                    aria-label={`Include ${PLATFORM_LABELS[platform]} in syncs`}
                     checked={rows[platform].active}
-                    onCheckedChange={(active) => updateRow(platform, { active })}
+                    onCheckedChange={(active) =>
+                      updateRow(platform, { active })
+                    }
                     size="sm"
                   />
                   <span className="text-xs text-muted-foreground">active</span>
@@ -232,9 +293,18 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
         </div>
       </section>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
-      <Button type="button" onClick={handleSave} disabled={saving || name.trim().length === 0} className="self-start">
+      <Button
+        type="button"
+        onClick={handleSave}
+        disabled={saving || name.trim().length === 0}
+        className="self-start"
+      >
         {saving ? "Creating…" : "Create client"}
       </Button>
     </div>
@@ -243,7 +313,9 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     timeoutRef.current = setTimeout(() => setDebounced(value), delayMs);

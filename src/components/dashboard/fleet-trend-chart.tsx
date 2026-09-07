@@ -1,41 +1,20 @@
 "use client";
-
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { formatCurrency, formatInteger } from "@/lib/dashboard/format";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  formatCurrency,
+  formatInteger,
+  formatPosition,
+} from "@/lib/dashboard/format";
 import type { DailyPoint } from "@/lib/dashboard/types";
 
-// Passed as a kind string, not a function — this is a client component fed
-// by a server page, and a raw function reference can't cross that boundary.
-type FormatKind = "integer" | "currency";
-const FORMATTERS: Record<FormatKind, (n: number) => string> = {
-  integer: formatInteger,
-  currency: formatCurrency,
-};
-
-function TooltipContentInner({
-  active,
-  payload,
-  label,
-  format,
-}: {
-  active?: boolean;
-  payload?: { value: number }[];
-  label?: string;
-  format: (v: number) => string;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
-      <div className="mb-0.5 font-mono text-muted-foreground">{label}</div>
-      <div className="font-mono text-sm font-medium tabular-nums text-foreground">{format(payload[0].value)}</div>
-    </div>
-  );
-}
-
-// The dashboard's one visual (not tabular) read of the fleet: a 30-day
-// area chart with a gradient fill, animated in on mount — everything else
-// on this page is precise per-client numbers, this is the "shape" glance
-// that goes with them. See buildFleetDailySeries for how days combine.
 export function FleetTrendChart({
   title,
   points,
@@ -45,44 +24,103 @@ export function FleetTrendChart({
   title: string;
   points: DailyPoint[];
   color: string;
-  formatKind: FormatKind;
+  formatKind: "integer" | "currency" | "position";
 }) {
-  const format = FORMATTERS[formatKind];
-  const gradientId = `fleet-trend-${title.replace(/\s+/g, "-").toLowerCase()}`;
-  const data = points.map((p) => ({ date: p.date, value: p.value }));
-  const hasSignal = data.some((d) => d.value !== null);
-
+  const format =
+    formatKind === "currency"
+      ? formatCurrency
+      : formatKind === "position"
+        ? formatPosition
+        : formatInteger;
+  const hasData = points.some((p) => p.value !== null);
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card p-4">
-      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</span>
-      {hasSignal ? (
-        <ResponsiveContainer width="100%" height={140}>
-          <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-                <stop offset="100%" stopColor={color} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="date" hide />
-            <Tooltip content={<TooltipContentInner format={format} />} cursor={{ stroke: "var(--border)", strokeWidth: 1 }} />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke={color}
-              strokeWidth={2}
-              fill={`url(#${gradientId})`}
-              dot={false}
-              connectNulls={false}
-              isAnimationActive
-              animationDuration={700}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      ) : (
-        <div className="flex h-[140px] items-center justify-center text-xs text-muted-foreground/70">
-          Not enough synced days yet
+    <div role="group" aria-label={`${title}, daily trend`}>
+      {hasData ? (
+        <div className="h-[210px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              accessibilityLayer
+              data={points}
+              margin={{ top: 12, right: 12, bottom: 0, left: 0 }}
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border)"
+                strokeDasharray="3 4"
+              />
+              <XAxis
+                dataKey="date"
+                tickFormatter={(v) => String(v).slice(5).replace("-", "/")}
+                axisLine={false}
+                tickLine={false}
+                minTickGap={45}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+              />
+              <YAxis
+                width={45}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                tickFormatter={(v) =>
+                  Number(v) >= 1000
+                    ? `${(Number(v) / 1000).toFixed(0)}k`
+                    : String(v)
+                }
+              />
+              <Tooltip
+                formatter={(v) => [
+                  typeof v === "number" ? format(v) : "No data",
+                  title,
+                ]}
+                contentStyle={{
+                  borderRadius: 8,
+                  borderColor: "var(--border)",
+                  fontSize: 12,
+                }}
+              />
+              <Area
+                name={title}
+                type="monotone"
+                dataKey="value"
+                stroke={color}
+                fill={color}
+                fillOpacity={0.055}
+                strokeWidth={2}
+                dot={{ r: 1.5, strokeWidth: 0 }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
+      ) : (
+        <div className="flex h-[210px] items-center justify-center text-sm text-muted-foreground">
+          No synced data for this period
+        </div>
+      )}
+      {hasData && (
+        <details className="mt-2 text-[11px] text-muted-foreground">
+          <summary>View daily values</summary>
+          <div className="mt-2 max-h-48 overflow-y-auto">
+            <table className="w-full text-left">
+              <caption className="sr-only">{title} daily values</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Date</th>
+                  <th scope="col">{title}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {points.map((p) => (
+                  <tr key={p.date}>
+                    <td className="py-1">{p.date}</td>
+                    <td>{p.value === null ? "No data" : format(p.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
     </div>
   );

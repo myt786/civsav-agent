@@ -1,46 +1,36 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
-const geistSans = Geist({
+const geistSans = localFont({
+  src: "./fonts/geist-latin.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "./fonts/geist-mono-latin.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Client Dashboard",
-  description: "Read-only daily ops dashboard across connected platforms",
+  title: { default: "Overview · Civsav", template: "%s · Civsav" },
+  description:
+    "Client performance, the issues that matter, and your next steps.",
+  icons: { icon: "/civsav-icon.png" },
 };
-
-// Runs before paint so the stored theme (or dark, the default) applies
-// immediately — without this, the page would flash light-then-dark (or
-// dark-then-light) on every load, waiting on React to hydrate the toggle.
-const themeInitScript = `
-  try {
-    var t = localStorage.getItem("theme");
-    document.documentElement.classList.add(t === "light" ? "light" : "dark");
-  } catch (e) {
-    document.documentElement.classList.add("dark");
-  }
-`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col">
         {children}
         <Toaster />
       </body>

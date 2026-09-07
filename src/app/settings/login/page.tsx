@@ -1,41 +1,40 @@
-import { LockIcon } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
 import { LoginForm } from "./login-form";
 import { NavBrand } from "@/components/nav-brand";
-import { ThemeToggle } from "@/components/theme-toggle";
-
+export const metadata = { title: "Settings sign-in" };
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
   const { next } = await searchParams;
-
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-16">
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(50% 40% at 50% 0%, color-mix(in oklch, var(--primary), transparent 90%), transparent)",
-        }}
-        aria-hidden
-      />
-      <div className="relative flex w-full max-w-sm flex-col gap-6">
-        <div className="flex items-center justify-center gap-3">
+    <main className="flex min-h-dvh flex-col items-center justify-center px-5 py-12">
+      <div className="w-full max-w-[420px]">
+        <div className="mb-9">
           <NavBrand />
-          <ThemeToggle />
         </div>
-        <div className="flex flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex flex-col gap-2">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <LockIcon className="size-4" aria-hidden />
-            </div>
-            <h1 className="mt-1 text-lg font-medium text-foreground">Settings sign-in</h1>
-            <p className="text-sm text-muted-foreground">Client and platform mapping configuration.</p>
-          </div>
-          <LoginForm next={next && next.startsWith("/settings") ? next : "/settings/clients"} />
+        <div className="panel px-7 py-9 sm:px-9">
+          <p className="eyebrow mb-4">Agency workspace</p>
+          <h1 className="page-title">Sign in to your workspace.</h1>
+          <p className="mb-8 mt-4 text-sm leading-relaxed text-muted-foreground">
+            Sign in to manage your clients and their connected platforms.
+          </p>
+          <LoginForm
+            next={
+              next && next.startsWith("/settings") ? next : "/settings/clients"
+            }
+          />
         </div>
+        <Link
+          href="/"
+          className="mt-6 inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeftIcon className="size-3.5" />
+          Back to client overview
+        </Link>
       </div>
-    </div>
+    </main>
   );
 }

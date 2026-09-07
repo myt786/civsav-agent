@@ -40,6 +40,7 @@ export interface ClientRow {
   conversions: CellState<number>;
   avgPosition: CellState<number>;
   lastSyncedAt: Date | null;
+  lastAttemptAt?: Date | null;
   staleHours: number | null;
 }
 
@@ -63,7 +64,14 @@ export interface DailyPoint {
 }
 
 export interface SparklineMetric {
-  key: "leads" | "callsTotal" | "callsMissed" | "spend" | "sessions" | "conversions" | "avgPosition";
+  key:
+    | "leads"
+    | "callsTotal"
+    | "callsMissed"
+    | "spend"
+    | "sessions"
+    | "conversions"
+    | "avgPosition";
   label: string;
   points: DailyPoint[];
 }

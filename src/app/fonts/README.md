@@ -1,0 +1,1 @@
+Geist Sans and Geist Mono Latin variable fonts are bundled locally so builds and page rendering do not depend on Google Fonts access. These files come from the installed Next.js 15.5.23 development tools bundle and retain Vercel's SIL Open Font License in `OFL.txt`.

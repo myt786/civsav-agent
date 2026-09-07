@@ -4,72 +4,57 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { BookOpenIcon, LayoutDashboardIcon, MenuIcon, SearchIcon, SettingsIcon, SparklesIcon } from "lucide-react";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  ArrowUpRightIcon,
+  BookOpenIcon,
+  LayoutDashboardIcon,
+  MenuIcon,
+  SearchIcon,
+  SettingsIcon,
+  MessageCircleIcon,
+  ListFilterIcon,
+} from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
 import { AssistantChat } from "@/components/assistant-chat";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
-  { href: "/insights", label: "Insights", icon: SparklesIcon },
+  { href: "/", label: "Overview", icon: LayoutDashboardIcon },
+  { href: "/insights", label: "Insights", icon: ListFilterIcon },
   { href: "/settings/clients", label: "Settings", icon: SettingsIcon },
-  { href: "/docs", label: "Docs", icon: BookOpenIcon },
+  { href: "/docs", label: "Help", icon: BookOpenIcon },
 ];
-
-function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function Brand({ size = 24 }: { size?: number }) {
+function Brand() {
   return (
-    <>
-      <Image src="/civsav-icon.png" alt="" width={size} height={size} className="rounded-md" priority />
-      <span className="text-sm font-semibold text-sidebar-foreground">civsav</span>
-    </>
+    <Link href="/" className="flex items-center gap-2.5 px-2">
+      <Image
+        src="/civsav-icon.png"
+        alt=""
+        width={29}
+        height={29}
+        priority
+        className="rounded-lg"
+      />
+      <span className="text-[23px] font-semibold tracking-[-0.065em]">
+        civsav<span className="text-primary">.</span>
+      </span>
+    </Link>
   );
 }
-
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-  return (
-    <nav className="flex flex-col gap-0.5">
-      {NAV_ITEMS.map((item) => {
-        const active = isActive(pathname, item.href);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-              active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/65 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-            )}
-          >
-            <Icon className="size-4 shrink-0" aria-hidden />
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-// Persistent left sidebar on desktop, a slide-out sheet from a top bar on
-// mobile — one shared shell so every top-level page (dashboard, insights,
-// settings, docs) gets the same nav instead of re-declaring its own strip.
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
-
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -80,98 +65,125 @@ export function AppShell({ children }: { children: ReactNode }) {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
-
-  return (
-    <div className="flex min-h-screen w-full">
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col justify-between border-r border-sidebar-border bg-sidebar px-3 py-4 md:flex">
-        <div className="flex flex-col gap-4">
-          <Link href="/" className="flex items-center gap-2 px-1.5">
-            <Brand />
-          </Link>
-          <button
-            type="button"
-            onClick={() => setPaletteOpen(true)}
-            className="flex items-center justify-between gap-2 rounded-lg border border-sidebar-border px-2.5 py-1.5 text-left text-xs text-sidebar-foreground/50 transition-colors hover:border-sidebar-ring/40 hover:text-sidebar-foreground/80"
+  const navigation = (
+    <nav aria-label="Main navigation" className="flex flex-col gap-1">
+      {NAV_ITEMS.map((item) => {
+        const active =
+          item.href === "/"
+            ? pathname === "/" || pathname.startsWith("/clients/")
+            : pathname.startsWith(
+                item.href === "/settings/clients" ? "/settings" : item.href,
+              );
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => setMobileOpen(false)}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors",
+              active
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+            )}
           >
-            <span className="flex items-center gap-1.5">
-              <SearchIcon className="size-3.5" aria-hidden />
-              Quick jump
-            </span>
-            <kbd className="rounded border border-sidebar-border px-1 font-mono text-[10px]">⌘K</kbd>
-          </button>
-          <NavLinks pathname={pathname} />
-        </div>
-        <div className="flex items-center justify-between px-1.5">
-          <span className="text-[11px] text-sidebar-foreground/40">civsav ops</span>
-          <ThemeToggle />
-        </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3 md:hidden">
-          <Link href="/" className="flex items-center gap-2">
-            <Brand size={22} />
+            <item.icon className="size-4" strokeWidth={1.7} aria-hidden />
+            {item.label}
+            {active && (
+              <span className="ml-auto size-1.5 rounded-full bg-primary" />
+            )}
           </Link>
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
+        );
+      })}
+    </nav>
+  );
+  return (
+    <TooltipProvider>
+      <div className="flex min-h-dvh w-full">
+        <a
+          href="#main-content"
+          className="fixed left-4 top-3 z-50 -translate-y-20 rounded-md bg-card px-4 py-2 focus:translate-y-0"
+        >
+          Skip to content
+        </a>
+        <aside className="sticky top-0 hidden h-dvh w-[216px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-4 py-7 md:flex">
+          <Brand />
+          <div className="mb-8 mt-6 flex items-center gap-2.5 rounded-lg border border-sidebar-border bg-white/60 px-3 py-3">
+            <span className="flex size-7 items-center justify-center rounded-md bg-[#dfe3d5] text-[10px] font-semibold">
+              C
+            </span>
+            <div>
+              <p className="text-xs font-semibold">Agency workspace</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                Client health & performance
+              </p>
+            </div>
+          </div>
+          <p className="eyebrow mb-3 px-3">Workspace</p>
+          {navigation}
+          <div className="mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-4">
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs text-muted-foreground hover:bg-sidebar-accent"
+            >
+              <SearchIcon className="size-4" />
+              Quick navigation<kbd className="ml-auto text-[10px]">Ctrl K</kbd>
+            </button>
+            <button
               onClick={() => setAssistantOpen(true)}
-              aria-label="Ask the assistant"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium hover:bg-sidebar-accent"
             >
-              <SparklesIcon className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
-            >
-              <MenuIcon className="size-4" />
-            </Button>
+              <MessageCircleIcon className="size-4" />
+              Ask the assistant
+              <ArrowUpRightIcon className="ml-auto size-3.5 text-muted-foreground" />
+            </button>
+            <p className="mt-5 px-3 text-[10px] text-muted-foreground">
+              A clearer view of every client.
+            </p>
           </div>
+        </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex h-16 items-center justify-between border-b border-border bg-card px-4 md:hidden">
+            <Brand />
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Ask the assistant"
+                onClick={() => setAssistantOpen(true)}
+              >
+                <MessageCircleIcon className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Open navigation"
+                onClick={() => setMobileOpen(true)}
+              >
+                <MenuIcon className="size-5" />
+              </Button>
+            </div>
+          </div>
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="min-w-0 flex-1 outline-none"
+          >
+            {children}
+          </main>
         </div>
-
-        <main className="relative flex flex-1 flex-col">
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72"
-            style={{
-              background: "radial-gradient(60% 100% at 50% 0%, color-mix(in oklch, var(--primary), transparent 92%), transparent)",
-            }}
-            aria-hidden
-          />
-          {children}
-        </main>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="w-72 bg-sidebar">
+            <SheetHeader>
+              <SheetTitle>Civsav workspace</SheetTitle>
+              <SheetDescription>Client health and performance</SheetDescription>
+            </SheetHeader>
+            <div className="p-4">{navigation}</div>
+          </SheetContent>
+        </Sheet>
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+        <AssistantChat open={assistantOpen} onOpenChange={setAssistantOpen} />
       </div>
-
-      <button
-        type="button"
-        onClick={() => setAssistantOpen(true)}
-        aria-label="Ask the assistant"
-        className="fixed top-4 right-4 z-40 hidden size-10 items-center justify-center rounded-full border border-border bg-card text-primary shadow-md transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg md:flex"
-      >
-        <SparklesIcon className="size-4" aria-hidden />
-      </button>
-
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-64 gap-0 p-0">
-          <SheetHeader className="border-b border-border">
-            <SheetTitle className="flex items-center gap-2">
-              <Brand size={20} />
-            </SheetTitle>
-            <SheetDescription className="sr-only">Navigation</SheetDescription>
-          </SheetHeader>
-          <div className="p-3">
-            <NavLinks pathname={pathname} onNavigate={() => setMobileOpen(false)} />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
-      <AssistantChat open={assistantOpen} onOpenChange={setAssistantOpen} />
-    </div>
+    </TooltipProvider>
   );
 }

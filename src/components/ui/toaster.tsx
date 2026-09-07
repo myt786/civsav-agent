@@ -19,6 +19,7 @@ interface ToastItem {
 // every caller needing to be inside a <ToastProvider> subtree or reach for
 // a hook. <Toaster/> below is the single subscriber that renders the list.
 let toasts: ToastItem[] = [];
+const serverSnapshot: ToastItem[] = [];
 let nextId = 0;
 const listeners = new Set<() => void>();
 
@@ -26,9 +27,21 @@ function notify() {
   for (const listener of listeners) listener();
 }
 
-export function toast(options: { title: string; description?: string; variant?: ToastVariant }) {
+export function toast(options: {
+  title: string;
+  description?: string;
+  variant?: ToastVariant;
+}) {
   const id = ++nextId;
-  toasts = [...toasts, { id, variant: options.variant ?? "default", title: options.title, description: options.description }];
+  toasts = [
+    ...toasts,
+    {
+      id,
+      variant: options.variant ?? "default",
+      title: options.title,
+      description: options.description,
+    },
+  ];
   notify();
   return id;
 }
@@ -45,11 +58,14 @@ function useToasts() {
       return () => listeners.delete(onStoreChange);
     },
     () => toasts,
-    () => [] as ToastItem[],
+    () => serverSnapshot,
   );
 }
 
-const VARIANT_ICON: Record<ToastVariant, React.ComponentType<{ className?: string }>> = {
+const VARIANT_ICON: Record<
+  ToastVariant,
+  React.ComponentType<{ className?: string }>
+> = {
   default: InfoIcon,
   success: CheckCircle2Icon,
   error: XCircleIcon,
@@ -78,13 +94,16 @@ export function Toaster() {
             <Icon
               className={cn(
                 "mt-0.5 size-4 shrink-0",
-                item.variant === "success" && "text-emerald-600 dark:text-emerald-500",
+                item.variant === "success" &&
+                  "text-emerald-600 dark:text-emerald-500",
                 item.variant === "error" && "text-destructive",
                 item.variant === "default" && "text-muted-foreground",
               )}
             />
             <div className="flex flex-col gap-0.5">
-              <ToastPrimitive.Title className="text-sm font-medium text-foreground">{item.title}</ToastPrimitive.Title>
+              <ToastPrimitive.Title className="text-sm font-medium text-foreground">
+                {item.title}
+              </ToastPrimitive.Title>
               {item.description && (
                 <ToastPrimitive.Description className="text-xs text-muted-foreground">
                   {item.description}
