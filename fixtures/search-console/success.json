@@ -1,0 +1,13 @@
+{
+  "rows": [
+    { "keys": ["emergency plumber near me"], "clicks": 41, "impressions": 612, "ctr": 0.06699346405228758, "position": 4.1 },
+    { "keys": ["24 hour plumber"], "clicks": 33, "impressions": 588, "ctr": 0.05612244897959184, "position": 5.3 },
+    { "keys": ["water heater repair"], "clicks": 27, "impressions": 401, "ctr": 0.06733167082294265, "position": 3.8 },
+    { "keys": ["drain cleaning service"], "clicks": 19, "impressions": 344, "ctr": 0.05523255813953488, "position": 6.2 },
+    { "keys": ["clogged toilet fix"], "clicks": 14, "impressions": 260, "ctr": 0.05384615384615385, "position": 7.9 },
+    { "keys": ["local plumbing company"], "clicks": 9, "impressions": 198, "ctr": 0.045454545454545456, "position": 8.4 },
+    { "keys": ["sump pump installation"], "clicks": 6, "impressions": 133, "ctr": 0.045112781954887216, "position": 9.1 },
+    { "keys": ["leak detection service"], "clicks": 4, "impressions": 97, "ctr": 0.041237113402061855, "position": 10.5 }
+  ],
+  "responseAggregationType": "byPage"
+}

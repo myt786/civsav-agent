@@ -1,0 +1,7 @@
+{
+  "projects": [
+    { "project_id": "2077068", "project_name": "Acme Roofing", "url": "acmeroofing.com/", "verified": true },
+    { "project_id": "2077082", "project_name": "Blue Ridge Dental", "url": "blueridgedental.com/", "verified": true },
+    { "project_id": "2077083", "project_name": "Coastal HVAC", "url": "coastalhvac.com/", "verified": false }
+  ]
+}

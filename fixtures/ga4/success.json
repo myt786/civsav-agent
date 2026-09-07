@@ -1,0 +1,40 @@
+{
+  "trafficSourceReport": {
+    "dimensionHeaders": [{ "name": "sessionSource" }],
+    "metricHeaders": [{ "name": "sessions", "type": "TYPE_INTEGER" }, { "name": "conversions", "type": "TYPE_INTEGER" }],
+    "rows": [
+      {
+        "dimensionValues": [{ "value": "google" }],
+        "metricValues": [{ "value": "412" }, { "value": "26" }]
+      },
+      {
+        "dimensionValues": [{ "value": "(direct)" }],
+        "metricValues": [{ "value": "188" }, { "value": "5" }]
+      },
+      {
+        "dimensionValues": [{ "value": "bing" }],
+        "metricValues": [{ "value": "34" }, { "value": "0" }]
+      }
+    ],
+    "rowCount": 3
+  },
+  "conversionEventReport": {
+    "dimensionHeaders": [{ "name": "eventName" }],
+    "metricHeaders": [{ "name": "conversions", "type": "TYPE_INTEGER" }],
+    "rows": [
+      {
+        "dimensionValues": [{ "value": "generate_lead" }],
+        "metricValues": [{ "value": "8" }]
+      },
+      {
+        "dimensionValues": [{ "value": "phone_number_click" }],
+        "metricValues": [{ "value": "23" }]
+      },
+      {
+        "dimensionValues": [{ "value": "page_view" }],
+        "metricValues": [{ "value": "0" }]
+      }
+    ],
+    "rowCount": 3
+  }
+}
