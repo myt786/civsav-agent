@@ -14,8 +14,10 @@ export const metaInsightRowSchema = z.object({
   impressions: z.string(),
   clicks: z.string(),
   actions: z.array(metaActionSchema).optional(),
-  effective_status: z.string(),
-  attribution_setting: z.string(),
+  // Account-level insights carry no delivery status — that concept only
+  // exists per campaign/adset/ad. attribution_setting can be absent on
+  // rows with no attributed conversions.
+  attribution_setting: z.string().optional(),
 });
 
 export const metaResponseSchema = z.object({
@@ -31,10 +33,10 @@ export const metaDataSchema = z.object({
   results: z.number().int().nonnegative(),
   // null (not 0) when there are no results to divide by.
   cpl: z.number().nonnegative().nullable(),
-  deliveryStatus: z.string(),
   // Attribution windows differ from Google — recorded so a comparison
   // built later doesn't quietly assume they're the same methodology.
-  attributionWindow: z.string(),
+  // Null when Meta didn't report one for the range.
+  attributionWindow: z.string().nullable(),
   rangeStart: z.string(),
   rangeEnd: z.string(),
 });

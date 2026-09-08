@@ -28,9 +28,12 @@ export async function fetchRawInsights(
   await rateLimiter.wait();
 
   const url = new URL(`${baseUrl}/${account.externalId}/insights`);
+  // effective_status is NOT a field on the AdsInsights node (it lives on
+  // campaign/adset/ad) — asking for it here makes Graph reject the whole
+  // request with 400 (#100).
   url.searchParams.set(
     "fields",
-    "spend,impressions,clicks,actions,effective_status,attribution_setting",
+    "spend,impressions,clicks,actions,attribution_setting",
   );
   url.searchParams.set("time_range", JSON.stringify({
     since: range.start.toISOString().slice(0, 10),
@@ -41,10 +44,27 @@ export async function fetchRawInsights(
   const response = await fetchWithRetry(url);
 
   if (!response.ok) {
-    throw new HttpError(response.status, `${response.status} ${response.statusText}`);
+    throw new HttpError(response.status, await graphErrorMessage(response));
   }
 
   return response.json();
+}
+
+// Graph API errors come back as { error: { message, code, error_subcode } }.
+// Surface that message so a failed Verify says what Meta actually rejected,
+// not just a bare status code.
+async function graphErrorMessage(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: { message?: string; code?: number } };
+    if (body.error?.message) {
+      return body.error.code
+        ? `${body.error.message} (#${body.error.code})`
+        : body.error.message;
+    }
+  } catch {
+    // fall through to the status line
+  }
+  return `${response.status} ${response.statusText}`;
 }
 
 interface AdAccountsResponse {

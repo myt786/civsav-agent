@@ -54,7 +54,6 @@ describe("metaConnector", () => {
     expect(result.data.clicks).toBe(312);
     expect(result.data.results).toBe(14);
     expect(result.data.cpl).toBeCloseTo(34.808571428571426);
-    expect(result.data.deliveryStatus).toBe("ACTIVE");
     expect(result.data.attributionWindow).toBe("7d_click_1d_view");
     expect(result.data.rangeStart).toBe("2026-08-18");
     expect(result.raw).toBeDefined();
@@ -98,6 +97,35 @@ describe("metaConnector", () => {
 
     expect(result.status).toBe("error");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not request effective_status (not a field on AdsInsights)", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.META_GRAPH_API_BASE_URL = "https://graph.facebook.com/v21.0";
+    process.env.META_SYSTEM_USER_ACCESS_TOKEN = "test-token";
+    fetchMock.mockResolvedValue(mockResponse(200, { data: [] }));
+
+    await metaConnector.fetch(account, range);
+
+    const requested = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(requested.searchParams.get("fields")).toBe(
+      "spend,impressions,clicks,actions,attribution_setting",
+    );
+  });
+
+  it("surfaces the Graph API error message on a 400, not a bare status code", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.META_GRAPH_API_BASE_URL = "https://graph.facebook.com/v21.0";
+    process.env.META_SYSTEM_USER_ACCESS_TOKEN = "test-token";
+    fetchMock.mockResolvedValue(
+      mockResponse(400, { error: { message: "Unsupported get request.", code: 100 } }),
+    );
+
+    const result = await metaConnector.fetch(account, range);
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toBe("Unsupported get request. (#100)");
   });
 
   it("retries a 500 with backoff and eventually returns error", async () => {

@@ -48,8 +48,7 @@ export const metaConnector: Connector<MetaData> = {
       clicks,
       results,
       cpl: results === 0 ? null : spend / results,
-      deliveryStatus: firstRow.effective_status,
-      attributionWindow: firstRow.attribution_setting,
+      attributionWindow: firstRow.attribution_setting ?? null,
       rangeStart: formatInTimeZone(range.start, account.clientTimezone, DATE_FORMAT),
       rangeEnd: formatInTimeZone(range.end, account.clientTimezone, DATE_FORMAT),
     };

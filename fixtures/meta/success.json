@@ -8,7 +8,6 @@
         { "action_type": "link_click", "value": "165" },
         { "action_type": "lead", "value": "9" }
       ],
-      "effective_status": "ACTIVE",
       "attribution_setting": "7d_click_1d_view"
     },
     {
@@ -19,7 +18,6 @@
         { "action_type": "link_click", "value": "125" },
         { "action_type": "lead", "value": "5" }
       ],
-      "effective_status": "ACTIVE",
       "attribution_setting": "7d_click_1d_view"
     }
   ]
