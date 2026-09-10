@@ -1,16 +1,18 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
-const { reportMock, queryMock, customerMock, googleAdsApiMock } = vi.hoisted(() => {
-  const reportMock = vi.fn();
-  const queryMock = vi.fn();
-  const customerMock = vi.fn(() => ({ report: reportMock, query: queryMock }));
-  // GoogleAdsApi is called with `new` in client.ts, so its mock implementation
-  // must be a real function — an arrow function can't be constructed.
-  const googleAdsApiMock = vi.fn(function GoogleAdsApiMock() {
-    return { Customer: customerMock };
+const { reportMock, queryMock, listAccessibleCustomersMock, customerMock, googleAdsApiMock } =
+  vi.hoisted(() => {
+    const reportMock = vi.fn();
+    const queryMock = vi.fn();
+    const listAccessibleCustomersMock = vi.fn();
+    const customerMock = vi.fn(() => ({ report: reportMock, query: queryMock }));
+    // GoogleAdsApi is called with `new` in client.ts, so its mock implementation
+    // must be a real function — an arrow function can't be constructed.
+    const googleAdsApiMock = vi.fn(function GoogleAdsApiMock() {
+      return { Customer: customerMock, listAccessibleCustomers: listAccessibleCustomersMock };
+    });
+    return { reportMock, queryMock, listAccessibleCustomersMock, customerMock, googleAdsApiMock };
   });
-  return { reportMock, queryMock, customerMock, googleAdsApiMock };
-});
 
 vi.mock("google-ads-api", () => ({
   GoogleAdsApi: googleAdsApiMock,
@@ -52,14 +54,13 @@ describe("googleAdsConnector", () => {
     customerMock.mockReturnValue({ report: reportMock, query: queryMock });
     googleAdsApiMock.mockReset();
     googleAdsApiMock.mockImplementation(function GoogleAdsApiMock() {
-      return { Customer: customerMock };
+      return { Customer: customerMock, listAccessibleCustomers: listAccessibleCustomersMock };
     });
   });
 
   afterEach(() => {
     delete process.env.CONNECTOR_MODE;
     delete process.env.GOOGLE_ADS_FIXTURE;
-    delete process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
     delete process.env.GOOGLE_ADS_CLIENT_ID;
     delete process.env.GOOGLE_ADS_CLIENT_SECRET;
     delete process.env.GOOGLE_ADS_REFRESH_TOKEN;
@@ -112,7 +113,6 @@ describe("googleAdsConnector", () => {
 
   it("does not retry a 429 and returns error immediately", async () => {
     delete process.env.CONNECTOR_MODE;
-    process.env.GOOGLE_ADS_DEVELOPER_TOKEN = "dev-token";
     process.env.GOOGLE_ADS_CLIENT_ID = "client-id";
     process.env.GOOGLE_ADS_CLIENT_SECRET = "client-secret";
     process.env.GOOGLE_ADS_REFRESH_TOKEN = "refresh-token";
@@ -126,7 +126,6 @@ describe("googleAdsConnector", () => {
 
   it("retries a 500 with backoff and eventually returns error", async () => {
     delete process.env.CONNECTOR_MODE;
-    process.env.GOOGLE_ADS_DEVELOPER_TOKEN = "dev-token";
     process.env.GOOGLE_ADS_CLIENT_ID = "client-id";
     process.env.GOOGLE_ADS_CLIENT_SECRET = "client-secret";
     process.env.GOOGLE_ADS_REFRESH_TOKEN = "refresh-token";
@@ -146,13 +145,16 @@ describe("googleAdsConnector.listAccounts", () => {
   beforeEach(() => {
     process.env.CONNECTOR_MODE = "fixture";
     queryMock.mockReset();
+    listAccessibleCustomersMock.mockReset();
     customerMock.mockReturnValue({ report: reportMock, query: queryMock });
+    googleAdsApiMock.mockImplementation(function GoogleAdsApiMock() {
+      return { Customer: customerMock, listAccessibleCustomers: listAccessibleCustomersMock };
+    });
   });
 
   afterEach(() => {
     delete process.env.CONNECTOR_MODE;
     delete process.env.GOOGLE_ADS_ACCOUNTS_FIXTURE;
-    delete process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
     delete process.env.GOOGLE_ADS_CLIENT_ID;
     delete process.env.GOOGLE_ADS_CLIENT_SECRET;
     delete process.env.GOOGLE_ADS_REFRESH_TOKEN;
@@ -178,9 +180,8 @@ describe("googleAdsConnector.listAccounts", () => {
     expect(result.status).toBe("error");
   });
 
-  it("returns a friendly access-denied message on 403, not a raw status code", async () => {
+  it("returns a friendly access-denied message on 403 (manager path), not a raw status code", async () => {
     delete process.env.CONNECTOR_MODE;
-    process.env.GOOGLE_ADS_DEVELOPER_TOKEN = "dev-token";
     process.env.GOOGLE_ADS_CLIENT_ID = "client-id";
     process.env.GOOGLE_ADS_CLIENT_SECRET = "client-secret";
     process.env.GOOGLE_ADS_REFRESH_TOKEN = "refresh-token";
@@ -194,7 +195,7 @@ describe("googleAdsConnector.listAccounts", () => {
 
     expect(result.status).toBe("error");
     if (result.status !== "error") throw new Error("expected error");
-    expect(result.error).toMatch(/No access to Google Ads accounts/);
+    expect(result.error).toMatch(/No access to Google Ads accounts under the manager account/);
   });
 
   it("returns error when credentials aren't configured", async () => {
@@ -205,17 +206,136 @@ describe("googleAdsConnector.listAccounts", () => {
     expect(result.status).toBe("error");
   });
 
-  it("returns error when GOOGLE_ADS_LOGIN_CUSTOMER_ID isn't configured", async () => {
-    delete process.env.CONNECTOR_MODE;
-    process.env.GOOGLE_ADS_DEVELOPER_TOKEN = "dev-token";
-    process.env.GOOGLE_ADS_CLIENT_ID = "client-id";
-    process.env.GOOGLE_ADS_CLIENT_SECRET = "client-secret";
-    process.env.GOOGLE_ADS_REFRESH_TOKEN = "refresh-token";
+  describe("direct access (no GOOGLE_ADS_LOGIN_CUSTOMER_ID)", () => {
+    beforeEach(() => {
+      delete process.env.CONNECTOR_MODE;
+      process.env.GOOGLE_ADS_CLIENT_ID = "client-id";
+      process.env.GOOGLE_ADS_CLIENT_SECRET = "client-secret";
+      process.env.GOOGLE_ADS_REFRESH_TOKEN = "refresh-token";
+      delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+    });
 
-    const result = await googleAdsConnector.listAccounts!();
+    // The module rate limiter (1 call / 30s) has already recorded a call
+    // from an earlier test, so a real `listAccounts()` here would block on a
+    // ~30s sleep — drive it under fake timers, same as the 500-retry test.
+    async function runListAccounts() {
+      vi.useFakeTimers();
+      try {
+        const resultPromise = googleAdsConnector.listAccounts!();
+        await vi.runAllTimersAsync();
+        return await resultPromise;
+      } finally {
+        vi.useRealTimers();
+      }
+    }
 
-    expect(result.status).toBe("error");
-    if (result.status !== "error") throw new Error("expected error");
-    expect(result.error).toMatch(/GOOGLE_ADS_LOGIN_CUSTOMER_ID/);
+    it("lists accessible accounts via listAccessibleCustomers + per-account detail queries, excluding managers", async () => {
+      listAccessibleCustomersMock.mockResolvedValue({
+        resource_names: ["customers/1234567890", "customers/2223334444", "customers/9998887777"],
+      });
+      queryMock
+        .mockResolvedValueOnce([
+          {
+            customer: {
+              id: "1234567890",
+              descriptive_name: "Acme Roofing",
+              currency_code: "USD",
+              status: "ENABLED",
+              manager: false,
+            },
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            customer: {
+              id: "2223334444",
+              descriptive_name: "Agency MCC",
+              currency_code: "USD",
+              status: "ENABLED",
+              manager: true,
+            },
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            customer: {
+              id: "9998887777",
+              descriptive_name: "Beta Dental",
+              currency_code: "EUR",
+              status: "ENABLED",
+              manager: false,
+            },
+          },
+        ]);
+
+      const result = await runListAccounts();
+
+      expect(result.status).toBe("ok");
+      if (result.status !== "ok") throw new Error("expected ok");
+      expect(listAccessibleCustomersMock).toHaveBeenCalledWith("refresh-token");
+      expect(result.accounts).toEqual([
+        { id: "1234567890", name: "Acme Roofing", extra: "USD · ENABLED" },
+        { id: "9998887777", name: "Beta Dental", extra: "EUR · ENABLED" },
+      ]);
+    });
+
+    it("returns an empty list (not an error) when the login can see no accounts", async () => {
+      listAccessibleCustomersMock.mockResolvedValue({ resource_names: [] });
+
+      const result = await runListAccounts();
+
+      expect(result.status).toBe("ok");
+      if (result.status !== "ok") throw new Error("expected ok");
+      expect(result.accounts).toEqual([]);
+      expect(queryMock).not.toHaveBeenCalled();
+    });
+
+    it("tolerates some detail lookups failing and returns the ones that succeeded", async () => {
+      listAccessibleCustomersMock.mockResolvedValue({
+        resource_names: ["customers/1234567890", "customers/2223334444"],
+      });
+      queryMock
+        .mockResolvedValueOnce([
+          {
+            customer: {
+              id: "1234567890",
+              descriptive_name: "Acme Roofing",
+              currency_code: "USD",
+              status: "ENABLED",
+              manager: false,
+            },
+          },
+        ])
+        .mockRejectedValueOnce(httpError(404, "404 Not Found"));
+
+      const result = await runListAccounts();
+
+      expect(result.status).toBe("ok");
+      if (result.status !== "ok") throw new Error("expected ok");
+      expect(result.accounts).toEqual([
+        { id: "1234567890", name: "Acme Roofing", extra: "USD · ENABLED" },
+      ]);
+    });
+
+    it("returns a friendly access-denied message when every detail lookup is forbidden", async () => {
+      listAccessibleCustomersMock.mockResolvedValue({ resource_names: ["customers/1234567890"] });
+      queryMock.mockRejectedValue(httpError(403, "403 Forbidden"));
+
+      const result = await runListAccounts();
+
+      expect(result.status).toBe("error");
+      if (result.status !== "error") throw new Error("expected error");
+      expect(result.error).toMatch(/No access to any Google Ads accounts for this login/);
+    });
+
+    it("returns a friendly access-denied message when listAccessibleCustomers itself is forbidden", async () => {
+      listAccessibleCustomersMock.mockRejectedValue(httpError(401, "401 Unauthorized"));
+
+      const result = await runListAccounts();
+
+      expect(result.status).toBe("error");
+      if (result.status !== "error") throw new Error("expected error");
+      expect(result.error).toMatch(/No access to any Google Ads accounts for this login/);
+    });
   });
 });
