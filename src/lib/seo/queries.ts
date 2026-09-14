@@ -1,10 +1,10 @@
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 import { getDb } from "../db";
-import { clientSeoMonthly, clients, metricSnapshots } from "../db/schema";
+import { clientPlatformAccounts, clientSeoMonthly, clients, metricSnapshots } from "../db/schema";
 import { searchConsoleDataSchema } from "../connectors/search-console/schema";
 import { seoDataSchema } from "../connectors/ahrefs/schema";
-import { average, buildNumericCell } from "../dashboard/metrics";
+import { average, buildNumericCell, downgradeIfUnverifiedMapping } from "../dashboard/metrics";
 import type { SnapshotRow } from "../dashboard/metrics";
 import type { CellState } from "../dashboard/types";
 import { computePortfolioAggregates, computeRowMetrics } from "./compute";
@@ -54,7 +54,7 @@ export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDa
     };
   }
 
-  const [searchConsoleRows, ahrefsRows, seoMonthlyRows] = await Promise.all([
+  const [searchConsoleRows, ahrefsRows, seoMonthlyRows, mappingRows] = await Promise.all([
     db
       .select()
       .from(metricSnapshots)
@@ -79,7 +79,20 @@ export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDa
       )
       .orderBy(desc(metricSnapshots.date)),
     db.select().from(clientSeoMonthly).where(inArray(clientSeoMonthly.clientId, clientIds)),
+    db.select().from(clientPlatformAccounts).where(inArray(clientPlatformAccounts.clientId, clientIds)),
   ]);
+
+  // A mapping the settings UI has never run Verify against has its
+  // numbers downgraded to unverified regardless of the per-day
+  // reconciliation flag — same discipline as the main dashboard (see
+  // isMappingVerified in dashboard/queries.ts). Freshly-added mappings
+  // (the 58 clients just onboarded from seo-ai-tool's roster) start out
+  // unverified until someone clicks Verify at /settings/clients/[id].
+  const mappingVerifiedSet = new Set(
+    mappingRows.filter((m) => m.verifiedAt !== null).map((m) => `${m.clientId}:${m.platform}`),
+  );
+  const isMappingVerified = (clientId: string, platform: "search_console" | "ahrefs") =>
+    mappingVerifiedSet.has(`${clientId}:${platform}`);
 
   const scByClientMonth = new Map<string, Map<string, SnapshotRow[]>>();
   for (const row of searchConsoleRows) {
@@ -108,13 +121,25 @@ export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDa
   const rowMetricsList: ReturnType<typeof computeRowMetrics>[] = [];
 
   for (const client of activeClients) {
+    const searchConsoleVerified = isMappingVerified(client.id, "search_console");
+    const ahrefsVerified = isMappingVerified(client.id, "ahrefs");
+
     const monthCells: SeoMonthCell[] = months.map((month) => {
       const monthRows = scByClientMonth.get(client.id)?.get(month) ?? [];
       return {
         month,
-        clicks: buildNumericCell(monthRows, searchConsoleDataSchema, (d) => d.totalClicks, null),
-        impressions: buildNumericCell(monthRows, searchConsoleDataSchema, (d) => d.totalImpressions, null),
-        avgPosition: buildNumericCell(monthRows, searchConsoleDataSchema, (d) => d.averagePosition, null, average),
+        clicks: downgradeIfUnverifiedMapping(
+          buildNumericCell(monthRows, searchConsoleDataSchema, (d) => d.totalClicks, null),
+          searchConsoleVerified,
+        ),
+        impressions: downgradeIfUnverifiedMapping(
+          buildNumericCell(monthRows, searchConsoleDataSchema, (d) => d.totalImpressions, null),
+          searchConsoleVerified,
+        ),
+        avgPosition: downgradeIfUnverifiedMapping(
+          buildNumericCell(monthRows, searchConsoleDataSchema, (d) => d.averagePosition, null, average),
+          searchConsoleVerified,
+        ),
       };
     });
 
@@ -127,7 +152,10 @@ export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDa
     const ahrefsOk = ahrefsParsed?.success ? ahrefsParsed.data : null;
 
     const ahrefsCell = <T>(extract: (d: NonNullable<typeof ahrefsOk>) => T): CellState<T> =>
-      ahrefsOk ? { kind: "ok", value: extract(ahrefsOk) } : { kind: "no_data" };
+      downgradeIfUnverifiedMapping(
+        ahrefsOk ? { kind: "ok", value: extract(ahrefsOk) } : { kind: "no_data" },
+        ahrefsVerified,
+      );
 
     const seoMonthly = seoMonthlyByClientMonth.get(client.id);
     const currentMonthly = seoMonthly?.get(newestMonth) ?? null;
@@ -145,7 +173,10 @@ export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDa
       organicKeywordsTop3: ahrefsCell((d) => d.organicKeywordsTop3),
       keywordsGained: ahrefsCell((d) => d.keywordsGained),
       keywordsLost: ahrefsCell((d) => d.keywordsLost),
-      referringDomains: ahrefsOk?.referringDomains != null ? { kind: "ok", value: ahrefsOk.referringDomains } : { kind: "no_data" },
+      referringDomains: downgradeIfUnverifiedMapping(
+        ahrefsOk?.referringDomains != null ? { kind: "ok", value: ahrefsOk.referringDomains } : { kind: "no_data" },
+        ahrefsVerified,
+      ),
       newReferringDomains: ahrefsOk?.newReferringDomains ?? null,
       seoOwner: currentMonthly?.seoOwner ?? null,
       status: currentMonthly?.status ?? null,
