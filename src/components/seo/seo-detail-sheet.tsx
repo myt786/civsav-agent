@@ -2,7 +2,8 @@
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DataCell } from "@/components/dashboard/data-cell";
-import { formatInteger, formatPosition } from "@/lib/dashboard/format";
+import { formatInteger, formatPercent, formatPosition } from "@/lib/dashboard/format";
+import { TierBadge, TrendIndicator } from "./tier-trend";
 import { SeoEditorialForm } from "./seo-editorial-form";
 import type { CellState } from "@/lib/dashboard/types";
 import type { SeoClientRow } from "@/lib/seo/types";
@@ -31,6 +32,17 @@ export function SeoDetailSheet({
         </SheetHeader>
 
         <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-6">
+          <section className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+            <TierBadge tier={row.tier} />
+            <TrendIndicator trend={row.trend} />
+            <Stat label="MoM%" value={row.momPct === null ? "—" : formatPercent(row.momPct * 100)} />
+            <Stat label="3-mo avg" value={row.avg3 === null ? "—" : formatInteger(row.avg3)} />
+            <Stat
+              label="New refdomains"
+              value={row.newReferringDomains === null ? "—" : `${row.newReferringDomains > 0 ? "+" : ""}${row.newReferringDomains}`}
+            />
+          </section>
+
           <section>
             <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">By month (clicks)</h3>
             <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
@@ -83,6 +95,15 @@ function Row({ label, state }: { label: string; state: CellState<number> }) {
     <div className="flex items-center justify-between px-3 py-2 text-sm">
       <span className="text-foreground">{label}</span>
       <DataCell state={state} format={formatInteger} />
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[10px] tracking-wide text-muted-foreground uppercase">{label}</span>
+      <span className="font-mono text-sm tabular-nums text-foreground">{value}</span>
     </div>
   );
 }

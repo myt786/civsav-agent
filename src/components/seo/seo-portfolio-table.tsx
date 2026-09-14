@@ -1,154 +1,223 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { ChevronRightIcon, ChevronsUpDownIcon, ChevronUpIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 import { DataCell } from "@/components/dashboard/data-cell";
 import { formatInteger, formatPercent } from "@/lib/dashboard/format";
+import { TIER_RANK, TREND_RANK } from "@/lib/seo/compute";
 import { TierBadge, TrendIndicator } from "./tier-trend";
 import { SeoDetailSheet } from "./seo-detail-sheet";
+import { cn } from "@/lib/utils";
 import type { SeoClientRow } from "@/lib/seo/types";
 
 function formatSignedPercent(pct: number): string {
   return formatPercent(pct * 100);
 }
 
+function clicksValue(row: SeoClientRow): number {
+  const cell = row.months[row.months.length - 1]?.clicks;
+  return cell?.kind === "ok" || cell?.kind === "unverified" ? cell.value : -1;
+}
+
+type SortKey = "client" | "tier" | "trend" | "clicks" | "mom";
+
+const SORT_LABEL: Record<SortKey, string> = {
+  client: "Client",
+  tier: "Tier",
+  trend: "Trend",
+  clicks: "Clicks (this month)",
+  mom: "MoM%",
+};
+
+function compareRows(a: SeoClientRow, b: SeoClientRow, key: SortKey): number {
+  switch (key) {
+    case "client":
+      return a.clientName.localeCompare(b.clientName);
+    case "tier":
+      return TIER_RANK[a.tier] - TIER_RANK[b.tier];
+    case "trend":
+      return TREND_RANK[a.trend] - TREND_RANK[b.trend];
+    case "clicks":
+      return clicksValue(b) - clicksValue(a); // biggest first by default
+    case "mom":
+      return (b.momPct ?? -Infinity) - (a.momPct ?? -Infinity);
+  }
+}
+
+function SortableHead({
+  label,
+  sortKey,
+  activeKey,
+  direction,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  sortKey: SortKey;
+  activeKey: SortKey;
+  direction: "asc" | "desc";
+  onSort: (key: SortKey) => void;
+  align?: "left" | "right";
+}) {
+  const active = activeKey === sortKey;
+  return (
+    <TableHead
+      onClick={() => onSort(sortKey)}
+      className={cn(
+        "h-9 cursor-pointer bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase select-none hover:text-foreground",
+        align === "right" && "text-right",
+      )}
+    >
+      <span className={cn("flex items-center gap-1", align === "right" && "justify-end")}>
+        {align === "right" &&
+          (active ? (
+            direction === "asc" ? (
+              <ChevronUpIcon className="size-3" aria-hidden />
+            ) : (
+              <ChevronDownIcon className="size-3" aria-hidden />
+            )
+          ) : (
+            <ChevronsUpDownIcon className="size-3 opacity-30" aria-hidden />
+          ))}
+        {label}
+        {align === "left" &&
+          (active ? (
+            direction === "asc" ? (
+              <ChevronUpIcon className="size-3" aria-hidden />
+            ) : (
+              <ChevronDownIcon className="size-3" aria-hidden />
+            )
+          ) : (
+            <ChevronsUpDownIcon className="size-3 opacity-30" aria-hidden />
+          ))}
+      </span>
+    </TableHead>
+  );
+}
+
 export function SeoPortfolioTable({ rows, months }: { rows: SeoClientRow[]; months: string[] }) {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("clicks");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
   const selectedRow = rows.find((r) => r.clientId === selectedClientId) ?? null;
   const currentMonth = months[months.length - 1];
 
+  const visibleRows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const filtered = query ? rows.filter((r) => r.clientName.toLowerCase().includes(query)) : rows;
+    const sorted = [...filtered].sort((a, b) => compareRows(a, b, sortKey));
+    return sortDir === "asc" ? sorted.reverse() : sorted;
+  }, [rows, search, sortKey, sortDir]);
+
+  function handleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
+
   return (
     <TooltipProvider>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="h-9 bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Client
-              </TableHead>
-              <TableHead className="h-9 bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Tier
-              </TableHead>
-              <TableHead className="h-9 bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Trend
-              </TableHead>
-              {months.map((m) => (
-                <TableHead
-                  key={m}
-                  className="h-9 bg-muted/40 text-right text-xs font-medium tracking-wide text-muted-foreground uppercase"
-                >
-                  {m}
+      <div className="flex flex-col gap-3">
+        <div className="relative w-full max-w-xs">
+          <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search clients…"
+            className="pl-8"
+            aria-label="Search clients"
+          />
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <SortableHead label="Client" sortKey="client" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHead label="Tier" sortKey="tier" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHead label="Trend" sortKey="trend" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHead
+                  label="Clicks (this month)"
+                  sortKey="clicks"
+                  activeKey={sortKey}
+                  direction={sortDir}
+                  onSort={handleSort}
+                  align="right"
+                />
+                <SortableHead label="MoM%" sortKey="mom" activeKey={sortKey} direction={sortDir} onSort={handleSort} align="right" />
+                <TableHead className="h-9 bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  SEO Owner
                 </TableHead>
-              ))}
-              <TableHead className="h-9 bg-muted/40 text-right text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                3-mo Avg
-              </TableHead>
-              <TableHead className="h-9 bg-muted/40 text-right text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                MoM%
-              </TableHead>
-              <TableHead className="h-9 bg-muted/40 text-right text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Org KW
-              </TableHead>
-              <TableHead className="h-9 bg-muted/40 text-right text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                KW +/-
-              </TableHead>
-              <TableHead className="h-9 bg-muted/40 text-right text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                New RefDom
-              </TableHead>
-              <TableHead className="h-9 bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                SEO Owner
-              </TableHead>
-              <TableHead className="h-9 bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Status
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row, i) => (
-              <TableRow
-                key={row.clientId}
-                role="button"
-                tabIndex={0}
-                aria-expanded={selectedClientId === row.clientId}
-                onClick={() => setSelectedClientId(row.clientId)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") setSelectedClientId(row.clientId);
-                }}
-                className="h-12 cursor-pointer animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both"
-                style={{ animationDelay: `${Math.min(i, 10) * 40}ms`, animationDuration: "300ms" }}
-              >
-                <TableCell className="py-0 font-medium text-foreground">{row.clientName}</TableCell>
-                <TableCell className="py-0">
-                  <TierBadge tier={row.tier} />
-                </TableCell>
-                <TableCell className="py-0">
-                  <TrendIndicator trend={row.trend} />
-                </TableCell>
-                {row.months.map((m) => (
-                  <TableCell key={m.month} className="py-0">
-                    <DataCell state={m.clicks} format={formatInteger} />
-                  </TableCell>
-                ))}
-                <TableCell className="py-0">
-                  {row.avg3 === null ? (
-                    <span className="flex justify-end text-muted-foreground/50">—</span>
-                  ) : (
-                    <span className="flex justify-end font-mono tabular-nums text-foreground">
-                      {formatInteger(row.avg3)}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="py-0">
-                  {row.momPct === null ? (
-                    <span className="flex justify-end text-muted-foreground/50">—</span>
-                  ) : (
-                    <span className="flex justify-end font-mono tabular-nums text-foreground">
-                      {formatSignedPercent(row.momPct)}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="py-0">
-                  <DataCell state={row.organicKeywords} format={formatInteger} />
-                </TableCell>
-                <TableCell className="py-0">
-                  {row.keywordsGained.kind === "no_data" ? (
-                    <span className="flex justify-end text-muted-foreground/50">—</span>
-                  ) : row.keywordsGained.kind === "ok" || row.keywordsGained.kind === "unverified" ? (
-                    <span className="flex justify-end gap-1 font-mono tabular-nums">
-                      <span className="text-emerald-600 dark:text-emerald-500">+{row.keywordsGained.value}</span>
-                      <span className="text-destructive">
-                        -{row.keywordsLost.kind === "ok" || row.keywordsLost.kind === "unverified" ? row.keywordsLost.value : 0}
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="flex justify-end text-destructive">!</span>
-                  )}
-                </TableCell>
-                <TableCell className="py-0">
-                  {row.newReferringDomains === null ? (
-                    <span className="flex justify-end text-muted-foreground/50">—</span>
-                  ) : (
-                    <span
-                      className={
-                        row.newReferringDomains > 0
-                          ? "flex justify-end font-mono tabular-nums text-emerald-600 dark:text-emerald-500"
-                          : row.newReferringDomains < 0
-                            ? "flex justify-end font-mono tabular-nums text-destructive"
-                            : "flex justify-end font-mono tabular-nums text-muted-foreground"
-                      }
-                    >
-                      {row.newReferringDomains > 0 ? "+" : ""}
-                      {row.newReferringDomains}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="py-0 text-muted-foreground">{row.seoOwner ?? "—"}</TableCell>
-                <TableCell className="py-0 text-muted-foreground">{row.status ?? "—"}</TableCell>
+                <TableHead className="h-9 bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Status
+                </TableHead>
+                <TableHead className="h-9 w-8 bg-muted/40" />
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {visibleRows.length === 0 && (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
+                    No clients match &ldquo;{search}&rdquo;.
+                  </TableCell>
+                </TableRow>
+              )}
+              {visibleRows.map((row, i) => (
+                <TableRow
+                  key={row.clientId}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={selectedClientId === row.clientId}
+                  onClick={() => setSelectedClientId(row.clientId)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") setSelectedClientId(row.clientId);
+                  }}
+                  className="h-12 cursor-pointer animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both"
+                  style={{ animationDelay: `${Math.min(i, 10) * 30}ms`, animationDuration: "250ms" }}
+                >
+                  <TableCell className="py-0 font-medium text-foreground">{row.clientName}</TableCell>
+                  <TableCell className="py-0">
+                    <TierBadge tier={row.tier} />
+                  </TableCell>
+                  <TableCell className="py-0">
+                    <TrendIndicator trend={row.trend} />
+                  </TableCell>
+                  <TableCell className="py-0">
+                    <DataCell state={row.months[row.months.length - 1].clicks} format={formatInteger} />
+                  </TableCell>
+                  <TableCell className="py-0">
+                    {row.momPct === null ? (
+                      <span className="flex justify-end text-muted-foreground/50">—</span>
+                    ) : (
+                      <span className="flex justify-end font-mono tabular-nums text-foreground">
+                        {formatSignedPercent(row.momPct)}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-0 text-muted-foreground">{row.seoOwner ?? "—"}</TableCell>
+                  <TableCell className="py-0 text-muted-foreground">{row.status ?? "—"}</TableCell>
+                  <TableCell className="py-0 text-muted-foreground/50">
+                    <ChevronRightIcon className="size-4" aria-hidden />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          {visibleRows.length} of {rows.length} client{rows.length === 1 ? "" : "s"} shown, sorted by {SORT_LABEL[sortKey]}
+          {sortDir === "asc" ? " (ascending)" : " (descending)"}. Click a row for the full 3-month breakdown, keyword/
+          referring-domain movement, and to edit Owner/Status/Notes.
+        </p>
       </div>
 
       <SeoDetailSheet

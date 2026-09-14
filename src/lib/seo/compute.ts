@@ -3,6 +3,20 @@ import { MIN_VOLUME_FOR_TREND, TIER_THRESHOLDS, TREND_BANDS } from "./constants"
 export type Tier = "strong" | "moderate" | "small" | "minimal" | "no_data";
 export type Trend = "low_vol" | "growing_fast" | "growing" | "stable" | "declining" | "falling_fast" | "unknown";
 
+// Best -> worst, for sorting the /seo table by column instead of only by
+// raw click counts (a "No Data" row and a "Falling fast" row are both
+// worth surfacing near the top when sorting by Tier/Trend).
+export const TIER_RANK: Record<Tier, number> = { strong: 0, moderate: 1, small: 2, minimal: 3, no_data: 4 };
+export const TREND_RANK: Record<Trend, number> = {
+  growing_fast: 0,
+  growing: 1,
+  stable: 2,
+  declining: 3,
+  falling_fast: 4,
+  low_vol: 5,
+  unknown: 6,
+};
+
 // Direct port of _tier() in build_dashboard.py.
 export function tierFor(newestClicks: number | null): Tier {
   if (!newestClicks) return "no_data";
