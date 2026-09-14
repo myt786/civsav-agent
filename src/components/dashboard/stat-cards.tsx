@@ -42,7 +42,7 @@ function StatCard({ stat, delayMs }: { stat: Stat; delayMs: number }) {
   const body = (
     <div
       className={cn(
-        "group flex animate-in flex-col gap-3 rounded-lg border border-border bg-card p-4 fade-in-0 slide-in-from-bottom-1 transition-all duration-200 fill-mode-both",
+        "group flex animate-in flex-col gap-3 rounded-lg border border-border bg-card shadow-sm p-4 fade-in-0 slide-in-from-bottom-1 transition-all duration-200 fill-mode-both",
         stat.href && "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
       )}
       style={{ animationDelay: `${delayMs}ms`, animationDuration: "400ms" }}

@@ -197,7 +197,7 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
           <RefreshDiscoveryButton onRefresh={() => loadDiscovery(true)} />
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="overflow-hidden rounded-lg border border-border shadow-sm">
           {PLATFORM_ORDER.map((platform) => (
             <div key={platform} className="flex flex-col gap-2 border-b border-border px-4 py-3.5 last:border-b-0">
               <div className="flex items-center gap-1.5">

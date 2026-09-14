@@ -49,7 +49,7 @@ export function MappingsSection({
           <h3 className="text-sm font-medium text-foreground">Platform mappings</h3>
           <RefreshDiscoveryButton onRefresh={refresh} />
         </div>
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="overflow-hidden rounded-lg border border-border shadow-sm">
           {PLATFORM_ORDER.map((platform) => {
             const mapping = mappingByPlatform.get(platform) ?? null;
             const state = discovery[platform];

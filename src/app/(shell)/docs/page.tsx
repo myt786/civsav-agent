@@ -33,7 +33,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 
 function Swatch({ children, caption }: { children: React.ReactNode; caption: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-card shadow-sm px-3 py-2">
       <div className="flex min-w-32 items-center">{children}</div>
       <span className="text-sm text-muted-foreground">{caption}</span>
     </div>

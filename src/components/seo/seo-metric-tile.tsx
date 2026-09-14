@@ -18,7 +18,7 @@ export function SeoMetricTile({
   footer?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card p-3">
+    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card shadow-sm p-3">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <span className="font-mono text-xl font-semibold tabular-nums text-foreground">{value}</span>
       <span className="text-xs text-muted-foreground">{subtitle}</span>

@@ -35,7 +35,7 @@ export function AiSummary() {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-sm px-4 py-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <span className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">

@@ -48,7 +48,7 @@ export function ClientsTable({
 
   return (
     <TooltipProvider>
-      <div className="overflow-hidden rounded-lg border border-border">
+      <div className="overflow-hidden rounded-lg border border-border shadow-sm">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

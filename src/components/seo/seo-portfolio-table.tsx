@@ -137,7 +137,7 @@ export function SeoPortfolioTable({ rows, months }: { rows: SeoClientRow[]; mont
           />
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-lg border border-border shadow-sm">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">

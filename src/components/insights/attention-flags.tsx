@@ -19,7 +19,7 @@ const KIND_LABEL: Record<AttentionFlag["kind"], string> = {
 export function AttentionFlags({ flags }: { flags: AttentionFlag[] }) {
   if (flags.length === 0) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-card shadow-sm px-4 py-3 text-sm text-muted-foreground">
         <CheckCircle2Icon className="size-4 shrink-0 text-success" aria-hidden />
         Nothing needs attention this week.
       </div>
@@ -29,7 +29,7 @@ export function AttentionFlags({ flags }: { flags: AttentionFlag[] }) {
   const sorted = [...flags].sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "critical" ? -1 : 1));
 
   return (
-    <div className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+    <div className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-card shadow-sm">
       {sorted.map((flag, i) => (
         <div
           key={`${flag.clientId}-${flag.kind}-${i}`}

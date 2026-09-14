@@ -37,7 +37,7 @@ function Brand({ size = 24 }: { size?: number }) {
   return (
     <>
       <Image src="/civsav-icon.png" alt="" width={size} height={size} className="rounded-md" priority />
-      <span className="text-sm font-semibold text-sidebar-foreground">civsav</span>
+      <span className="font-heading text-sm font-semibold text-sidebar-foreground">civsav</span>
     </>
   );
 }

@@ -73,7 +73,7 @@ export function ForecastChart({ clientName, metric }: { clientName: string; metr
   const TrendIcon = trend.icon;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-3 py-3 transition-colors hover:border-primary/30">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card shadow-sm px-3 py-3 transition-colors hover:border-primary/30">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-medium text-foreground">{clientName}</span>
         <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">

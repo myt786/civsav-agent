@@ -53,7 +53,7 @@ export function FleetTrendChart({
   const hasSignal = data.some((d) => d.value !== null);
 
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card p-4">
+    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card shadow-sm p-4">
       <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</span>
       {hasSignal ? (
         <ResponsiveContainer width="100%" height={140}>

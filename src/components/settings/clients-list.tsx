@@ -46,7 +46,7 @@ export function ClientsList({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-border">
+      <div className="overflow-hidden rounded-lg border border-border shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
