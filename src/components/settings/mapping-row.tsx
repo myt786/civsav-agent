@@ -35,7 +35,7 @@ function StatusBadge({ mapping }: { mapping: MappingRowData | null }) {
   }
   if (mapping.verifiedStatus === "ok") {
     return (
-      <Badge variant="outline" className="gap-1 border-emerald-600/30 text-emerald-700 dark:text-emerald-500">
+      <Badge variant="outline" className="gap-1 border-success/30 text-success">
         <CheckCircle2Icon className="size-3" />
         verified
       </Badge>
@@ -43,7 +43,7 @@ function StatusBadge({ mapping }: { mapping: MappingRowData | null }) {
   }
   if (mapping.verifiedStatus === "no_data") {
     return (
-      <Badge variant="outline" className="gap-1 border-amber-600/30 text-amber-700 dark:text-amber-500">
+      <Badge variant="outline" className="gap-1 border-warning/30 text-warning">
         <MinusCircleIcon className="size-3" />
         no data
       </Badge>
@@ -67,11 +67,11 @@ function VerifyOutcome({ result }: { result: VerifyResult }) {
     return <p className="text-xs text-destructive">{result.message}</p>;
   }
   if (result.status === "no_data") {
-    return <p className="text-xs text-amber-700 dark:text-amber-500">Connected, but returned nothing for this period.</p>;
+    return <p className="text-xs text-warning">Connected, but returned nothing for this period.</p>;
   }
   const entries = Object.entries(result.figures);
   if (entries.length === 0) {
-    return <p className="text-xs text-emerald-700 dark:text-emerald-500">Connected — no scalar figures to show.</p>;
+    return <p className="text-xs text-success">Connected — no scalar figures to show.</p>;
   }
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">

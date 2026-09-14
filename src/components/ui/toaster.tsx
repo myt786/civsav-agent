@@ -78,7 +78,7 @@ export function Toaster() {
             <Icon
               className={cn(
                 "mt-0.5 size-4 shrink-0",
-                item.variant === "success" && "text-emerald-600 dark:text-emerald-500",
+                item.variant === "success" && "text-success",
                 item.variant === "error" && "text-destructive",
                 item.variant === "default" && "text-muted-foreground",
               )}

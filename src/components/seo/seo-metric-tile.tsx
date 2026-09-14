@@ -35,7 +35,7 @@ export function DeltaLine({ delta, higherIsBetter = true }: { delta: DeltaCell; 
   if (delta.pct === null) return null;
   const isGood = delta.direction === "flat" ? null : delta.direction === "up" ? higherIsBetter : !higherIsBetter;
   const colorClass =
-    isGood === null ? "text-muted-foreground" : isGood ? "text-emerald-600 dark:text-emerald-500" : "text-destructive";
+    isGood === null ? "text-muted-foreground" : isGood ? "text-success" : "text-destructive";
   const Icon = delta.direction === "up" ? ArrowUpIcon : delta.direction === "down" ? ArrowDownIcon : MinusIcon;
 
   return (
@@ -52,7 +52,7 @@ export function DeltaLine({ delta, higherIsBetter = true }: { delta: DeltaCell; 
 export function CountLine({ value, label, positiveIsGood = true }: { value: number; label: string; positiveIsGood?: boolean }) {
   const isGood = value === 0 ? null : value > 0 ? positiveIsGood : !positiveIsGood;
   const colorClass =
-    isGood === null ? "text-muted-foreground" : isGood ? "text-emerald-600 dark:text-emerald-500" : "text-destructive";
+    isGood === null ? "text-muted-foreground" : isGood ? "text-success" : "text-destructive";
   const Icon = value > 0 ? ArrowUpIcon : value < 0 ? ArrowDownIcon : MinusIcon;
 
   return (

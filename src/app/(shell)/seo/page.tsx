@@ -25,9 +25,9 @@ export default async function SeoDashboardPage() {
     <div className="mx-auto flex w-full max-w-[1600px] animate-in flex-col gap-6 px-6 py-8 fade-in-0 duration-300">
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">SEO portfolio</h1>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">SEO portfolio</h1>
           {aggregates.newReferringDomainsSum > 0 && (
-            <Badge variant="outline" className="gap-1 border-emerald-600/30 text-emerald-700 dark:text-emerald-500">
+            <Badge variant="outline" className="gap-1 border-success/30 text-success">
               <LinkIcon className="size-3" aria-hidden />+{aggregates.newReferringDomainsSum} new referring domains
             </Badge>
           )}
@@ -38,7 +38,7 @@ export default async function SeoDashboardPage() {
       </header>
 
       {neverSyncedCount > 0 && (
-        <div className="rounded-lg border border-amber-600/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-400">
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           <span className="font-medium">{neverSyncedCount} client{neverSyncedCount === 1 ? "" : "s"} haven&rsquo;t synced yet.</span>{" "}
           That&rsquo;s expected for a newly-connected client — Search Console needs the app&rsquo;s service account granted
           access on the property, and Ahrefs only runs once a month. They&rsquo;ll fill in automatically once access is

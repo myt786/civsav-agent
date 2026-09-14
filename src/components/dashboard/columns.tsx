@@ -75,7 +75,7 @@ export function createClientColumns(
                   tabIndex={0}
                   className={cn(
                     "size-3.5 shrink-0",
-                    worstSeverity(clientFlags) === "critical" ? "text-destructive" : "text-amber-600 dark:text-amber-500",
+                    worstSeverity(clientFlags) === "critical" ? "text-destructive" : "text-warning",
                   )}
                   aria-hidden
                 />

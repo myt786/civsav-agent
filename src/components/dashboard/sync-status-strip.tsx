@@ -23,7 +23,7 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                     data.lastRunStatus === "failed"
                       ? "text-destructive"
                       : data.lastRunStatus === "completed_with_errors"
-                        ? "text-amber-600 dark:text-amber-500"
+                        ? "text-warning"
                         : "text-muted-foreground",
                   )}
                 >
@@ -50,7 +50,7 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                       connector.errorCountLastRun > 0
                         ? "bg-destructive"
                         : connector.lastSuccessfulSync
-                          ? "bg-emerald-500"
+                          ? "bg-success"
                           : "bg-muted-foreground/30",
                     )}
                     aria-hidden

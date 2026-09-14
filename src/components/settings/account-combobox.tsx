@@ -199,7 +199,7 @@ export function AccountCombobox({
 
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         {discovery.status === "error" ? (
-          <p className="text-xs text-amber-700 dark:text-amber-500">{discovery.error}</p>
+          <p className="text-xs text-warning">{discovery.error}</p>
         ) : (
           <span />
         )}

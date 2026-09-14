@@ -35,7 +35,7 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto flex w-full max-w-[1400px] animate-in flex-col gap-6 px-6 py-8 fade-in-0 duration-300">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Client performance</h1>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Client performance</h1>
         <p className="text-sm text-muted-foreground">
           Read-only daily snapshot across every connected platform.{" "}
           <Link href="/docs#numbers" className="text-primary hover:underline">

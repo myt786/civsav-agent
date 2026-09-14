@@ -65,7 +65,7 @@ export function ClientsList({
                     className="flex items-center gap-2 font-medium text-foreground hover:underline"
                   >
                     <span
-                      className={cn("size-1.5 shrink-0 rounded-full", client.active ? "bg-emerald-500" : "bg-muted-foreground/40")}
+                      className={cn("size-1.5 shrink-0 rounded-full", client.active ? "bg-success" : "bg-muted-foreground/40")}
                       aria-hidden
                     />
                     {client.name}
@@ -74,7 +74,7 @@ export function ClientsList({
                 <TableCell className="text-muted-foreground">{client.timezone}</TableCell>
                 <TableCell>
                   {client.active ? (
-                    <Badge variant="outline" className="border-emerald-600/30 text-emerald-700 dark:text-emerald-500">
+                    <Badge variant="outline" className="border-success/30 text-success">
                       active
                     </Badge>
                   ) : (

@@ -40,7 +40,7 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-1">
-        <h2 className="text-base font-medium text-foreground">{client.name}</h2>
+        <h2 className="font-heading text-base font-medium text-foreground">{client.name}</h2>
         <p className="text-sm text-muted-foreground">Client details and platform account mappings.</p>
       </div>
 

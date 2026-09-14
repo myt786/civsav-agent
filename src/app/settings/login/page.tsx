@@ -30,7 +30,7 @@ export default async function LoginPage({
             <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <LockIcon className="size-4" aria-hidden />
             </div>
-            <h1 className="mt-1 text-lg font-medium text-foreground">Settings sign-in</h1>
+            <h1 className="mt-1 font-heading text-lg font-medium text-foreground">Settings sign-in</h1>
             <p className="text-sm text-muted-foreground">Client and platform mapping configuration.</p>
           </div>
           <LoginForm next={next && next.startsWith("/settings") ? next : "/settings/clients"} />

@@ -50,15 +50,12 @@ export function DataCell<T>({
   if (state.kind === "unverified") {
     return (
       <span
-        className={cn(
-          "flex items-center gap-1.5 font-mono tabular-nums text-amber-700 dark:text-amber-500",
-          alignClass,
-        )}
+        className={cn("flex items-center gap-1.5 font-mono tabular-nums text-warning", alignClass)}
       >
         {text}
         <Badge
           variant="outline"
-          className="h-4 shrink-0 border-amber-600/30 px-1 text-[10px] font-sans leading-none text-amber-700 dark:text-amber-500"
+          className="h-4 shrink-0 border-warning/30 px-1 text-[10px] font-sans leading-none text-warning"
         >
           unverified
         </Badge>
@@ -78,7 +75,7 @@ export function DeltaCellView({ delta }: { delta: DeltaCell }) {
 
   const colorClass =
     delta.direction === "up"
-      ? "text-emerald-600 dark:text-emerald-500"
+      ? "text-success"
       : delta.direction === "down"
         ? "text-destructive"
         : "text-muted-foreground";

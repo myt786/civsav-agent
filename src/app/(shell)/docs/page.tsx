@@ -46,7 +46,7 @@ export default function DocsPage() {
       <div className="flex min-w-0 flex-col gap-10">
       <header className="flex flex-col gap-2 border-b border-border pb-6">
         <p className="text-xs font-medium tracking-wide text-primary uppercase">Reference</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Understanding the dashboard</h1>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Understanding the dashboard</h1>
         <p className="text-sm text-muted-foreground">
           What every badge, icon, and status on the client dashboard, Insights, and settings pages means — and what
           to do about it.
@@ -71,11 +71,11 @@ export default function DocsPage() {
             <span className="font-mono tabular-nums text-foreground">1,204</span>
           </Swatch>
           <Swatch caption="A real number pulled from a live sync, but nobody has clicked Verify on this mapping yet — treat with a little less certainty.">
-            <span className="flex items-center gap-1.5 font-mono tabular-nums text-amber-700 dark:text-amber-500">
+            <span className="flex items-center gap-1.5 font-mono tabular-nums text-warning">
               1,204
               <Badge
                 variant="outline"
-                className="h-4 shrink-0 border-amber-600/30 px-1 text-[10px] font-sans leading-none text-amber-700 dark:text-amber-500"
+                className="h-4 shrink-0 border-warning/30 px-1 text-[10px] font-sans leading-none text-warning"
               >
                 unverified
               </Badge>
@@ -174,13 +174,13 @@ export default function DocsPage() {
             </Badge>
           </Swatch>
           <Swatch caption="Verify ran and returned real figures — this mapping is confirmed correct.">
-            <Badge variant="outline" className="gap-1 border-emerald-600/30 text-emerald-700 dark:text-emerald-500">
+            <Badge variant="outline" className="gap-1 border-success/30 text-success">
               <CheckCircle2Icon className="size-3" />
               verified
             </Badge>
           </Swatch>
           <Swatch caption="Verify ran successfully but the platform returned nothing for the test period — often normal for a quiet client, worth a second look if unexpected.">
-            <Badge variant="outline" className="gap-1 border-amber-600/30 text-amber-700 dark:text-amber-500">
+            <Badge variant="outline" className="gap-1 border-warning/30 text-warning">
               <MinusCircleIcon className="size-3" />
               no data
             </Badge>
@@ -269,7 +269,7 @@ export default function DocsPage() {
         </p>
         <Swatch caption="Hover it on the dashboard for the same message shown in full on Insights.">
           <span className="flex items-center gap-1.5 font-medium text-foreground">
-            <AlertTriangleIcon className="size-3.5 text-amber-600 dark:text-amber-500" aria-hidden />
+            <AlertTriangleIcon className="size-3.5 text-warning" aria-hidden />
             Acme Roofing
           </span>
         </Swatch>

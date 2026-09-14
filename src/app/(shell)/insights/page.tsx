@@ -36,7 +36,7 @@ export default async function InsightsPage() {
   return (
     <div className="mx-auto flex w-full max-w-[1400px] animate-in flex-col gap-8 px-6 py-8 fade-in-0 duration-300">
       <header className="flex flex-col gap-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="flex items-center gap-2 font-heading text-2xl font-semibold tracking-tight text-foreground">
           <SparklesIcon className="size-5 text-primary" aria-hidden />
           Insights
         </h1>
@@ -51,7 +51,7 @@ export default async function InsightsPage() {
           <h2 className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Needs attention
             {flags.length > 0 && (
-              <Badge variant="outline" className="h-4 border-amber-600/30 px-1.5 text-[10px] text-amber-700 dark:text-amber-500">
+              <Badge variant="outline" className="h-4 border-warning/30 px-1.5 text-[10px] text-warning">
                 {flags.length}
               </Badge>
             )}

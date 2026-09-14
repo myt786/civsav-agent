@@ -32,7 +32,7 @@ export interface Stat {
 
 const TONE_CHIP: Record<NonNullable<Stat["tone"]>, string> = {
   default: "bg-primary/10 text-primary",
-  warning: "bg-amber-500/15 text-amber-600 dark:text-amber-500",
+  warning: "bg-warning/15 text-warning",
 };
 
 function StatCard({ stat, delayMs }: { stat: Stat; delayMs: number }) {
