@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./env";
 import { eq } from "drizzle-orm";
 import { getDb } from "../src/lib/db";
 import { clients, clientPlatformAccounts } from "../src/lib/db/schema";

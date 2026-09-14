@@ -22,13 +22,52 @@ export const ahrefsMetricsSchema = z.object({
   paid_pages: z.number(),
 });
 
+// Raw shape of GET /site-explorer/organic-keywords with date/date_compared
+// set (a keyword-movement comparison, select=status). "status" carries
+// other values too (Ahrefs' own "both"/unchanged case) — only "left"
+// (gained) and "right" (lost) are counted, so this is typed loosely
+// (z.string()) rather than as a closed enum; an unrecognized status is
+// legitimately ignored, not an error.
+export const ahrefsKeywordMovementRowSchema = z.object({
+  status: z.string(),
+});
+
+export const ahrefsKeywordMovementResponseSchema = z.object({
+  keywords: z.array(ahrefsKeywordMovementRowSchema).optional(),
+});
+
+// Raw shape of GET /site-explorer/refdomains-history with
+// history_grouping=monthly — one row per calendar month in the requested
+// window.
+export const ahrefsRefdomainsRowSchema = z.object({
+  date: z.string(),
+  refdomains: z.number(),
+});
+
+export const ahrefsRefdomainsHistoryResponseSchema = z.object({
+  refdomains: z.array(ahrefsRefdomainsRowSchema).optional(),
+});
+
 // metrics is null when Ahrefs has no crawl data for the domain yet — a
-// real absence, not a zero.
+// real absence, not a zero. keywordMovement/refdomainsHistory ride along
+// in the same envelope (three calls combined by client.ts, same pattern
+// ga4 uses for its two report calls) but don't gate emptiness themselves —
+// a domain with crawl data but no keyword movement or referring-domain
+// history yet is still "ok", just with those two fields at their own
+// null/zero defaults downstream.
 export const ahrefsResponseSchema = z.object({
   metrics: ahrefsMetricsSchema.nullable(),
+  keywordMovement: ahrefsKeywordMovementResponseSchema,
+  refdomainsHistory: ahrefsRefdomainsHistoryResponseSchema,
 });
 
 export type AhrefsResponse = z.infer<typeof ahrefsResponseSchema>;
+
+// Ahrefs' own gained/lost vocabulary for a date vs. date_compared keyword
+// comparison — "left" ranks newly (gained), "right" dropped out (lost).
+// Named here so the counting logic in index.ts isn't a bare string literal.
+export const KEYWORD_GAINED_STATUS = "left";
+export const KEYWORD_LOST_STATUS = "right";
 
 // USD cents -> dollars. The one place this division happens — same
 // discipline as google-ads' microsToCurrency: get this wrong and every
@@ -46,6 +85,17 @@ export const seoDataSchema = z.object({
   paidTrafficEstimate: z.number().nonnegative(),
   paidCostValue: z.number().nonnegative(),
   paidPages: z.number().nonnegative(),
+  // Count of keywords newly ranking / dropped out of ranking over the
+  // trailing month (date vs. date one month prior). Always a real count —
+  // zero means "none moved," never "we don't know."
+  keywordsGained: z.number().int().nonnegative(),
+  keywordsLost: z.number().int().nonnegative(),
+  // Latest month's referring-domains count, and its delta vs. the prior
+  // month. Both null (not zero) when Ahrefs' refdomains-history has fewer
+  // data points than needed — a real "don't know yet," distinct from a
+  // real zero-domain or zero-change result.
+  referringDomains: z.number().int().nonnegative().nullable(),
+  newReferringDomains: z.number().nullable(),
   rangeStart: z.string(),
   rangeEnd: z.string(),
 });

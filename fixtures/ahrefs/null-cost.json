@@ -8,5 +8,9 @@
     "paid_traffic": 0,
     "paid_cost": null,
     "paid_pages": 0
+  },
+  "keywordMovement": {},
+  "refdomainsHistory": {
+    "refdomains": [{ "date": "2026-08-01", "refdomains": 12 }]
   }
 }

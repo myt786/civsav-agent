@@ -4,7 +4,15 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { BookOpenIcon, LayoutDashboardIcon, MenuIcon, SearchIcon, SettingsIcon, SparklesIcon } from "lucide-react";
+import {
+  BookOpenIcon,
+  LayoutDashboardIcon,
+  MenuIcon,
+  SearchIcon,
+  SettingsIcon,
+  SparklesIcon,
+  TrendingUpIcon,
+} from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -14,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 export const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
+  { href: "/seo", label: "SEO", icon: TrendingUpIcon },
   { href: "/insights", label: "Insights", icon: SparklesIcon },
   { href: "/settings/clients", label: "Settings", icon: SettingsIcon },
   { href: "/docs", label: "Docs", icon: BookOpenIcon },

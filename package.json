@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate-legacy-clients": "tsx scripts/migrate-legacy-clients.ts",
+    "db:import-seo-clients": "tsx scripts/import-seo-clients.ts",
     "db:seed:demo": "tsx scripts/seed-demo.ts",
     "sync": "tsx scripts/run-sync.ts",
     "backfill": "tsx scripts/backfill-sync.ts"

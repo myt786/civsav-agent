@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { formatCurrency, formatInteger } from "@/lib/dashboard/format";
+import { formatCurrency, formatInteger, formatPercent } from "@/lib/dashboard/format";
 import { useCountUp } from "@/lib/use-count-up";
 import { cn } from "@/lib/utils";
 
@@ -11,11 +11,14 @@ import { cn } from "@/lib/utils";
 // server/client boundary, only serializable data and already-rendered
 // elements (icon is a ReactNode for the same reason: rendered server-side,
 // not a component reference).
-export type StatFormatKind = "integer" | "currency";
+export type StatFormatKind = "integer" | "currency" | "percent";
 
 const FORMATTERS: Record<StatFormatKind, (n: number) => string> = {
   integer: formatInteger,
   currency: formatCurrency,
+  // Stat.value carries the already-*100 percentage (e.g. 83.8, not
+  // 0.838) — same convention DeltaCell.pct uses.
+  percent: formatPercent,
 };
 
 export interface Stat {

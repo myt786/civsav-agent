@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./env";
 import { subDays } from "date-fns";
 import { runSync } from "../src/lib/sync/run";
 

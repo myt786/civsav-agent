@@ -64,6 +64,13 @@ describe("ahrefsConnector", () => {
     expect(result.data.paidTrafficEstimate).toBe(8);
     expect(result.data.paidCostValue).toBe(2.99);
     expect(result.data.paidPages).toBe(6);
+    // 3 "left" (gained), 1 "right" (lost), 1 "both" ignored.
+    expect(result.data.keywordsGained).toBe(3);
+    expect(result.data.keywordsLost).toBe(1);
+    // Two monthly refdomains points (40 -> 45): latest count and the delta
+    // against the point before it.
+    expect(result.data.referringDomains).toBe(45);
+    expect(result.data.newReferringDomains).toBe(5);
     // range.end is used (a single-day snapshot) — 2026-08-21T23:59:59Z is
     // still 2026-08-21 in America/New_York.
     expect(result.data.rangeStart).toBe("2026-08-21");
@@ -80,6 +87,28 @@ describe("ahrefsConnector", () => {
     if (result.status !== "ok") throw new Error("expected ok");
     expect(result.data.organicCostValue).toBe(102.39);
     expect(result.data.paidCostValue).toBe(0);
+  });
+
+  it("returns keywordsGained/Lost at zero (not an error) when no keyword movement rows are present", async () => {
+    process.env.AHREFS_FIXTURE = "null-cost.json";
+
+    const result = await ahrefsConnector.fetch(account, range);
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.data.keywordsGained).toBe(0);
+    expect(result.data.keywordsLost).toBe(0);
+  });
+
+  it("returns newReferringDomains as null (not zero) when only one month of refdomains history exists", async () => {
+    process.env.AHREFS_FIXTURE = "null-cost.json";
+
+    const result = await ahrefsConnector.fetch(account, range);
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.data.referringDomains).toBe(12);
+    expect(result.data.newReferringDomains).toBeNull();
   });
 
   it("returns no_data (not a zero) when Ahrefs has no crawl data for the domain", async () => {

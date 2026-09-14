@@ -10,7 +10,19 @@ import {
   metricSnapshots,
 } from "../db/schema";
 import { connectorRegistry } from "../connectors/registry";
-import type { DateRange, PlatformAccount } from "../connectors/types";
+import type { DateRange, Platform, PlatformAccount } from "../connectors/types";
+
+export interface RunSyncOptions {
+  // Restricts the run to ONLY these platforms — used by
+  // /api/cron/sync-monthly to give a metered connector (ahrefs) its own
+  // cadence.
+  platforms?: Platform[];
+  // Restricts the run to every platform EXCEPT these — used by the daily
+  // /api/cron/sync so it doesn't also re-sync a platform that has its own
+  // separate cadence. platforms and excludePlatforms are mutually
+  // exclusive; if both are somehow set, platforms wins.
+  excludePlatforms?: Platform[];
+}
 
 export interface SyncError {
   clientId: string;
@@ -40,7 +52,9 @@ function getClientSyncWindow(clientTimezone: string, now: Date): { dateKey: stri
   };
 }
 
-export async function runSync(now: Date = new Date()): Promise<SyncRunSummary> {
+export async function runSync(now: Date = new Date(), options: RunSyncOptions = {}): Promise<SyncRunSummary> {
+  const platformFilter = options.platforms ? new Set(options.platforms) : null;
+  const excludeFilter = !platformFilter && options.excludePlatforms ? new Set(options.excludePlatforms) : null;
   const db = await getDb();
 
   const [syncRun] = await db
@@ -65,6 +79,9 @@ export async function runSync(now: Date = new Date()): Promise<SyncRunSummary> {
       );
 
     for (const account of accounts) {
+      if (platformFilter && !platformFilter.has(account.platform)) continue;
+      if (excludeFilter && excludeFilter.has(account.platform)) continue;
+
       const connector = connectorRegistry[account.platform];
       if (!connector) continue; // platform not built yet — nothing to run
 

@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./env";
 import { format, subDays, addHours } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { getDb } from "../src/lib/db";

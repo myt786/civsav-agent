@@ -16,6 +16,9 @@ export async function GET(request: Request) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const summary = await runSync();
+  // ahrefs is metered and hard-stops when its unit budget runs out — it
+  // has its own monthly cadence (see /api/cron/sync-monthly), so it's
+  // excluded here rather than re-synced daily alongside everything else.
+  const summary = await runSync(new Date(), { excludePlatforms: ["ahrefs"] });
   return NextResponse.json(summary);
 }

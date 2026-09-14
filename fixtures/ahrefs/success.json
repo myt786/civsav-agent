@@ -8,5 +8,20 @@
     "paid_traffic": 8,
     "paid_cost": 299,
     "paid_pages": 6
+  },
+  "keywordMovement": {
+    "keywords": [
+      { "status": "left" },
+      { "status": "left" },
+      { "status": "left" },
+      { "status": "right" },
+      { "status": "both" }
+    ]
+  },
+  "refdomainsHistory": {
+    "refdomains": [
+      { "date": "2026-07-01", "refdomains": 40 },
+      { "date": "2026-08-01", "refdomains": 45 }
+    ]
   }
 }

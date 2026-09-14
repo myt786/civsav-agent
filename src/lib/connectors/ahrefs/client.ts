@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { subMonths } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { fetchWithRetry, HttpError, RateLimiter } from "../shared/http";
 import type { PlatformAccount, DateRange, DiscoveredAccount, DiscoveryResult } from "../types";
@@ -23,6 +24,33 @@ export interface SeoDataProvider {
   fetchSummary(account: PlatformAccount, range: DateRange): Promise<unknown>;
 }
 
+// The mapping's externalId doubles as the `target` param for every one of
+// the three calls below (mode=subdomains, same as the Python puller this
+// ported from).
+async function callAhrefs(
+  baseUrl: string,
+  apiToken: string,
+  endpoint: string,
+  params: Record<string, string>,
+): Promise<unknown> {
+  await rateLimiter.wait();
+
+  const url = new URL(`${baseUrl}/${endpoint}`);
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+
+  const response = await fetchWithRetry(url, {
+    headers: { Authorization: `Bearer ${apiToken}` },
+  });
+
+  if (!response.ok) {
+    throw new HttpError(response.status, `${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 export const ahrefsProvider: SeoDataProvider = {
   async fetchSummary(account: PlatformAccount, range: DateRange): Promise<unknown> {
     if (process.env.CONNECTOR_MODE === "fixture") {
@@ -37,28 +65,47 @@ export const ahrefsProvider: SeoDataProvider = {
       throw new Error("AHREFS_API_BASE_URL / AHREFS_API_TOKEN not configured");
     }
 
-    await rateLimiter.wait();
-
     // A single-day snapshot, not a range — range.start and range.end fall
     // on the same calendar day in the client's timezone (the sync engine
     // always calls fetch with one full day), so range.end's date is used.
     const date = formatInTimeZone(range.end, account.clientTimezone, "yyyy-MM-dd");
+    // One calendar month before `date` — the comparison baseline for both
+    // keyword movement (date_compared) and referring-domains history
+    // (date_from), matching one_month_before() in the Python puller this
+    // was ported from.
+    const comparedDate = formatInTimeZone(subMonths(range.end, 1), account.clientTimezone, "yyyy-MM-dd");
 
-    const url = new URL(`${baseUrl}/site-explorer/metrics`);
-    url.searchParams.set("target", account.externalId);
-    url.searchParams.set("date", date);
-
-    const response = await fetchWithRetry(url, {
-      headers: { Authorization: `Bearer ${apiToken}` },
-    });
-
-    if (!response.ok) {
-      throw new HttpError(response.status, `${response.status} ${response.statusText}`);
-    }
+    // Three calls, combined into one envelope (same pattern ga4 uses for
+    // its two report calls) — an error on any one aborts the whole fetch
+    // rather than returning a partially-filled result, so a failed
+    // metrics call never silently short-circuits into "0 keywords."
+    const metrics = (await callAhrefs(baseUrl, apiToken, "site-explorer/metrics", {
+      target: account.externalId,
+      mode: "subdomains",
+      date,
+    })) as { metrics: unknown };
 
     console.log(`[ahrefs] estimated ${UNIT_COST_ESTIMATE} units consumed this call`);
 
-    return response.json();
+    const keywordMovement = await callAhrefs(baseUrl, apiToken, "site-explorer/organic-keywords", {
+      target: account.externalId,
+      mode: "subdomains",
+      country: "us",
+      date,
+      date_compared: comparedDate,
+      limit: "1000",
+      select: "status",
+    });
+
+    const refdomainsHistory = await callAhrefs(baseUrl, apiToken, "site-explorer/refdomains-history", {
+      target: account.externalId,
+      mode: "subdomains",
+      date_from: comparedDate,
+      date_to: date,
+      history_grouping: "monthly",
+    });
+
+    return { metrics: metrics.metrics, keywordMovement, refdomainsHistory };
   },
 };
 

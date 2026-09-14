@@ -136,6 +136,30 @@ export const metricSnapshots = pgTable(
   ],
 );
 
+// Editorial fields for the /seo dashboard — SEO Owner, Status, and Notes
+// are human-entered per client per calendar month, not derived from any
+// connector. One row per (client, month): the current month's row is
+// editable from the dashboard, and "Prev. Month Summary" is simply last
+// month's row for that client read directly — no copy-forward step
+// needed, unlike the Excel pipeline this replaces.
+export const clientSeoMonthly = pgTable(
+  "client_seo_monthly",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id),
+    month: text("month").notNull(), // "YYYY-MM"
+    seoOwner: text("seo_owner"),
+    status: text("status"),
+    notes: text("notes"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("client_seo_monthly_client_month_idx").on(table.clientId, table.month),
+  ],
+);
+
 // One row per edited field, written by every settings mutation (client
 // create/update, mapping upsert). Not written for Verify runs — those
 // update system-computed state (verifiedAt/verifiedStatus/lastError), not
