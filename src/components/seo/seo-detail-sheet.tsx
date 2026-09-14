@@ -2,8 +2,11 @@
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DataCell } from "@/components/dashboard/data-cell";
-import { formatInteger, formatPercent, formatPosition } from "@/lib/dashboard/format";
+import { computeDelta } from "@/lib/dashboard/metrics";
+import { formatInteger, formatPosition } from "@/lib/dashboard/format";
 import { TierBadge, TrendIndicator } from "./tier-trend";
+import { SeoMetricTile, DeltaLine, CountLine } from "./seo-metric-tile";
+import { SeoAiSuggestions } from "./seo-ai-suggestions";
 import { SeoEditorialForm } from "./seo-editorial-form";
 import type { CellState } from "@/lib/dashboard/types";
 import type { SeoClientRow } from "@/lib/seo/types";
@@ -23,51 +26,93 @@ export function SeoDetailSheet({
     return <Sheet open={open} onOpenChange={onOpenChange} />;
   }
 
+  const [, prev, newest] = row.months;
+  const clicksDelta = computeDelta(newest.clicks, prev.clicks);
+  const impressionsDelta = computeDelta(newest.impressions, prev.impressions);
+  const positionDelta = computeDelta(newest.avgPosition, prev.avgPosition);
+
+  const cellNumber = (cell: CellState<number>) => (cell.kind === "ok" || cell.kind === "unverified" ? cell.value : null);
+  const keywordsGained = cellNumber(row.keywordsGained);
+  const keywordsLost = cellNumber(row.keywordsLost);
+  const top3Keywords = cellNumber(row.organicKeywordsTop3);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-lg" side="right">
         <SheetHeader>
           <SheetTitle>{row.clientName}</SheetTitle>
-          <SheetDescription>Search Console + Ahrefs, 3-month rolling view</SheetDescription>
+          <SheetDescription>
+            {newest.month} · Compared with {prev.month}
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-6">
-          <section className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+          <section className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <TierBadge tier={row.tier} />
             <TrendIndicator trend={row.trend} />
-            <Stat label="MoM%" value={row.momPct === null ? "—" : formatPercent(row.momPct * 100)} />
-            <Stat label="3-mo avg" value={row.avg3 === null ? "—" : formatInteger(row.avg3)} />
-            <Stat
-              label="New refdomains"
-              value={row.newReferringDomains === null ? "—" : `${row.newReferringDomains > 0 ? "+" : ""}${row.newReferringDomains}`}
+          </section>
+
+          <section className="grid grid-cols-2 gap-3">
+            <SeoMetricTile
+              label="Organic clicks"
+              value={newest.clicks.kind === "ok" || newest.clicks.kind === "unverified" ? formatInteger(newest.clicks.value) : "—"}
+              subtitle="Organic search clicks"
+              footer={<DeltaLine delta={clicksDelta} />}
+            />
+            <SeoMetricTile
+              label="Impressions"
+              value={
+                newest.impressions.kind === "ok" || newest.impressions.kind === "unverified"
+                  ? formatInteger(newest.impressions.value)
+                  : "—"
+              }
+              subtitle="Search impressions"
+              footer={<DeltaLine delta={impressionsDelta} />}
+            />
+            <SeoMetricTile
+              label="Avg. position"
+              value={
+                newest.avgPosition.kind === "ok" || newest.avgPosition.kind === "unverified"
+                  ? formatPosition(newest.avgPosition.value)
+                  : "—"
+              }
+              subtitle="Lower is better"
+              footer={<DeltaLine delta={positionDelta} higherIsBetter={false} />}
+            />
+            <SeoMetricTile
+              label="Organic keywords"
+              value={row.organicKeywords.kind === "ok" || row.organicKeywords.kind === "unverified" ? formatInteger(row.organicKeywords.value) : "—"}
+              subtitle={top3Keywords !== null ? `Tracked in Ahrefs · ${formatInteger(top3Keywords)} in top 3` : "Tracked in Ahrefs"}
+              footer={
+                keywordsGained !== null || keywordsLost !== null ? (
+                  <CountLine value={(keywordsGained ?? 0) - (keywordsLost ?? 0)} label="net this month" />
+                ) : undefined
+              }
+            />
+            <SeoMetricTile
+              label="Referring domains"
+              value={row.referringDomains.kind === "ok" || row.referringDomains.kind === "unverified" ? formatInteger(row.referringDomains.value) : "—"}
+              subtitle="Linking domains (Ahrefs)"
+              footer={row.newReferringDomains !== null ? <CountLine value={row.newReferringDomains} label="this month" /> : undefined}
             />
           </section>
 
+          <SeoAiSuggestions clientId={row.clientId} />
+
           <section>
-            <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">By month (clicks)</h3>
+            <div className="mb-2 flex items-baseline justify-between">
+              <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Clicks by month</h3>
+              {row.avg3 !== null && (
+                <span className="text-xs text-muted-foreground">3-mo avg: {formatInteger(row.avg3)}</span>
+              )}
+            </div>
             <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
               {row.months.map((m) => (
                 <div key={m.month} className="flex items-center justify-between px-3 py-2 text-sm">
                   <span className="text-foreground">{m.month}</span>
-                  <div className="flex items-center gap-4">
-                    <DataCell state={m.impressions} format={formatInteger} />
-                    <DataCell state={m.avgPosition} format={formatPosition} />
-                    <DataCell state={m.clicks} format={formatInteger} />
-                  </div>
+                  <DataCell state={m.clicks} format={formatInteger} />
                 </div>
               ))}
-            </div>
-            <p className="mt-1 text-right text-[11px] text-muted-foreground">impressions · avg. position · clicks</p>
-          </section>
-
-          <section>
-            <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Ahrefs</h3>
-            <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
-              <Row label="Organic keywords" state={row.organicKeywords} />
-              <Row label="Top-3 keywords" state={row.organicKeywordsTop3} />
-              <Row label="Keywords gained" state={row.keywordsGained} />
-              <Row label="Keywords lost" state={row.keywordsLost} />
-              <Row label="Referring domains" state={row.referringDomains} />
             </div>
           </section>
 
@@ -87,23 +132,5 @@ export function SeoDetailSheet({
         </div>
       </SheetContent>
     </Sheet>
-  );
-}
-
-function Row({ label, state }: { label: string; state: CellState<number> }) {
-  return (
-    <div className="flex items-center justify-between px-3 py-2 text-sm">
-      <span className="text-foreground">{label}</span>
-      <DataCell state={state} format={formatInteger} />
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col">
-      <span className="text-[10px] tracking-wide text-muted-foreground uppercase">{label}</span>
-      <span className="font-mono text-sm tabular-nums text-foreground">{value}</span>
-    </div>
   );
 }
