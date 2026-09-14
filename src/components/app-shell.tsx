@@ -44,7 +44,7 @@ function Brand({ size = 24 }: { size?: number }) {
 
 function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
-    <nav className="flex flex-col gap-0.5">
+    <nav className="flex flex-col gap-1">
       {NAV_ITEMS.map((item) => {
         const active = isActive(pathname, item.href);
         const Icon = item.icon;
@@ -57,7 +57,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
             className={cn(
               "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
                 : "text-sidebar-foreground/65 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
             )}
           >
@@ -110,8 +110,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <NavLinks pathname={pathname} />
         </div>
-        <div className="flex items-center justify-between px-1.5">
-          <span className="text-[11px] text-sidebar-foreground/40">civsav ops</span>
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-sidebar-border px-2 py-1.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className="size-6 shrink-0 rounded-full"
+              style={{ background: "linear-gradient(135deg, var(--sidebar-primary), color-mix(in oklch, var(--sidebar-primary), white 35%))" }}
+              aria-hidden
+            />
+            <span className="truncate text-xs text-sidebar-foreground/70">civsav ops</span>
+          </div>
           <ThemeToggle />
         </div>
       </aside>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Line, LineChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Area, AreaChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { DailyPoint } from "@/lib/dashboard/types";
 
 interface Series {
@@ -78,24 +78,33 @@ export function Sparkline({ series, formatValue }: { series: Series[]; formatVal
 
   return (
     <ResponsiveContainer width="100%" height={56}>
-      <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+      <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+        <defs>
+          {series.map((s) => (
+            <linearGradient key={s.label} id={`spark-${s.label.replace(/\s+/g, "-").toLowerCase()}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={s.stroke} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={s.stroke} stopOpacity={0} />
+            </linearGradient>
+          ))}
+        </defs>
         <Tooltip
           content={<TooltipContentInner formatValue={formatValue} />}
           cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
         />
         {series.map((s) => (
-          <Line
+          <Area
             key={s.label}
             type="monotone"
             dataKey={s.label}
             stroke={s.stroke}
             strokeWidth={1.5}
+            fill={`url(#spark-${s.label.replace(/\s+/g, "-").toLowerCase()})`}
             dot={false}
             connectNulls={false}
             isAnimationActive={false}
           />
         ))}
-      </LineChart>
+      </AreaChart>
     </ResponsiveContainer>
   );
 }
