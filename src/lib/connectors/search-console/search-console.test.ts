@@ -15,6 +15,7 @@ vi.mock("googleapis", () => ({
 }));
 
 import { searchConsoleConnector } from "./index";
+import { fetchGscBreakdown } from "./client";
 import type { PlatformAccount, DateRange } from "../types";
 
 const account: PlatformAccount = {
@@ -185,5 +186,43 @@ describe("searchConsoleConnector.listAccounts", () => {
     const result = await searchConsoleConnector.listAccounts!();
 
     expect(result.status).toBe("error");
+  });
+});
+
+describe("fetchGscBreakdown", () => {
+  beforeEach(() => {
+    process.env.CONNECTOR_MODE = "fixture";
+  });
+
+  afterEach(() => {
+    delete process.env.CONNECTOR_MODE;
+    delete process.env.SEARCH_CONSOLE_BREAKDOWN_FIXTURE;
+  });
+
+  it("returns top queries and top pages from the fixture", async () => {
+    const result = await fetchGscBreakdown("https://example.com/");
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.topQueries).toHaveLength(2);
+    expect(result.topQueries[0]).toEqual({ key: "emergency plumber near me", clicks: 41, impressions: 612, position: 4.1 });
+    expect(result.topPages).toHaveLength(2);
+    expect(result.topPages[0].key).toBe("https://example.com/");
+  });
+
+  it("returns error when the fixture file is missing", async () => {
+    process.env.SEARCH_CONSOLE_BREAKDOWN_FIXTURE = "does-not-exist.json";
+
+    const result = await fetchGscBreakdown("https://example.com/");
+
+    expect(result.status).toBe("error");
+  });
+
+  it("returns no_data when both query and page rows are empty", async () => {
+    process.env.SEARCH_CONSOLE_BREAKDOWN_FIXTURE = "empty-breakdown.json";
+
+    const result = await fetchGscBreakdown("https://example.com/");
+
+    expect(result.status).toBe("no_data");
   });
 });

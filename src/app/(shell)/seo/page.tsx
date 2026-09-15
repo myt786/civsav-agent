@@ -1,8 +1,10 @@
 import { GaugeIcon, LinkIcon, TrendingUpIcon, UsersIcon } from "lucide-react";
-import { getSeoDashboardData } from "@/lib/seo/queries";
+import { getSeoDashboardData, getSeoRecommendations } from "@/lib/seo/queries";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { SeoPortfolioTable } from "@/components/seo/seo-portfolio-table";
+import { SeoRecommendationsTab } from "@/components/seo/seo-recommendations-tab";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Same reasoning as the main dashboard page: this reads Drizzle directly,
 // so without forcing a fresh render every visitor sees one frozen build-
@@ -11,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SeoDashboardPage() {
   const data = await getSeoDashboardData();
+  const recommendations = await getSeoRecommendations(data.rows);
   const { aggregates } = data;
   const minZero = aggregates.tierCounts.minimal + aggregates.tierCounts.no_data;
   // Rows with genuinely nothing synced yet — a newly-onboarded client
@@ -76,7 +79,20 @@ export default async function SeoDashboardPage() {
         ]}
       />
 
-      <SeoPortfolioTable rows={data.rows} months={data.months} />
+      <Tabs defaultValue="portfolio">
+        <TabsList>
+          <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
+          <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="portfolio">
+          <SeoPortfolioTable rows={data.rows} months={data.months} />
+        </TabsContent>
+
+        <TabsContent value="recommendations">
+          <SeoRecommendationsTab initialRows={recommendations} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

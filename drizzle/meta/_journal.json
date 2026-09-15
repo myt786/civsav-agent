@@ -36,6 +36,13 @@
       "when": 1789386133598,
       "tag": "0004_white_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789498302222,
+      "tag": "0005_pale_red_ghost",
+      "breakpoints": true
     }
   ]
 }

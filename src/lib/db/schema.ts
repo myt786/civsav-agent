@@ -7,6 +7,7 @@ import {
   timestamp,
   date,
   jsonb,
+  integer,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -159,6 +160,24 @@ export const clientSeoMonthly = pgTable(
     uniqueIndex("client_seo_monthly_client_month_idx").on(table.clientId, table.month),
   ],
 );
+
+// AI-generated "what to do next" per client for the /seo dashboard's
+// Recommendations tab — latest only (not monthly, unlike
+// client_seo_monthly), since a recommendation is a current snapshot to
+// act on, not an editorial archive. Regenerating overwrites the row.
+export const clientSeoRecommendations = pgTable("client_seo_recommendations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id)
+    .unique(),
+  recommendations: jsonb("recommendations").notNull(), // string[]
+  // How much sitemap context fed this generation, surfaced in the UI so
+  // "no sitemap found" isn't silently indistinguishable from "300 pages
+  // considered" — both are legitimate, but very different confidence.
+  sitemapUrlCount: integer("sitemap_url_count"),
+  generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 // One row per edited field, written by every settings mutation (client
 // create/update, mapping upsert). Not written for Verify runs — those

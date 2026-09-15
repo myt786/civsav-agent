@@ -1,0 +1,10 @@
+{
+  "queryRows": [
+    { "keys": ["emergency plumber near me"], "clicks": 41, "impressions": 612, "position": 4.1 },
+    { "keys": ["24 hour plumber"], "clicks": 33, "impressions": 588, "position": 5.3 }
+  ],
+  "pageRows": [
+    { "keys": ["https://example.com/"], "clicks": 120, "impressions": 3400, "position": 6.2 },
+    { "keys": ["https://example.com/services/"], "clicks": 54, "impressions": 1200, "position": 8.9 }
+  ]
+}

@@ -91,6 +91,102 @@ export async function fetchRawSearchAnalytics(
   return response.data;
 }
 
+export interface GscBreakdownRow {
+  key: string; // the query string, or the page URL
+  clicks: number;
+  impressions: number;
+  position: number;
+}
+
+export type GscBreakdownResult =
+  | { status: "ok"; topQueries: GscBreakdownRow[]; topPages: GscBreakdownRow[] }
+  | { status: "no_data" }
+  | { status: "error"; error: string };
+
+interface SearchAnalyticsRow {
+  keys?: string[] | null;
+  clicks?: number | null;
+  impressions?: number | null;
+  position?: number | null;
+}
+
+function toBreakdownRows(rows: SearchAnalyticsRow[] | undefined | null): GscBreakdownRow[] {
+  return (rows ?? [])
+    .filter((r): r is SearchAnalyticsRow & { keys: string[] } => Boolean(r.keys?.[0]))
+    .map((r) => ({
+      key: r.keys[0],
+      clicks: r.clicks ?? 0,
+      impressions: r.impressions ?? 0,
+      position: r.position ?? 0,
+    }));
+}
+
+// A deeper, on-demand pull for the SEO recommendations feature — top
+// queries AND top pages over a longer trailing window, not the single
+// day + query-only dimension the daily sync connector fetches. Called
+// only at recommendation-generation time, never wired into the daily
+// sync or metric_snapshots.
+export async function fetchGscBreakdown(siteUrl: string, days = 28): Promise<GscBreakdownResult> {
+  if (process.env.CONNECTOR_MODE === "fixture") {
+    const fixtureName = process.env.SEARCH_CONSOLE_BREAKDOWN_FIXTURE ?? "breakdown.json";
+    try {
+      const raw = await readFile(path.join(FIXTURES_DIR, fixtureName), "utf-8");
+      const parsed = JSON.parse(raw) as { queryRows?: SearchAnalyticsRow[]; pageRows?: SearchAnalyticsRow[] };
+      const topQueries = toBreakdownRows(parsed.queryRows);
+      const topPages = toBreakdownRows(parsed.pageRows);
+      if (topQueries.length === 0 && topPages.length === 0) return { status: "no_data" };
+      return { status: "ok", topQueries, topPages };
+    } catch (err) {
+      return { status: "error", error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccountJson) {
+    return { status: "error", error: "GOOGLE_SERVICE_ACCOUNT_JSON not configured" };
+  }
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(serviceAccountJson),
+    scopes: ["https://www.googleapis.com/auth/webmasters.readonly"],
+  });
+  const searchconsole = google.searchconsole({ version: "v1", auth });
+
+  // Search Console lags 2-3 days — end the window there rather than at
+  // "today", or the trailing days would mostly be not-ready-yet.
+  const end = new Date();
+  end.setUTCDate(end.getUTCDate() - 3);
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - days);
+  const startDate = start.toISOString().slice(0, 10);
+  const endDate = end.toISOString().slice(0, 10);
+
+  try {
+    await rateLimiter.wait();
+    const queryResponse = await withRetry(() =>
+      searchconsole.searchanalytics.query({
+        siteUrl,
+        requestBody: { startDate, endDate, dimensions: ["query"], rowLimit: 50 },
+      }),
+    );
+
+    await rateLimiter.wait();
+    const pageResponse = await withRetry(() =>
+      searchconsole.searchanalytics.query({
+        siteUrl,
+        requestBody: { startDate, endDate, dimensions: ["page"], rowLimit: 50 },
+      }),
+    );
+
+    const topQueries = toBreakdownRows(queryResponse.data.rows as SearchAnalyticsRow[] | undefined);
+    const topPages = toBreakdownRows(pageResponse.data.rows as SearchAnalyticsRow[] | undefined);
+    if (topQueries.length === 0 && topPages.length === 0) return { status: "no_data" };
+    return { status: "ok", topQueries, topPages };
+  } catch (err) {
+    return { status: "error", error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 interface SiteEntry {
   siteUrl?: string | null;
   permissionLevel?: string | null;
