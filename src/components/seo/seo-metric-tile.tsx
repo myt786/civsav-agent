@@ -19,7 +19,7 @@ export function SeoMetricTile({
 }) {
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-border bg-card shadow-sm p-3">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</span>
       <span className="font-mono text-xl font-semibold tabular-nums text-foreground">{value}</span>
       <span className="text-xs text-muted-foreground">{subtitle}</span>
       {footer}
@@ -28,20 +28,22 @@ export function SeoMetricTile({
 }
 
 // A percentage delta line for metrics that have a natural prior-period
-// comparison (clicks, impressions, position). Some (avg. position) are
-// "lower is better" — the arrow direction stays literal (up = the number
-// went up) but the color flips to reflect whether that's good or bad news.
+// comparison (clicks, impressions, position). The arrow and color both
+// follow good/bad news, not the raw number: for "lower is better" metrics
+// (avg. position) a rising number used to show a red *up* arrow, which
+// reads as good at a glance. Those also say "better"/"worse" outright.
 export function DeltaLine({ delta, higherIsBetter = true }: { delta: DeltaCell; higherIsBetter?: boolean }) {
   if (delta.pct === null) return null;
   const isGood = delta.direction === "flat" ? null : delta.direction === "up" ? higherIsBetter : !higherIsBetter;
   const colorClass =
     isGood === null ? "text-muted-foreground" : isGood ? "text-success" : "text-destructive";
-  const Icon = delta.direction === "up" ? ArrowUpIcon : delta.direction === "down" ? ArrowDownIcon : MinusIcon;
+  const Icon = isGood === null ? MinusIcon : isGood ? ArrowUpIcon : ArrowDownIcon;
+  const verdict = higherIsBetter || isGood === null ? "" : isGood ? " better" : " worse";
 
   return (
     <span className={cn("mt-0.5 flex items-center gap-1 text-xs font-medium", colorClass)}>
       <Icon className="size-3" aria-hidden />
-      {Math.abs(delta.pct).toFixed(1)}% vs. last month
+      {Math.abs(delta.pct).toFixed(1)}%{verdict} vs. last month
     </span>
   );
 }

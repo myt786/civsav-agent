@@ -38,6 +38,10 @@ function dismissToast(id: number) {
   notify();
 }
 
+// Must be a stable reference: useSyncExternalStore compares snapshots by
+// identity, so a fresh [] per call reads as "changed" on every render.
+const EMPTY_TOASTS: ToastItem[] = [];
+
 function useToasts() {
   return React.useSyncExternalStore(
     (onStoreChange) => {
@@ -45,7 +49,7 @@ function useToasts() {
       return () => listeners.delete(onStoreChange);
     },
     () => toasts,
-    () => [] as ToastItem[],
+    () => EMPTY_TOASTS,
   );
 }
 

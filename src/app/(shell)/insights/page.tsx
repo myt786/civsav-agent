@@ -1,4 +1,3 @@
-import { SparklesIcon, TrendingUpIcon } from "lucide-react";
 import { getDashboardData } from "@/lib/dashboard/queries";
 import { buildForecasts, computeAttentionFlags } from "@/lib/insights/rules";
 import { NOISE_BAND_PCT, SPARKLINE_DAYS } from "@/lib/dashboard/constants";
@@ -36,13 +35,9 @@ export default async function InsightsPage() {
   return (
     <div className="mx-auto flex w-full max-w-[1400px] animate-in flex-col gap-8 px-6 py-8 fade-in-0 duration-300">
       <header className="flex flex-col gap-1">
-        <h1 className="flex items-center gap-2 font-heading text-2xl font-semibold tracking-tight text-foreground">
-          <SparklesIcon className="size-5 text-primary" aria-hidden />
-          Insights
-        </h1>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Insights</h1>
         <p className="text-sm text-muted-foreground">
-          Rule-based attention flags, an AI-narrated summary, and a short-term forecast — all grounded in the same
-          data as the dashboard. Ask the assistant (sparkles icon, top right) about any client.
+          What needs attention, a plain-English summary, and a 7-day forecast — from the same data as the dashboard.
         </p>
       </header>
 
@@ -60,15 +55,14 @@ export default async function InsightsPage() {
         </section>
 
         <section className="flex flex-col gap-2">
-          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Summary</h2>
+          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">AI summary</h2>
           <AiSummary />
         </section>
       </div>
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            <TrendingUpIcon className="size-3.5" aria-hidden />
+          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Forecast — next {FORECAST_DAYS} days (from the last {SPARKLINE_DAYS})
           </h2>
         </div>

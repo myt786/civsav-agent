@@ -89,7 +89,11 @@ export function createClientColumns(
               </TooltipContent>
             </Tooltip>
           )}
-          {info.getValue()}
+          {/* Capped so one long domain-style name can't push the numeric
+              columns off the right edge; the full name is on hover. */}
+          <span className="max-w-40 truncate" title={info.getValue()}>
+            {info.getValue()}
+          </span>
         </span>
       );
     },
@@ -152,7 +156,7 @@ export function createClientColumns(
     id: "spend",
     header: () => (
       <ColumnHeader
-        label="Spend (Google + Meta)"
+        label="Spend"
         tooltip="Google Ads cost plus Meta Ads spend, combined and summed over the trailing 7 days."
       />
     ),
@@ -188,7 +192,7 @@ export function createClientColumns(
     id: "avgPosition",
     header: () => (
       <ColumnHeader
-        label="Avg position"
+        label="Position"
         tooltip="Average organic search ranking position from Search Console, averaged (not summed) across the days with data. Lower is better."
       />
     ),
@@ -198,7 +202,7 @@ export function createClientColumns(
   columnHelper.accessor("lastSyncedAt", {
     id: "lastSynced",
     header: () => (
-      <ColumnHeader label="Last synced" tooltip="The most recent successful data fetch for this client, across any connected platform." />
+      <ColumnHeader label="Synced" tooltip="The most recent successful data fetch for this client, across any connected platform." />
     ),
     cell: (info) => {
       const at = info.getValue();

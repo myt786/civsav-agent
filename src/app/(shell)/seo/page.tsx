@@ -3,6 +3,7 @@ import { getSeoDashboardData, getSeoRecommendations } from "@/lib/seo/queries";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { SeoPortfolioTable } from "@/components/seo/seo-portfolio-table";
 import { SeoRecommendationsTab } from "@/components/seo/seo-recommendations-tab";
+import { UnsyncedNotice } from "@/components/seo/unsynced-notice";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -40,14 +41,7 @@ export default async function SeoDashboardPage() {
         </p>
       </header>
 
-      {neverSyncedCount > 0 && (
-        <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-          <span className="font-medium">{neverSyncedCount} client{neverSyncedCount === 1 ? "" : "s"} haven&rsquo;t synced yet.</span>{" "}
-          That&rsquo;s expected for a newly-connected client — Search Console needs the app&rsquo;s service account granted
-          access on the property, and Ahrefs only runs once a month. They&rsquo;ll fill in automatically once access is
-          granted and a sync has run.
-        </div>
-      )}
+      <UnsyncedNotice count={neverSyncedCount} />
 
       <StatCards
         stats={[

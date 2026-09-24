@@ -4,14 +4,13 @@ import { cn } from "@/lib/utils";
 import type { Tier, Trend } from "@/lib/seo/compute";
 
 // Same 4 buckets + No Data as _tier()/TIER_LABELS in the Python original,
-// just without the emoji (color does the same job in a real UI). Only 3
-// semantic tokens exist (success/warning/destructive) for 4 severity
-// steps, so "small" borrows destructive at reduced intensity — a step
-// toward "minimal"'s full destructive, not its own hue.
+// just without the emoji (color does the same job in a real UI). One hue
+// per step — green, cobalt, amber, red — so "Moderate" no longer shares
+// amber with every warning on the page and the scale reads at a glance.
 const TIER_STYLE: Record<Tier, { label: string; className: string }> = {
   strong: { label: "Strong", className: "border-success/30 bg-success/10 text-success" },
-  moderate: { label: "Moderate", className: "border-warning/30 bg-warning/10 text-warning" },
-  small: { label: "Small", className: "border-destructive/20 bg-destructive/5 text-destructive/80" },
+  moderate: { label: "Moderate", className: "border-primary/30 bg-primary/10 text-primary" },
+  small: { label: "Small", className: "border-warning/30 bg-warning/10 text-warning" },
   minimal: { label: "Minimal", className: "border-destructive/30 bg-destructive/10 text-destructive" },
   no_data: { label: "No Data", className: "border-border bg-muted text-muted-foreground" },
 };

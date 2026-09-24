@@ -33,7 +33,7 @@ function TooltipContentInner({
 }
 
 // The dashboard's one visual (not tabular) read of the fleet: a 30-day
-// area chart with a gradient fill, animated in on mount — everything else
+// area chart with a gradient fill — everything else
 // on this page is precise per-client numbers, this is the "shape" glance
 // that goes with them. See buildFleetDailySeries for how days combine.
 export function FleetTrendChart({
@@ -74,8 +74,10 @@ export function FleetTrendChart({
               fill={`url(#${gradientId})`}
               dot={false}
               connectNulls={false}
-              isAnimationActive
-              animationDuration={700}
+              // Off: recharts' draw-in animation runs on requestAnimationFrame,
+              // which is paused in background tabs — the chart stayed an empty
+              // box until the tab was focused.
+              isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>

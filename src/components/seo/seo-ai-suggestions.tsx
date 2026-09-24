@@ -41,12 +41,11 @@ export function SeoAiSuggestions({ clientId }: { clientId: string }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-sm px-4 py-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <span className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <SparklesIcon className="size-3.5" aria-hidden />
-          </span>
+        {/* Same label style as the sheet's other sections (Clicks by month, …). */}
+        <h3 className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <SparklesIcon className="size-3.5 text-primary" aria-hidden />
           AI suggestions
-        </div>
+        </h3>
         <Button
           variant="ghost"
           size="sm"

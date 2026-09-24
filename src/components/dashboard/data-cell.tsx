@@ -1,5 +1,4 @@
 import { AlertTriangleIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { CellState, DeltaCell } from "@/lib/dashboard/types";
@@ -7,8 +6,8 @@ import { formatPercent } from "@/lib/dashboard/format";
 
 // The four data states, rendered so they can never be mistaken for one
 // another at a glance: a real number, a muted em dash, a warning icon with
-// the error behind a tooltip, or a muted italic number carrying an
-// "unverified" badge. A cell must never fall back to any of these except
+// the error behind a tooltip, or a number carrying a small hollow
+// "unverified" ring. A cell must never fall back to any of these except
 // the one that actually matches its state — in particular, an error must
 // never render a number.
 export function DataCell<T>({
@@ -48,18 +47,28 @@ export function DataCell<T>({
   const text = format(state.value);
 
   if (state.kind === "unverified") {
+    // A small hollow ring, not a full "unverified" badge: nearly every cell
+    // is unverified until mappings are confirmed in Settings, so a word badge
+    // on each one drowned out the numbers and pushed the table past the
+    // viewport. The ring stays distinct from a verified number (solid text,
+    // no marker) and from warnings (amber is reserved for those). The table
+    // legend explains it; the tooltip repeats it where the ring is hovered.
     return (
-      <span
-        className={cn("flex items-center gap-1.5 font-mono tabular-nums text-warning", alignClass)}
-      >
-        {text}
-        <Badge
-          variant="outline"
-          className="h-4 shrink-0 border-warning/30 px-1 text-[10px] font-sans leading-none text-warning"
-        >
-          unverified
-        </Badge>
-      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            className={cn("flex cursor-help items-center gap-1.5 font-mono tabular-nums text-foreground/85 outline-none", alignClass)}
+          >
+            {text}
+            <UnverifiedMark />
+            <span className="sr-only">(unverified)</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-64 text-pretty">
+          Unverified — this client&apos;s account mapping hasn&apos;t been confirmed in Settings yet.
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
@@ -84,5 +93,16 @@ export function DeltaCellView({ delta }: { delta: DeltaCell }) {
     <span className={cn("flex items-center justify-end gap-1 font-mono tabular-nums", colorClass)}>
       {formatPercent(delta.pct)}
     </span>
+  );
+}
+
+// Shared with the table legends so the marker the legend describes is
+// literally the same element the cells render.
+export function UnverifiedMark({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn("inline-block size-1.5 shrink-0 rounded-full border border-muted-foreground/70", className)}
+      aria-hidden
+    />
   );
 }

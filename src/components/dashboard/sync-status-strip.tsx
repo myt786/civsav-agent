@@ -19,7 +19,7 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
               {data.lastRunStatus && (
                 <span
                   className={cn(
-                    "font-mono lowercase",
+                    "lowercase",
                     data.lastRunStatus === "failed"
                       ? "text-destructive"
                       : data.lastRunStatus === "completed_with_errors"
@@ -40,10 +40,11 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
         </Tooltip>
 
         <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4 lg:grid-cols-8">
-          {data.connectors.map((connector) => (
-            <div key={connector.platform} className="flex flex-col gap-1 bg-card p-2.5">
-              <div className="flex items-center justify-between gap-1">
-                <span className="flex min-w-0 items-center gap-1.5 truncate text-xs font-medium text-foreground">
+          {data.connectors.map((connector) => {
+            const total = connector.verifiedCount + connector.unverifiedCount;
+            return (
+              <div key={connector.platform} className="flex min-w-0 flex-col gap-1 bg-card p-2.5">
+                <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground">
                   <span
                     className={cn(
                       "size-1.5 shrink-0 rounded-full",
@@ -55,55 +56,61 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                     )}
                     aria-hidden
                   />
-                  <span className="truncate">{PLATFORM_LABELS[connector.platform]}</span>
+                  <span className="truncate" title={PLATFORM_LABELS[connector.platform]}>
+                    {PLATFORM_LABELS[connector.platform]}
+                  </span>
                 </span>
-                {connector.errorCountLastRun > 0 && (
+                {/* Error count sits on the time line, not the name line, so
+                    it no longer truncates longer platform names. */}
+                <div className="flex items-center justify-between gap-1">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span tabIndex={0} className="flex items-center gap-0.5 text-destructive">
-                        <AlertTriangleIcon className="size-3" aria-hidden />
-                        <span className="font-mono text-[11px] tabular-nums">{connector.errorCountLastRun}</span>
+                      <span
+                        tabIndex={0}
+                        className="w-fit cursor-help truncate font-mono text-[11px] tabular-nums text-muted-foreground outline-none"
+                      >
+                        {connector.lastSuccessfulSync
+                          ? formatRelativeTime(connector.lastSuccessfulSync, now)
+                          : "never synced"}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {connector.errorCountLastRun} error{connector.errorCountLastRun === 1 ? "" : "s"} in the most
-                      recent sync run
+                      Most recent successful {PLATFORM_LABELS[connector.platform]} sync, across every client mapped to
+                      it.
                     </TooltipContent>
                   </Tooltip>
-                )}
+                  {connector.errorCountLastRun > 0 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span tabIndex={0} className="flex shrink-0 items-center gap-0.5 text-destructive">
+                          <AlertTriangleIcon className="size-3" aria-hidden />
+                          <span className="font-mono text-[11px] tabular-nums">{connector.errorCountLastRun}</span>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {connector.errorCountLastRun} error{connector.errorCountLastRun === 1 ? "" : "s"} in the most
+                        recent sync run
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      tabIndex={0}
+                      className="w-fit cursor-help truncate font-mono text-[11px] tabular-nums text-muted-foreground/70 outline-none"
+                    >
+                      {total === 0 ? "no data points" : `${connector.verifiedCount} of ${total} verified`}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-64 text-pretty">
+                    Count of recent {PLATFORM_LABELS[connector.platform]} data points whose mapping has (verified) or
+                    hasn&apos;t (unverified) been confirmed correct via the Verify action in Settings.
+                  </TooltipContent>
+                </Tooltip>
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    tabIndex={0}
-                    className="w-fit cursor-help font-mono text-[11px] tabular-nums text-muted-foreground outline-none"
-                  >
-                    {connector.lastSuccessfulSync
-                      ? formatRelativeTime(connector.lastSuccessfulSync, now)
-                      : "never synced"}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Most recent successful {PLATFORM_LABELS[connector.platform]} sync, across every client mapped to
-                  it.
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    tabIndex={0}
-                    className="w-fit cursor-help font-mono text-[11px] tabular-nums text-muted-foreground/70 outline-none"
-                  >
-                    {connector.verifiedCount} verified · {connector.unverifiedCount} unverified
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-64 text-pretty">
-                  Count of recent {PLATFORM_LABELS[connector.platform]} data points whose mapping has (verified) or
-                  hasn&apos;t (unverified) been confirmed correct via the Verify action in Settings.
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </TooltipProvider>

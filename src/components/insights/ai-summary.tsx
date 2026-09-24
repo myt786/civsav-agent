@@ -36,24 +36,20 @@ export function AiSummary() {
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card shadow-sm px-4 py-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <span className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <SparklesIcon className="size-3.5" aria-hidden />
-          </span>
-          AI summary
-        </div>
+      {/* The section heading above already says "AI summary" — the card
+          itself only needs the action and what it does. */}
+      <div className="flex items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <SparklesIcon className="size-3.5 shrink-0 text-primary" aria-hidden />
+          {state.status === "ok"
+            ? "Generated from this week's numbers and flags."
+            : "Turn this week's numbers and flags into a plain-English summary of the fleet."}
+        </p>
         <Button variant="ghost" size="sm" onClick={generate} disabled={state.status === "loading"} className="h-7 gap-1.5 text-xs">
           <RefreshCwIcon className={cn("size-3.5", state.status === "loading" && "animate-spin")} aria-hidden />
           {state.status === "ok" ? "Regenerate" : "Generate"}
         </Button>
       </div>
-
-      {state.status === "idle" && (
-        <p className="text-sm text-muted-foreground">
-          Turn this week&apos;s numbers and flags into a plain-English summary of the fleet.
-        </p>
-      )}
 
       {state.status === "loading" && (
         <div className="flex flex-col gap-2">

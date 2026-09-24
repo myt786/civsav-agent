@@ -35,17 +35,16 @@ const TONE_CHIP: Record<NonNullable<Stat["tone"]>, string> = {
   warning: "bg-warning/15 text-warning",
 };
 
-function StatCard({ stat, delayMs }: { stat: Stat; delayMs: number }) {
+function StatCard({ stat }: { stat: Stat }) {
   const animated = useCountUp(stat.value ?? 0);
   const display = stat.value === null ? "—" : FORMATTERS[stat.formatKind](animated);
 
   const body = (
     <div
       className={cn(
-        "group flex animate-in flex-col gap-3 rounded-lg border border-border bg-card shadow-sm p-4 fade-in-0 slide-in-from-bottom-1 transition-all duration-200 fill-mode-both",
+        "group flex flex-col gap-3 rounded-lg border border-border bg-card shadow-sm p-4 transition-all duration-200",
         stat.href && "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
       )}
-      style={{ animationDelay: `${delayMs}ms`, animationDuration: "400ms" }}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{stat.label}</span>
@@ -74,8 +73,8 @@ function StatCard({ stat, delayMs }: { stat: Stat; delayMs: number }) {
 export function StatCards({ stats }: { stats: Stat[] }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {stats.map((stat, i) => (
-        <StatCard key={stat.label} stat={stat} delayMs={i * 60} />
+      {stats.map((stat) => (
+        <StatCard key={stat.label} stat={stat} />
       ))}
     </div>
   );

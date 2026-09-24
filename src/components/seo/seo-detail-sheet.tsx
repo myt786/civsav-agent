@@ -49,7 +49,7 @@ export function SeoDetailSheet({
         <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-6">
           <section className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <TierBadge tier={row.tier} />
-            <TrendIndicator trend={row.trend} />
+            {row.trend !== "unknown" && <TrendIndicator trend={row.trend} />}
           </section>
 
           <section className="grid grid-cols-2 gap-3">
@@ -79,23 +79,32 @@ export function SeoDetailSheet({
               subtitle="Lower is better"
               footer={<DeltaLine delta={positionDelta} higherIsBetter={false} />}
             />
-            <SeoMetricTile
-              label="Organic keywords"
-              value={row.organicKeywords.kind === "ok" || row.organicKeywords.kind === "unverified" ? formatInteger(row.organicKeywords.value) : "—"}
-              subtitle={top3Keywords !== null ? `Tracked in Ahrefs · ${formatInteger(top3Keywords)} in top 3` : "Tracked in Ahrefs"}
-              footer={
-                keywordsGained !== null || keywordsLost !== null ? (
-                  <CountLine value={(keywordsGained ?? 0) - (keywordsLost ?? 0)} label="net this month" />
-                ) : undefined
-              }
-            />
-            <SeoMetricTile
-              label="Referring domains"
-              value={row.referringDomains.kind === "ok" || row.referringDomains.kind === "unverified" ? formatInteger(row.referringDomains.value) : "—"}
-              subtitle="Linking domains (Ahrefs)"
-              footer={row.newReferringDomains !== null ? <CountLine value={row.newReferringDomains} label="this month" /> : undefined}
-            />
+            {row.organicKeywords.kind !== "no_data" && (
+              <SeoMetricTile
+                label="Organic keywords"
+                value={row.organicKeywords.kind === "ok" || row.organicKeywords.kind === "unverified" ? formatInteger(row.organicKeywords.value) : "—"}
+                subtitle={top3Keywords !== null ? `Tracked in Ahrefs · ${formatInteger(top3Keywords)} in top 3` : "Tracked in Ahrefs"}
+                footer={
+                  keywordsGained !== null || keywordsLost !== null ? (
+                    <CountLine value={(keywordsGained ?? 0) - (keywordsLost ?? 0)} label="net this month" />
+                  ) : undefined
+                }
+              />
+            )}
+            {row.referringDomains.kind !== "no_data" && (
+              <SeoMetricTile
+                label="Referring domains"
+                value={row.referringDomains.kind === "ok" || row.referringDomains.kind === "unverified" ? formatInteger(row.referringDomains.value) : "—"}
+                subtitle="Linking domains (Ahrefs)"
+                footer={row.newReferringDomains !== null ? <CountLine value={row.newReferringDomains} label="this month" /> : undefined}
+              />
+            )}
           </section>
+          {row.organicKeywords.kind === "no_data" && row.referringDomains.kind === "no_data" && (
+            <p className="-mt-3 text-xs text-muted-foreground">
+              Keyword and referring-domain figures appear here once Ahrefs has run for this client.
+            </p>
+          )}
 
           <SeoAiSuggestions clientId={row.clientId} />
 
