@@ -24,6 +24,14 @@ export default async function SettingsLayout({ children }: { children: ReactNode
             </Button>
           </form>
         </header>
+        <nav className="flex gap-4 border-b border-border text-sm" aria-label="Settings sections">
+          <Link href="/settings/clients" className="-mb-px border-b-2 border-transparent pb-2 text-muted-foreground hover:text-foreground">
+            Clients
+          </Link>
+          <Link href="/settings/api-keys" className="-mb-px border-b-2 border-transparent pb-2 text-muted-foreground hover:text-foreground">
+            API keys
+          </Link>
+        </nav>
         {children}
       </div>
     </AppShell>

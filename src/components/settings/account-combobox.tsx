@@ -80,7 +80,13 @@ export function AccountCombobox({
   // Only surfaced once discovery has actually seen more than one
   // credential for this platform — a single-workspace OpenPhone setup (or
   // any other platform) never shows this.
-  const workspaceLabels = [...new Set(accounts.map((a) => a.credentialLabel).filter((l): l is string => Boolean(l)))];
+  const workspaceNames = new Map<string, string>();
+  for (const account of accounts) {
+    if (account.credentialLabel && !workspaceNames.has(account.credentialLabel)) {
+      workspaceNames.set(account.credentialLabel, account.credentialName ?? humanizeLabel(account.credentialLabel));
+    }
+  }
+  const workspaceLabels = [...workspaceNames.keys()];
 
   return (
     <div className="flex flex-col gap-1">
@@ -109,7 +115,7 @@ export function AccountCombobox({
               <SelectContent>
                 {workspaceLabels.map((label) => (
                   <SelectItem key={label} value={label}>
-                    {humanizeLabel(label)}
+                    {workspaceNames.get(label)}
                   </SelectItem>
                 ))}
               </SelectContent>

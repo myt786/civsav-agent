@@ -3,6 +3,7 @@ import path from "node:path";
 import { fetchWithRetry, HttpError, RateLimiter } from "../shared/http";
 import type { Telephony } from "../telephony/types";
 import type { PlatformAccount, DateRange, DiscoveredAccount, DiscoveryResult } from "../types";
+import { listStoredCredentials, storedIdFromLabel, storedSecretForLabel } from "../stored-credentials";
 
 // Configurable per connector, per the contract's rate-limit requirement.
 const rateLimiter = new RateLimiter({ requestsPerSecond: 5 });
@@ -16,28 +17,35 @@ const FIXTURES_DIR = path.join(process.cwd(), "fixtures", "openphone");
 // workspace. OPENPHONE_API_KEY__<LABEL> declares one; the bare
 // OPENPHONE_API_KEY keeps working untouched as an unlabeled workspace,
 // so a single-workspace setup needs zero config changes to keep working.
+// Keys pasted in Settings → API keys (stored-credentials.ts, label
+// "db:<id>") are the normal way to add a workspace now; env vars still
+// work alongside them.
 const WORKSPACE_KEY_PREFIX = "OPENPHONE_API_KEY__";
 
 interface Workspace {
   label: string | null;
+  // Display name; null for the bare OPENPHONE_API_KEY workspace.
+  name: string | null;
   apiKey: string;
 }
 
-function getConfiguredWorkspaces(): Workspace[] {
+function getEnvWorkspaces(): Workspace[] {
   const workspaces: Workspace[] = [];
   for (const [key, value] of Object.entries(process.env)) {
     if (key.startsWith(WORKSPACE_KEY_PREFIX) && value) {
-      workspaces.push({ label: key.slice(WORKSPACE_KEY_PREFIX.length), apiKey: value });
+      const label = key.slice(WORKSPACE_KEY_PREFIX.length);
+      workspaces.push({ label, name: humanizeLabel(label), apiKey: value });
     }
   }
   if (workspaces.length === 0 && process.env.OPENPHONE_API_KEY) {
-    workspaces.push({ label: null, apiKey: process.env.OPENPHONE_API_KEY });
+    workspaces.push({ label: null, name: null, apiKey: process.env.OPENPHONE_API_KEY });
   }
   return workspaces;
 }
 
-function apiKeyForLabel(label: string | null | undefined): string | undefined {
+async function apiKeyForLabel(label: string | null | undefined): Promise<string | undefined> {
   if (!label) return process.env.OPENPHONE_API_KEY;
+  if (storedIdFromLabel(label)) return storedSecretForLabel("openphone", label);
   return process.env[`${WORKSPACE_KEY_PREFIX}${label}`];
 }
 
@@ -112,12 +120,14 @@ export const openPhoneProvider: Telephony = {
     }
 
     const baseUrl = process.env.OPENPHONE_API_BASE_URL;
-    const apiKey = apiKeyForLabel(account.credentialLabel);
+    const apiKey = await apiKeyForLabel(account.credentialLabel);
     if (!baseUrl || !apiKey) {
       throw new Error(
-        account.credentialLabel
-          ? `OPENPHONE_API_BASE_URL / ${WORKSPACE_KEY_PREFIX}${account.credentialLabel} not configured`
-          : "OPENPHONE_API_BASE_URL / OPENPHONE_API_KEY not configured",
+        storedIdFromLabel(account.credentialLabel)
+          ? "This client's OpenPhone workspace key was deleted — add it again in Settings → API keys."
+          : account.credentialLabel
+            ? `OPENPHONE_API_BASE_URL / ${WORKSPACE_KEY_PREFIX}${account.credentialLabel} not configured`
+            : "OPENPHONE_API_BASE_URL / OPENPHONE_API_KEY not configured",
       );
     }
 
@@ -177,24 +187,39 @@ interface FixturePhoneNumber {
   workspace?: string;
 }
 
-function toDiscoveredAccounts(entries: FixturePhoneNumber[], label: string | null): DiscoveredAccount[] {
+function toDiscoveredAccounts(
+  entries: FixturePhoneNumber[],
+  label: string | null,
+  workspaceName: string | null = label ? humanizeLabel(label) : null,
+): DiscoveredAccount[] {
   return entries.map((entry) => {
     const effectiveLabel = entry.workspace ?? label ?? undefined;
+    const effectiveName = entry.workspace ? humanizeLabel(entry.workspace) : workspaceName;
     return {
       // The mapping's externalId is the E.164 phone number itself (see
       // openphoneExternalId in src/lib/settings/validation.ts), not
       // OpenPhone's internal id — so `id` here MUST be the number.
       id: entry.number,
       name: entry.name ?? entry.number,
-      extra: effectiveLabel ? `Workspace: ${humanizeLabel(effectiveLabel)}` : undefined,
+      extra: effectiveName ? `Workspace: ${effectiveName}` : undefined,
       credentialLabel: effectiveLabel,
+      ...(effectiveLabel && effectiveName ? { credentialName: effectiveName } : {}),
     };
   });
 }
 
 export async function listOpenPhoneNumbers(): Promise<DiscoveryResult> {
   const baseUrl = process.env.OPENPHONE_API_BASE_URL;
-  const workspaces = getConfiguredWorkspaces();
+  const workspaces: Workspace[] = [];
+  let storedError: string | null = null;
+  try {
+    for (const cred of await listStoredCredentials("openphone")) {
+      workspaces.push({ label: cred.label, name: cred.name, apiKey: cred.secret });
+    }
+  } catch (err) {
+    storedError = err instanceof Error ? err.message : String(err);
+  }
+  workspaces.push(...getEnvWorkspaces());
 
   // Listing numbers is a single cheap call, not the rate-limited/metered
   // fetch path — so real credentials take discovery live on their own,
@@ -211,8 +236,9 @@ export async function listOpenPhoneNumbers(): Promise<DiscoveryResult> {
     }
   }
 
-  if (!baseUrl || workspaces.length === 0) {
-    return { status: "error", error: "OPENPHONE_API_BASE_URL / OPENPHONE_API_KEY not configured." };
+  if (!baseUrl) return { status: "error", error: "OPENPHONE_API_BASE_URL not configured." };
+  if (workspaces.length === 0) {
+    return { status: "error", error: storedError ?? "No OpenPhone keys yet — add one in Settings → API keys." };
   }
 
   // One bad or unauthorized workspace must never hide every other
@@ -228,8 +254,8 @@ export async function listOpenPhoneNumbers(): Promise<DiscoveryResult> {
         if (response.status === 401 || response.status === 403) {
           return {
             status: "error",
-            error: workspace.label
-              ? `No access to OpenPhone numbers for workspace "${humanizeLabel(workspace.label)}". Check that key is valid.`
+            error: workspace.name
+              ? `No access to OpenPhone numbers for workspace "${workspace.name}". Check that key is valid.`
               : "No access to OpenPhone numbers. Check the API key is valid.",
           };
         }
@@ -237,7 +263,7 @@ export async function listOpenPhoneNumbers(): Promise<DiscoveryResult> {
           return { status: "error", error: `${response.status} ${response.statusText}` };
         }
         const parsed = (await response.json()) as PhoneNumbersResponse;
-        return { status: "ok", accounts: toDiscoveredAccounts(parsed.data, workspace.label) };
+        return { status: "ok", accounts: toDiscoveredAccounts(parsed.data, workspace.label, workspace.name) };
       } catch (err) {
         return { status: "error", error: err instanceof Error ? err.message : String(err) };
       }
@@ -254,4 +280,26 @@ export async function listOpenPhoneNumbers(): Promise<DiscoveryResult> {
   }
 
   return { status: "ok", accounts };
+}
+
+// Used when a key is pasted in Settings: proves it works (and shows how
+// many numbers it can see) before it's saved.
+export async function testOpenPhoneKey(apiKey: string): Promise<{ ok: true; numberCount: number } | { ok: false; error: string }> {
+  const baseUrl = process.env.OPENPHONE_API_BASE_URL;
+  if (!baseUrl) return { ok: false, error: "OPENPHONE_API_BASE_URL not configured." };
+
+  await rateLimiter.wait();
+  try {
+    const response = await fetch(new URL(`${baseUrl}/phone-numbers`), {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (response.status === 401 || response.status === 403) {
+      return { ok: false, error: "OpenPhone rejected this key. Check it was copied in full from Workspace settings → API." };
+    }
+    if (!response.ok) return { ok: false, error: `OpenPhone returned ${response.status} ${response.statusText}.` };
+    const parsed = (await response.json()) as Partial<PhoneNumbersResponse>;
+    return { ok: true, numberCount: parsed.data?.length ?? 0 };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }

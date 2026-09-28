@@ -102,6 +102,11 @@ export function MappingsSection({
                 mapping={mapping}
                 discovery={state}
                 suggestedId={suggestion?.account.id}
+                addKeyHref={
+                  platform === "ghl" || platform === "openphone"
+                    ? `/settings/api-keys?platform=${platform}&clientId=${clientId}&name=${encodeURIComponent(clientName)}`
+                    : undefined
+                }
               />
             );
           })}

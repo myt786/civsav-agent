@@ -49,6 +49,9 @@ export interface DiscoveredAccount {
   // through to the mapping so fetch/Verify/sync know which credential
   // this particular externalId belongs to.
   credentialLabel?: string;
+  // Display name for credentialLabel (a workspace or key name) — labels
+  // themselves can be opaque ("db:<uuid>").
+  credentialName?: string;
 }
 
 export type DiscoveryResult =

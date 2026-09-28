@@ -251,6 +251,20 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
                     credentialLabel={rows[platform].credentialLabel}
                     onCredentialLabelChange={(credentialLabel) => updateRow(platform, { credentialLabel })}
                   />
+                  {(platform === "ghl" || platform === "openphone") && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Not in the list?{" "}
+                      <a
+                        href={`/settings/api-keys?platform=${platform}&name=${encodeURIComponent(name)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary underline-offset-2 hover:underline"
+                      >
+                        Add its API key
+                      </a>{" "}
+                      (new tab), then click Refresh accounts.
+                    </p>
+                  )}
                 </div>
                 <Button
                   type="button"

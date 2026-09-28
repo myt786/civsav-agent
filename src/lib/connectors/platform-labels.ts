@@ -43,7 +43,7 @@ export const PLATFORM_HELP: Record<Platform, PlatformHelp> = {
     what: "Connects to this client's sub-account in GoHighLevel, which is where their opportunities and pipeline activity come from. GoHighLevel keys are per sub-account, not agency-wide, so each client needs its own key and location ID.",
     ifWrong: "The dashboard would show another client's opportunities, or a location that doesn't exist would just fail every sync.",
     ifEmpty:
-      "GoHighLevel doesn't let us look up sub-accounts for you — there's no list to browse, so this always needs the location ID typed in by hand. To find it: log into that client's sub-account in GoHighLevel and look at the address bar — the ID is the string right after /location/ (e.g. app.gohighlevel.com/v2/location/THIS-PART/...). Then pick that client's credential in the Workspace dropdown next to it — the key was created inside that same sub-account's Settings → Private Integrations.",
+      "GoHighLevel gives each sub-account its own key, so each client's key is added once under Settings → API keys (the \"Add this client's GoHighLevel key\" link on the client's page). After that the location shows up in this list by name.",
   },
   google_ads: {
     what: "Connects to this client's Google Ads account, which is where spend, clicks, and results for their ad campaigns come from.",
@@ -73,6 +73,7 @@ export const PLATFORM_HELP: Record<Platform, PlatformHelp> = {
   openphone: {
     what: "Connects to this client's tracked phone number in OpenPhone, which is where call volume and call outcomes come from.",
     ifWrong: "You'd be looking at call activity for a different client's phone number.",
-    ifEmpty: "We don't see any phone numbers yet — check that this client's number has been added to our OpenPhone workspace.",
+    ifEmpty:
+      "We don't see this number yet. If it's in a different OpenPhone workspace, add that workspace's key under Settings → API keys — every number in it will then show up here.",
   },
 };

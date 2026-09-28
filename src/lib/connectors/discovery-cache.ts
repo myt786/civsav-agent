@@ -16,6 +16,12 @@ interface CacheEntry {
 // on every settings page load.
 const cache = new Map<Platform, CacheEntry>();
 
+// Called after an API key is added, replaced or deleted in Settings, so the
+// account list reflects it right away instead of after the TTL.
+export function invalidateDiscovery(platform: Platform): void {
+  cache.delete(platform);
+}
+
 export interface DiscoveredAccounts {
   platform: Platform;
   result: DiscoveryResult;
