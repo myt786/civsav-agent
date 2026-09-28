@@ -67,10 +67,10 @@ export default function DocsPage() {
           the same thing here.
         </p>
         <div className="flex flex-col gap-2">
-          <Swatch caption="A confirmed, real number — the mapping behind it has been Verified at least once.">
+          <Swatch caption="A confirmed, real number — the mapping behind it has been checked at least once.">
             <span className="font-mono tabular-nums text-foreground">1,204</span>
           </Swatch>
-          <Swatch caption="A real number pulled from a live sync, but nobody has clicked Verify on this mapping yet — treat with a little less certainty.">
+          <Swatch caption="A real number pulled from a live sync, but this mapping hasn't been checked yet — treat with a little less certainty.">
             <span className="flex items-center gap-1.5 font-mono tabular-nums text-warning">
               1,204
               <Badge
@@ -162,30 +162,30 @@ export default function DocsPage() {
 
       <Section id="verify" title="Verified vs. unverified">
         <p>
-          Each client&apos;s platform connection (in <Link href="/settings/clients" className="text-primary hover:underline">Settings</Link>) carries its own status, set by clicking{" "}
-          <strong>Verify</strong> on that mapping — which runs the real connector against the last 7 days and shows
-          you the actual figures it got back.
+          Each client&apos;s platform connection (in <Link href="/settings/clients" className="text-primary hover:underline">Settings</Link>) carries its own status. It&apos;s checked automatically when the client is created and whenever a mapping
+          is saved — the real connector runs against the last 7 days and shows you the actual figures it got back.
+          Use <strong>Re-check</strong> on one mapping, or <strong>Check all</strong>, to run it again.
         </p>
         <div className="flex flex-col gap-2">
-          <Swatch caption="Nobody has run Verify on this mapping since it was created or last changed.">
+          <Swatch caption="This mapping hasn't been checked yet (e.g. it was imported rather than saved in Settings).">
             <Badge variant="outline" className="gap-1 text-muted-foreground">
               <CircleIcon className="size-3" />
               not verified
             </Badge>
           </Swatch>
-          <Swatch caption="Verify ran and returned real figures — this mapping is confirmed correct.">
+          <Swatch caption="The check ran and returned real figures — this mapping is confirmed correct.">
             <Badge variant="outline" className="gap-1 border-success/30 text-success">
               <CheckCircle2Icon className="size-3" />
               verified
             </Badge>
           </Swatch>
-          <Swatch caption="Verify ran successfully but the platform returned nothing for the test period — often normal for a quiet client, worth a second look if unexpected.">
+          <Swatch caption="The check ran successfully but the platform returned nothing for the test period — often normal for a quiet client, worth a second look if unexpected.">
             <Badge variant="outline" className="gap-1 border-warning/30 text-warning">
               <MinusCircleIcon className="size-3" />
               no data
             </Badge>
           </Swatch>
-          <Swatch caption="Verify failed — the external API rejected the request or errored. Hover it in Settings for the exact message.">
+          <Swatch caption="The check failed — the external API rejected the request or errored. Hover it in Settings for the exact message.">
             <Badge variant="outline" className="gap-1 border-destructive/30 text-destructive">
               <AlertTriangleIcon className="size-3" />
               error
@@ -194,8 +194,8 @@ export default function DocsPage() {
         </div>
         <p>
           A dashboard cell shows the <strong>unverified</strong> badge specifically when real synced data exists for
-          that platform but its mapping has never been through a successful Verify — the number is probably right,
-          it just hasn&apos;t been double-checked by a human yet.
+          that platform but its mapping has never been checked — the number is probably right, it just hasn&apos;t been
+          double-checked yet. Click <strong>Check all</strong> on that client in Settings to clear it.
         </p>
       </Section>
 

@@ -105,7 +105,7 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                   </TooltipTrigger>
                   <TooltipContent className="max-w-64 text-pretty">
                     Count of recent {PLATFORM_LABELS[connector.platform]} data points whose mapping has (verified) or
-                    hasn&apos;t (unverified) been confirmed correct via the Verify action in Settings.
+                    hasn&apos;t (unverified) been confirmed correct by a check in Settings.
                   </TooltipContent>
                 </Tooltip>
               </div>

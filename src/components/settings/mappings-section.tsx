@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { CheckCheckIcon } from "lucide-react";
 import { MappingRow, type MappingRowData } from "@/components/settings/mapping-row";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toaster";
 import { RefreshDiscoveryButton } from "@/components/settings/refresh-discovery-button";
 import type { DiscoveryState } from "@/components/settings/account-combobox";
-import { discoverAllAccounts } from "@/app/settings/actions";
+import { discoverAllAccounts, verifyAllMappings } from "@/app/settings/actions";
 import type { DiscoveredAccounts } from "@/lib/connectors/discovery-cache";
 import { PLATFORM_HELP, PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/connectors/platform-labels";
 import { bestMatch } from "@/lib/settings/fuzzy-match";
@@ -37,6 +41,26 @@ export function MappingsSection({
     toDiscoveryState(initialDiscovery),
   );
 
+  const [checking, startChecking] = useTransition();
+  const router = useRouter();
+
+  function checkAll() {
+    startChecking(async () => {
+      const results = await verifyAllMappings(clientId);
+      router.refresh();
+      const failed = results.filter((r) => r.result.status === "error");
+      if (failed.length === 0) {
+        toast({ variant: "success", title: `All ${results.length} accounts connected` });
+      } else {
+        toast({
+          variant: "error",
+          title: `${failed.length} of ${results.length} accounts not working`,
+          description: failed.map((r) => PLATFORM_LABELS[r.platform]).join(", "),
+        });
+      }
+    });
+  }
+
   async function refresh() {
     const results = await discoverAllAccounts(true);
     setDiscovery(toDiscoveryState(results));
@@ -47,7 +71,15 @@ export function MappingsSection({
       <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-medium text-foreground">Platform mappings</h3>
-          <RefreshDiscoveryButton onRefresh={refresh} />
+          <div className="flex items-center gap-2">
+            {mappingByPlatform.size > 0 && (
+              <Button type="button" variant="outline" size="sm" disabled={checking} onClick={checkAll}>
+                <CheckCheckIcon className="size-3.5" />
+                {checking ? "Checking…" : "Check all"}
+              </Button>
+            )}
+            <RefreshDiscoveryButton onRefresh={refresh} />
+          </div>
         </div>
         <div className="overflow-hidden rounded-lg border border-border shadow-sm">
           {PLATFORM_ORDER.map((platform) => {

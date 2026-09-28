@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { PlusIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { AccountCombobox, type DiscoveryState } from "@/components/settings/account-combobox";
 import { PlatformHelpPopover } from "@/components/settings/platform-help-popover";
 import { RefreshDiscoveryButton } from "@/components/settings/refresh-discovery-button";
@@ -18,7 +18,6 @@ const TIMEZONES = typeof Intl.supportedValuesOf === "function" ? Intl.supportedV
 
 interface RowState {
   externalId: string;
-  active: boolean;
   // Only meaningful for a platform whose accounts are split across
   // several per-tenant credentials (OpenPhone) — see PlatformAccount.
   // credentialLabel. Null for every other platform.
@@ -28,15 +27,24 @@ interface RowState {
   // the client name keeps changing; anything the user has touched is left
   // alone even if a better-scoring suggestion shows up later.
   autoFilled: boolean;
+  // Opened by hand from the "Add" list, so it stays visible while empty.
+  open: boolean;
+  // Removed by hand — the suggestion engine never refills it.
+  dismissed: boolean;
 }
 
 function emptyRow(): RowState {
-  return { externalId: "", active: true, credentialLabel: null, autoFilled: false };
+  return { externalId: "", credentialLabel: null, autoFilled: false, open: false, dismissed: false };
+}
+
+function isShown(row: RowState): boolean {
+  return row.externalId !== "" || row.open;
 }
 
 export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }) {
   const [name, setName] = useState("");
   const [timezone, setTimezone] = useState(defaultTimezone);
+  const [editingTimezone, setEditingTimezone] = useState(false);
 
   // Suggest the browser's own timezone once the client mounts, rather
   // than always defaulting to DEFAULT_CLIENT_TIMEZONE — most new clients
@@ -108,6 +116,7 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
       for (const platform of PLATFORM_ORDER) {
         const suggestion = suggestions[platform];
         const row = prev[platform];
+        if (row.dismissed) continue;
         if (!suggestion) {
           // The name changed enough that this platform no longer has a
           // confident match — clear a previous auto-fill, but never touch
@@ -120,8 +129,8 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
         }
         if ((row.autoFilled || row.externalId === "") && row.externalId !== suggestion.id) {
           next[platform] = {
+            ...row,
             externalId: suggestion.id,
-            active: true,
             credentialLabel: suggestion.credentialLabel,
             autoFilled: true,
           };
@@ -136,12 +145,20 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
     setRows((prev) => ({ ...prev, [platform]: { ...prev[platform], ...partial, autoFilled: false } }));
   }
 
+  function addRow(platform: Platform) {
+    setRows((prev) => ({ ...prev, [platform]: { ...prev[platform], open: true, dismissed: false } }));
+  }
+
+  function removeRow(platform: Platform) {
+    setRows((prev) => ({ ...prev, [platform]: { ...emptyRow(), dismissed: true } }));
+  }
+
   function handleSave() {
     setError(null);
     const mappings = PLATFORM_ORDER.filter((p) => rows[p].externalId.trim().length > 0).map((platform) => ({
       platform,
       externalId: rows[platform].externalId,
-      active: rows[platform].active,
+      active: true,
       credentialLabel: rows[platform].credentialLabel,
     }));
 
@@ -151,63 +168,80 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
     });
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="max-w-md rounded-lg border border-border p-4">
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              maxLength={200}
-              autoFocus
-            />
-          </div>
+  const shownPlatforms = PLATFORM_ORDER.filter((p) => isShown(rows[p]));
+  const hiddenPlatforms = PLATFORM_ORDER.filter((p) => !isShown(rows[p]));
+  const stillLoading = PLATFORM_ORDER.some((p) => discovery[p].status === "loading");
+  const connectedCount = PLATFORM_ORDER.filter((p) => rows[p].externalId.trim().length > 0).length;
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="timezone">Timezone</Label>
-            <Select value={timezone} onValueChange={setTimezone}>
-              <SelectTrigger id="timezone" className="w-full">
-                <SelectValue placeholder="Select a timezone" />
-              </SelectTrigger>
-              <SelectContent>
-                {TIMEZONES.map((tz) => (
-                  <SelectItem key={tz} value={tz}>
-                    {tz}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+  return (
+    <div className="flex max-w-3xl flex-col gap-6">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="name">Client name</Label>
+        <Input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          maxLength={200}
+          autoFocus
+          placeholder="e.g. Acme Roofing"
+        />
+        {editingTimezone ? (
+          <Select value={timezone} onValueChange={setTimezone}>
+            <SelectTrigger id="timezone" aria-label="Timezone" className="mt-1 w-full sm:w-72">
+              <SelectValue placeholder="Select a timezone" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIMEZONES.map((tz) => (
+                <SelectItem key={tz} value={tz}>
+                  {tz}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Timezone: <span className="text-foreground">{timezone}</span> ·{" "}
+            <button
+              type="button"
+              onClick={() => setEditingTimezone(true)}
+              className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+            >
+              change
+            </button>
+          </p>
+        )}
       </div>
 
       <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col">
-            <h3 className="text-sm font-medium text-foreground">Platform mappings</h3>
+            <h3 className="text-sm font-medium text-foreground">Accounts</h3>
             <p className="text-xs text-muted-foreground">
-              Matching accounts are suggested automatically as you type the client&apos;s name — confirm or search
-              instead.
+              {stillLoading
+                ? "Looking up accounts…"
+                : !debouncedName.trim()
+                  ? "Type the client's name and we'll find their accounts."
+                  : connectedCount === 0
+                    ? "No matching accounts found. Add them below, or skip and add them later."
+                    : "Check these are the right accounts. You can also add or change them later."}
             </p>
           </div>
           <RefreshDiscoveryButton onRefresh={() => loadDiscovery(true)} />
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-border shadow-sm">
-          {PLATFORM_ORDER.map((platform) => (
-            <div key={platform} className="flex flex-col gap-2 border-b border-border px-4 py-3.5 last:border-b-0">
-              <div className="flex items-center gap-1.5">
-                <span className="w-32 shrink-0 text-sm font-medium text-foreground">
-                  {PLATFORM_LABELS[platform]}
-                </span>
-                <PlatformHelpPopover help={PLATFORM_HELP[platform]} />
-              </div>
-              <div className="flex flex-wrap items-start gap-3">
-                <div className="min-w-64 flex-1">
+        {shownPlatforms.length > 0 && (
+          <div className="overflow-hidden rounded-lg border border-border shadow-sm">
+            {shownPlatforms.map((platform) => (
+              <div
+                key={platform}
+                className="flex flex-col gap-2 border-b border-border px-4 py-3 last:border-b-0 sm:flex-row sm:items-start"
+              >
+                <div className="flex items-center gap-1.5 sm:w-36 sm:shrink-0 sm:pt-2">
+                  <span className="text-sm font-medium text-foreground">{PLATFORM_LABELS[platform]}</span>
+                  <PlatformHelpPopover help={PLATFORM_HELP[platform]} />
+                </div>
+                <div className="min-w-0 flex-1">
                   <AccountCombobox
                     platform={platform}
                     value={rows[platform].externalId}
@@ -218,24 +252,38 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
                     onCredentialLabelChange={(credentialLabel) => updateRow(platform, { credentialLabel })}
                   />
                 </div>
-                <div className="flex items-center gap-1.5 pt-1.5">
-                  <Switch
-                    checked={rows[platform].active}
-                    onCheckedChange={(active) => updateRow(platform, { active })}
-                    size="sm"
-                  />
-                  <span className="text-xs text-muted-foreground">active</span>
-                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => removeRow(platform)}
+                  aria-label={`Remove ${PLATFORM_LABELS[platform]}`}
+                  className="self-end sm:mt-1 sm:self-start"
+                >
+                  <XIcon />
+                </Button>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {hiddenPlatforms.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Add:</span>
+            {hiddenPlatforms.map((platform) => (
+              <Button key={platform} type="button" variant="outline" size="xs" onClick={() => addRow(platform)}>
+                <PlusIcon />
+                {PLATFORM_LABELS[platform]}
+              </Button>
+            ))}
+          </div>
+        )}
       </section>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Button type="button" onClick={handleSave} disabled={saving || name.trim().length === 0} className="self-start">
-        {saving ? "Creating…" : "Create client"}
+        {saving ? "Creating and checking accounts…" : "Create client"}
       </Button>
     </div>
   );
