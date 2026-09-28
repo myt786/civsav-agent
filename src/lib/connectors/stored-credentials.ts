@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql, type SQL } from "drizzle-orm";
 import { getDb } from "../db";
 import { platformCredentials } from "../db/schema";
 import type { Platform } from "./types";
@@ -72,8 +72,11 @@ let tableReady: Promise<void> | undefined;
 
 export async function credentialsDb(): Promise<Awaited<ReturnType<typeof getDb>>> {
   const db = await getDb();
+  // getDb() is a union of the postgres-js and PGlite drizzle types, whose
+  // generic execute() signatures TypeScript can't call through a union.
+  const execute = (query: SQL) => (db as unknown as { execute: (q: SQL) => Promise<unknown> }).execute(query);
   tableReady ??= (async () => {
-    await db.execute(
+    await execute(
       sql.raw(`CREATE TABLE IF NOT EXISTS "platform_credentials" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "platform" "platform" NOT NULL,
@@ -85,7 +88,7 @@ export async function credentialsDb(): Promise<Awaited<ReturnType<typeof getDb>>
         "updated_at" timestamp with time zone DEFAULT now() NOT NULL
       )`),
     );
-    await db.execute(
+    await execute(
       sql.raw(
         `CREATE UNIQUE INDEX IF NOT EXISTS "platform_credentials_platform_name_idx" ON "platform_credentials" USING btree ("platform","name")`,
       ),

@@ -193,7 +193,6 @@ export async function replacePlatformCredential(
 export async function deletePlatformCredential(
   credentialId: string,
   _prevState: CredentialFormState,
-  _formData: FormData,
 ): Promise<CredentialFormState> {
   await requireSession();
 
