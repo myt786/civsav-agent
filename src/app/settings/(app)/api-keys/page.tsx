@@ -1,8 +1,7 @@
 import { asc, like } from "drizzle-orm";
-import { getDb } from "@/lib/db";
 import { clientPlatformAccounts, platformCredentials } from "@/lib/db/schema";
 import { getClient } from "@/lib/settings/queries";
-import { storedIdFromLabel } from "@/lib/connectors/stored-credentials";
+import { credentialsDb, storedIdFromLabel } from "@/lib/connectors/stored-credentials";
 import { AddApiKeyForm } from "@/components/settings/add-api-key-form";
 import { ApiKeysList, type ApiKeyRow } from "@/components/settings/api-keys-list";
 
@@ -26,7 +25,7 @@ export default async function ApiKeysPage({
   searchParams: Promise<{ platform?: string; clientId?: string; name?: string }>;
 }) {
   const params = await searchParams;
-  const db = await getDb();
+  const db = await credentialsDb();
 
   const [rows, mappings, client] = await Promise.all([
     db

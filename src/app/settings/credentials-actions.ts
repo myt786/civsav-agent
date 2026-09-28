@@ -9,7 +9,7 @@ import { getDb } from "@/lib/db";
 import { clientPlatformAccounts, clients, platformCredentials } from "@/lib/db/schema";
 import { logChanges } from "@/lib/settings/audit";
 import { externalIdSchemas } from "@/lib/settings/validation";
-import { encryptSecret, storedLabel } from "@/lib/connectors/stored-credentials";
+import { credentialsDb, encryptSecret, storedLabel } from "@/lib/connectors/stored-credentials";
 import { invalidateDiscovery } from "@/lib/connectors/discovery-cache";
 import { testGhlKey } from "@/lib/connectors/ghl/client";
 import { testOpenPhoneKey } from "@/lib/connectors/openphone/client";
@@ -81,7 +81,7 @@ export async function addPlatformCredential(
     locationId = idParsed.data;
   }
 
-  const db = await getDb();
+  const db = await credentialsDb();
   const [existing] = await db
     .select({ id: platformCredentials.id })
     .from(platformCredentials)
@@ -168,7 +168,7 @@ export async function replacePlatformCredential(
   const apiKey = z.string().trim().min(8, "Paste the full API key.").safeParse(formData.get("apiKey"));
   if (!apiKey.success) return { error: apiKey.error.issues[0]?.message ?? "Invalid key." };
 
-  const db = await getDb();
+  const db = await credentialsDb();
   const [row] = await db.select().from(platformCredentials).where(eq(platformCredentials.id, credentialId)).limit(1);
   if (!row) return { error: "That key no longer exists." };
   const platform = keyPlatformSchema.safeParse(row.platform);
@@ -197,7 +197,7 @@ export async function deletePlatformCredential(
 ): Promise<CredentialFormState> {
   await requireSession();
 
-  const db = await getDb();
+  const db = await credentialsDb();
   const [row] = await db.select().from(platformCredentials).where(eq(platformCredentials.id, credentialId)).limit(1);
   if (!row) return {};
 
