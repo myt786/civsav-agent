@@ -112,6 +112,8 @@ export async function discoverAllAccounts(forceRefresh = false): Promise<Discove
 
 export interface MappingFormState {
   error?: string;
+  // Set after a successful save — the mapping is checked straight away.
+  verify?: VerifyResult;
 }
 
 export async function upsertMapping(
@@ -177,8 +179,9 @@ export async function upsertMapping(
     },
   ]);
 
+  const verify = await runVerification(clientId, platform);
   revalidatePath(`/settings/clients/${clientId}`);
-  return {};
+  return { verify };
 }
 
 export type VerifyResult =
@@ -212,7 +215,32 @@ function last7DayWindow(timezone: string, now: Date): DateRange {
 
 export async function verifyMapping(clientId: string, platform: Platform): Promise<VerifyResult> {
   await requireSession();
+  const result = await runVerification(clientId, platform);
+  revalidatePath(`/settings/clients/${clientId}`);
+  return result;
+}
 
+// Verify every saved mapping for a client at once — the "Check all" button
+// on the edit page. Runs in parallel; one platform failing never stops the
+// others from being checked.
+export async function verifyAllMappings(clientId: string): Promise<{ platform: Platform; result: VerifyResult }[]> {
+  await requireSession();
+  const db = await getDb();
+  const mappings = await db
+    .select({ platform: clientPlatformAccounts.platform })
+    .from(clientPlatformAccounts)
+    .where(eq(clientPlatformAccounts.clientId, clientId));
+  const results = await Promise.all(
+    mappings.map(async ({ platform }) => ({ platform, result: await runVerification(clientId, platform) })),
+  );
+  revalidatePath(`/settings/clients/${clientId}`);
+  return results;
+}
+
+// Shared by Verify, Check all, saving a mapping, and creating a client — a
+// mapping is checked the moment it's saved, so nobody has to remember a
+// separate Verify click before the dashboard trusts its numbers.
+async function runVerification(clientId: string, platform: Platform): Promise<VerifyResult> {
   const db = await getDb();
   const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   const [mapping] = await db
@@ -255,8 +283,6 @@ export async function verifyMapping(clientId: string, platform: Platform): Promi
       lastError: result.status === "error" ? result.error : null,
     })
     .where(eq(clientPlatformAccounts.id, mapping.id));
-
-  revalidatePath(`/settings/clients/${clientId}`);
 
   if (result.status === "error") return { status: "error", message: result.error };
   if (result.status === "no_data") return { status: "no_data" };
@@ -375,6 +401,12 @@ export async function createClientWithMappings(
       },
     ]),
   ]);
+
+  // Check every mapping now, so the client page opens with real
+  // connected/error results instead of a column of "not verified" badges.
+  // allSettled: the client already exists, so a check blowing up must not
+  // stop the redirect (and tempt a second submit that duplicates it).
+  await Promise.allSettled(parsedMappings.map((mapping) => runVerification(created.id, mapping.platform)));
 
   revalidatePath("/settings/clients");
   redirect(`/settings/clients/${created.id}`);

@@ -86,6 +86,16 @@ function VerifyOutcome({ result }: { result: VerifyResult }) {
 
 const initialState: MappingFormState = {};
 
+export function toastVerify(title: string, result: VerifyResult) {
+  if (result.status === "error") {
+    toast({ variant: "error", title: `${title} — not working`, description: result.message });
+  } else if (result.status === "no_data") {
+    toast({ variant: "default", title: `${title} — connected`, description: "No data for the last 7 days" });
+  } else {
+    toast({ variant: "success", title: `${title} — connected` });
+  }
+}
+
 export function MappingRow({
   clientId,
   platform,
@@ -116,26 +126,23 @@ export function MappingRow({
   const liveCheck = externalId.trim().length > 0 ? externalIdSchemas[platform].safeParse(externalId) : null;
   const liveError = liveCheck && !liveCheck.success ? liveCheck.error.issues[0]?.message : null;
 
+  // Saving also checks the account (see upsertMapping), so one click both
+  // stores the mapping and tells you whether it works.
   const wasSaving = useRef(savePending);
   useEffect(() => {
-    if (wasSaving.current && !savePending && !state.error) {
-      toast({ variant: "success", title: `${label} mapping saved` });
+    if (wasSaving.current && !savePending && !state.error && state.verify) {
+      setVerifyResult(state.verify);
+      toastVerify(`${label} saved`, state.verify);
     }
     wasSaving.current = savePending;
-  }, [savePending, state.error, label]);
+  }, [savePending, state.error, state.verify, label]);
 
   function handleVerify() {
     startVerifying(async () => {
       const result = await verifyMapping(clientId, platform);
       setVerifyResult(result);
       router.refresh();
-      if (result.status === "error") {
-        toast({ variant: "error", title: `${label} verify failed`, description: result.message });
-      } else if (result.status === "no_data") {
-        toast({ variant: "default", title: `${label} verified`, description: "No data for this period" });
-      } else {
-        toast({ variant: "success", title: `${label} verified` });
-      }
+      toastVerify(label, result);
     });
   }
 
@@ -176,7 +183,7 @@ export function MappingRow({
 
         <div className="flex items-center gap-2 pt-0.5">
           <Button type="submit" size="sm" variant="secondary" disabled={savePending || externalId.trim().length === 0}>
-            {savePending ? "Saving…" : "Save"}
+            {savePending ? "Saving and checking…" : "Save"}
           </Button>
           <Button
             type="button"
@@ -185,7 +192,7 @@ export function MappingRow({
             disabled={verifying || !mapping}
             onClick={handleVerify}
           >
-            {verifying ? "Verifying…" : "Verify"}
+            {verifying ? "Checking…" : "Re-check"}
           </Button>
         </div>
       </form>

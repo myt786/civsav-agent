@@ -8,8 +8,8 @@ export default function NewClientPage() {
       <div className="flex flex-col gap-1">
         <h2 className="font-heading text-base font-medium text-foreground">Add client</h2>
         <p className="text-sm text-muted-foreground">
-          We never ask you to look up or paste a platform ID — pick the matching account from each list, or search
-          if it&apos;s not the one we guessed.
+          Type the client&apos;s name — we&apos;ll find their accounts on each platform and check they work when you
+          create it.
         </p>
       </div>
 
