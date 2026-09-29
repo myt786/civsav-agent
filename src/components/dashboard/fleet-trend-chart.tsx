@@ -83,7 +83,7 @@ export function FleetTrendChart({
         </ResponsiveContainer>
       ) : (
         <div className="flex h-[140px] items-center justify-center text-xs text-muted-foreground/70">
-          Not enough synced days yet
+          Not enough days of data yet
         </div>
       )}
     </div>

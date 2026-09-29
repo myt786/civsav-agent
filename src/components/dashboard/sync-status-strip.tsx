@@ -12,7 +12,7 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
         <Tooltip>
           <TooltipTrigger asChild>
             <div tabIndex={0} className="flex w-fit cursor-help items-center gap-2 text-xs text-muted-foreground outline-none">
-              <span>Last sync run</span>
+              <span>Data last updated</span>
               <span className="font-mono tabular-nums text-foreground">
                 {data.lastRunAt ? formatRelativeTime(data.lastRunAt, now) : "never"}
               </span>
@@ -27,15 +27,21 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                         : "text-muted-foreground",
                   )}
                 >
-                  · {data.lastRunStatus.replace(/_/g, " ")}
+                  ·{" "}
+                  {data.lastRunStatus === "failed"
+                    ? "failed"
+                    : data.lastRunStatus === "completed_with_errors"
+                      ? "some platforms had problems"
+                      : data.lastRunStatus === "running"
+                        ? "updating now"
+                        : "all good"}
                 </span>
               )}
             </div>
           </TooltipTrigger>
           <TooltipContent className="max-w-72 text-pretty">
-            The most recent sync across every platform and every active client. Runs automatically once a day, plus
-            on demand via Sync now — completed with errors means some platforms failed while others still updated;
-            failed means every attempt in that run errored.
+            When we last pulled fresh numbers from every platform for every active client. This happens
+            automatically once a day, or any time you click &ldquo;Update data now&rdquo; in Settings.
           </TooltipContent>
         </Tooltip>
 
@@ -71,12 +77,11 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                       >
                         {connector.lastSuccessfulSync
                           ? formatRelativeTime(connector.lastSuccessfulSync, now)
-                          : "never synced"}
+                          : "not connected yet"}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      Most recent successful {PLATFORM_LABELS[connector.platform]} sync, across every client mapped to
-                      it.
+                      When {PLATFORM_LABELS[connector.platform]} numbers were last updated successfully.
                     </TooltipContent>
                   </Tooltip>
                   {connector.errorCountLastRun > 0 && (
@@ -88,8 +93,8 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {connector.errorCountLastRun} error{connector.errorCountLastRun === 1 ? "" : "s"} in the most
-                        recent sync run
+                        {connector.errorCountLastRun} client{connector.errorCountLastRun === 1 ? "" : "s"} couldn&apos;t
+                        be updated last time. See Insights for why.
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -100,12 +105,12 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                       tabIndex={0}
                       className="w-fit cursor-help truncate font-mono text-[11px] tabular-nums text-muted-foreground/70 outline-none"
                     >
-                      {total === 0 ? "no data points" : `${connector.verifiedCount} of ${total} verified`}
+                      {total === 0 ? "no numbers yet" : `${connector.verifiedCount} of ${total} checked`}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-64 text-pretty">
-                    Count of recent {PLATFORM_LABELS[connector.platform]} data points whose mapping has (verified) or
-                    hasn&apos;t (unverified) been confirmed correct by a check in Settings.
+                    How many recent {PLATFORM_LABELS[connector.platform]} numbers come from an account we&apos;ve
+                    confirmed is the right one. The rest are probably fine — they just haven&apos;t been checked yet.
                   </TooltipContent>
                 </Tooltip>
               </div>

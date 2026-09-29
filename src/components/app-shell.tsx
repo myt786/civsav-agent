@@ -25,7 +25,7 @@ export const NAV_ITEMS = [
   { href: "/seo", label: "SEO", icon: TrendingUpIcon },
   { href: "/insights", label: "Insights", icon: SparklesIcon },
   { href: "/settings/clients", label: "Settings", icon: SettingsIcon },
-  { href: "/docs", label: "Docs", icon: BookOpenIcon },
+  { href: "/docs", label: "Help", icon: BookOpenIcon },
 ];
 
 function isActive(pathname: string, href: string) {

@@ -28,9 +28,9 @@ export function UnsyncedNotice({ count }: { count: number }) {
       <InfoIcon className="size-4 shrink-0 text-primary" aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="font-medium text-foreground">
-          {count} client{count === 1 ? " hasn’t" : "s haven’t"} synced yet
+          {count} client{count === 1 ? " has" : "s have"} no search data yet
         </span>{" "}
-        — usually Search Console access still needs granting.{" "}
+        — usually because we haven't been given access to their Search Console yet.{" "}
         <Link href="/insights" className="text-primary hover:underline">
           See what&apos;s missing
         </Link>

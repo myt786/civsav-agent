@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/toaster";
+import { friendlyError } from "@/lib/friendly-error";
 
 export interface MappingRowData {
   externalId: string;
@@ -30,7 +31,7 @@ function StatusBadge({ mapping }: { mapping: MappingRowData | null }) {
     return (
       <Badge variant="outline" className="gap-1 text-muted-foreground">
         <CircleIcon className="size-3" />
-        not verified
+        {mapping ? "not checked yet" : "not connected"}
       </Badge>
     );
   }
@@ -38,7 +39,7 @@ function StatusBadge({ mapping }: { mapping: MappingRowData | null }) {
     return (
       <Badge variant="outline" className="gap-1 border-success/30 text-success">
         <CheckCircle2Icon className="size-3" />
-        verified
+        working
       </Badge>
     );
   }
@@ -46,7 +47,7 @@ function StatusBadge({ mapping }: { mapping: MappingRowData | null }) {
     return (
       <Badge variant="outline" className="gap-1 border-warning/30 text-warning">
         <MinusCircleIcon className="size-3" />
-        no data
+        connected, no activity
       </Badge>
     );
   }
@@ -55,45 +56,48 @@ function StatusBadge({ mapping }: { mapping: MappingRowData | null }) {
       <TooltipTrigger asChild>
         <Badge variant="outline" className="gap-1 border-destructive/30 text-destructive" tabIndex={0}>
           <AlertTriangleIcon className="size-3" />
-          error
+          not working
         </Badge>
       </TooltipTrigger>
-      <TooltipContent className="max-w-72 text-pretty">{mapping.lastError}</TooltipContent>
+      <TooltipContent className="max-w-72 text-pretty">{friendlyError(mapping.lastError).summary}</TooltipContent>
     </Tooltip>
   );
 }
 
 function VerifyOutcome({ result }: { result: VerifyResult }) {
   if (result.status === "error") {
-    return <p className="text-xs text-destructive">{result.message}</p>;
+    const { summary, detail } = friendlyError(result.message);
+    return (
+      <div className="flex flex-col gap-0.5 text-xs">
+        <p className="text-destructive">{summary}</p>
+        {detail && (
+          <details className="text-muted-foreground">
+            <summary className="cursor-pointer select-none">Technical details</summary>
+            <p className="mt-1 font-mono break-all">{detail}</p>
+          </details>
+        )}
+      </div>
+    );
   }
   if (result.status === "no_data") {
-    return <p className="text-xs text-warning">Connected, but returned nothing for this period.</p>;
+    return (
+      <p className="text-xs text-warning">
+        Connected, but there was no activity in the last 7 days. That&apos;s normal for a quiet account.
+      </p>
+    );
   }
-  const entries = Object.entries(result.figures);
-  if (entries.length === 0) {
-    return <p className="text-xs text-success">Connected — no scalar figures to show.</p>;
-  }
-  return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-      {entries.map(([key, value]) => (
-        <span key={key} className="font-mono tabular-nums text-foreground">
-          <span className="text-muted-foreground">{key}:</span> {value}
-        </span>
-      ))}
-    </div>
-  );
+  return <p className="text-xs text-success">Working — we can see this account&apos;s numbers.</p>;
 }
 
 const initialState: MappingFormState = {};
 
 export function toastVerify(title: string, result: VerifyResult) {
   if (result.status === "error") {
-    toast({ variant: "error", title: `${title} — not working`, description: result.message });
+    toast({ variant: "error", title: `${title} — not working`, description: friendlyError(result.message).summary });
   } else if (result.status === "no_data") {
-    toast({ variant: "default", title: `${title} — connected`, description: "No data for the last 7 days" });
+    toast({ variant: "default", title: `${title} — connected`, description: "No activity in the last 7 days" });
   } else {
-    toast({ variant: "success", title: `${title} — connected` });
+    toast({ variant: "success", title: `${title} — working` });
   }
 }
 
@@ -190,7 +194,7 @@ export function MappingRow({
 
         <div className="flex items-center gap-1.5 pt-1.5">
           <Switch name="active" value="true" checked={active} onCheckedChange={setActive} size="sm" />
-          <span className="text-xs text-muted-foreground">active</span>
+          <span className="text-xs text-muted-foreground">include in updates</span>
         </div>
 
         <div className="flex items-center gap-2 pt-0.5">

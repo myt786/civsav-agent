@@ -29,8 +29,8 @@ export function AiSummary() {
       }
       const narrative: FleetNarrative = await res.json();
       setState({ status: "ok", narrative });
-    } catch (error) {
-      setState({ status: "error", message: error instanceof Error ? error.message : "Failed to generate summary" });
+    } catch {
+      setState({ status: "error", message: "Couldn't write the summary right now. Please try again in a minute." });
     }
   }
 
@@ -42,12 +42,12 @@ export function AiSummary() {
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <SparklesIcon className="size-3.5 shrink-0 text-primary" aria-hidden />
           {state.status === "ok"
-            ? "Generated from this week's numbers and flags."
-            : "Turn this week's numbers and flags into a plain-English summary of the fleet."}
+            ? "Written by AI from this week's numbers."
+            : "Get a short written summary of how all your clients did this week."}
         </p>
         <Button variant="ghost" size="sm" onClick={generate} disabled={state.status === "loading"} className="h-7 gap-1.5 text-xs">
           <RefreshCwIcon className={cn("size-3.5", state.status === "loading" && "animate-spin")} aria-hidden />
-          {state.status === "ok" ? "Regenerate" : "Generate"}
+          {state.status === "ok" ? "Write again" : "Write summary"}
         </Button>
       </div>
 

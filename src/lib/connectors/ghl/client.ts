@@ -185,7 +185,7 @@ export async function listGhlLocations(): Promise<DiscoveryResult> {
 // location ID fails there rather than at the next sync.
 export async function testGhlKey(apiKey: string, locationId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const baseUrl = process.env.GHL_API_BASE_URL;
-  if (!baseUrl) return { ok: false, error: "GHL_API_BASE_URL not configured." };
+  if (!baseUrl) return { ok: false, error: "GoHighLevel isn't fully set up in this app yet — ask your developer to finish connecting it." };
 
   await rateLimiter.wait();
   const url = new URL(`${baseUrl}/opportunities/search`);
@@ -194,15 +194,15 @@ export async function testGhlKey(apiKey: string, locationId: string): Promise<{ 
   try {
     const response = await fetch(url, { headers: ghlHeaders(apiKey) });
     if (response.ok) return { ok: true };
-    if (response.status === 401) return { ok: false, error: "GoHighLevel rejected this key (401). Check it was copied in full." };
+    if (response.status === 401) return { ok: false, error: "GoHighLevel didn't accept this key. Check you copied the whole key." };
     if (response.status === 403) {
       return {
         ok: false,
         error:
-          "This key can't read that location (403). Check the location ID, and that the key was created inside that same sub-account with the opportunities scope.",
+          "This key can't see that sub-account. Check the sub-account ID, and that the key was made inside that same sub-account with “View Opportunities” ticked.",
       };
     }
-    return { ok: false, error: `GoHighLevel returned ${response.status} ${response.statusText}.` };
+    return { ok: false, error: "GoHighLevel had a problem checking this key. Please try again in a minute." };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

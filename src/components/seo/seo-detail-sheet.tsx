@@ -95,14 +95,14 @@ export function SeoDetailSheet({
               <SeoMetricTile
                 label="Referring domains"
                 value={row.referringDomains.kind === "ok" || row.referringDomains.kind === "unverified" ? formatInteger(row.referringDomains.value) : "—"}
-                subtitle="Linking domains (Ahrefs)"
+                subtitle="Other websites linking to this one"
                 footer={row.newReferringDomains !== null ? <CountLine value={row.newReferringDomains} label="this month" /> : undefined}
               />
             )}
           </section>
           {row.organicKeywords.kind === "no_data" && row.referringDomains.kind === "no_data" && (
             <p className="-mt-3 text-xs text-muted-foreground">
-              Keyword and referring-domain figures appear here once Ahrefs has run for this client.
+              Keyword and backlink numbers will show here once Ahrefs has collected data for this client.
             </p>
           )}
 

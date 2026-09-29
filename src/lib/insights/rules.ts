@@ -22,10 +22,10 @@ function metricErrorFlags(row: ClientRow): { field: string; message: string }[] 
     ["Leads", row.leads],
     ["Calls", row.calls],
     ["Spend", row.spend],
-    ["CPL", row.cpl],
-    ["Sessions", row.sessions],
-    ["Conversions", row.conversions],
-    ["Avg. position", row.avgPosition],
+    ["Cost per lead", row.cpl],
+    ["Website visits", row.sessions],
+    ["Enquiries", row.conversions],
+    ["Google rank", row.avgPosition],
   ];
   return checks
     .filter((entry): entry is [string, Extract<CellState<unknown>, { kind: "error" }>] => entry[1].kind === "error")
@@ -57,7 +57,7 @@ export function computeAttentionFlags(data: DashboardData): AttentionFlag[] {
         severity: "warning",
         clientId: row.clientId,
         clientName: row.clientName,
-        message: `No successful sync in ${row.staleHours}h (threshold is ${STALE_HOURS}h)`,
+        message: `Numbers haven't updated in ${row.staleHours} hours`,
       });
     }
 
@@ -67,7 +67,7 @@ export function computeAttentionFlags(data: DashboardData): AttentionFlag[] {
         severity: "warning",
         clientId: row.clientId,
         clientName: row.clientName,
-        message: `Leads down ${Math.abs(row.leadsDelta.pct).toFixed(0)}% vs. the prior 7 days`,
+        message: `Leads are down ${Math.abs(row.leadsDelta.pct).toFixed(0)}% compared with the week before`,
       });
     }
 
@@ -79,7 +79,7 @@ export function computeAttentionFlags(data: DashboardData): AttentionFlag[] {
           severity: "warning",
           clientId: row.clientId,
           clientName: row.clientName,
-          message: `${Math.round(rate * 100)}% of calls missed this week (${row.calls.value.missed}/${row.calls.value.total})`,
+          message: `${Math.round(rate * 100)}% of calls were missed this week (${row.calls.value.missed} of ${row.calls.value.total})`,
         });
       }
     }
@@ -96,7 +96,7 @@ export function computeAttentionFlags(data: DashboardData): AttentionFlag[] {
         severity: "warning",
         clientId: row.clientId,
         clientName: row.clientName,
-        message: `Average search position (${positionZ.recentMean.toFixed(1)}) is a real step worse than its usual range (baseline ${positionZ.baselineMean.toFixed(1)})`,
+        message: `Google ranking has slipped to position ${positionZ.recentMean.toFixed(1)} on average (it's usually around ${positionZ.baselineMean.toFixed(1)}; lower is better)`,
       });
     }
 
@@ -108,7 +108,7 @@ export function computeAttentionFlags(data: DashboardData): AttentionFlag[] {
         severity: "warning",
         clientId: row.clientId,
         clientName: row.clientName,
-        message: `Daily spend has stepped up to ~${formatCurrency(spendZ.recentMean)}/day, above its ~${formatCurrency(spendZ.baselineMean)}/day baseline`,
+        message: `Ad spend has jumped to about ${formatCurrency(spendZ.recentMean)} a day (it's usually about ${formatCurrency(spendZ.baselineMean)} a day)`,
       });
     }
 
@@ -120,7 +120,7 @@ export function computeAttentionFlags(data: DashboardData): AttentionFlag[] {
         severity: "warning",
         clientId: row.clientId,
         clientName: row.clientName,
-        message: `Site sessions have dropped to ~${Math.round(sessionsZ.recentMean)}/day, below its ~${Math.round(sessionsZ.baselineMean)}/day baseline`,
+        message: `Website visits have dropped to about ${Math.round(sessionsZ.recentMean)} a day (usually about ${Math.round(sessionsZ.baselineMean)} a day)`,
       });
     }
   }

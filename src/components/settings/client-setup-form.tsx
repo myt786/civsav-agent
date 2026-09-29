@@ -202,7 +202,7 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
           </Select>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Timezone: <span className="text-foreground">{timezone}</span> ·{" "}
+            Their timezone: <span className="text-foreground">{timezone}</span> ·{" "}
             <button
               type="button"
               onClick={() => setEditingTimezone(true)}
@@ -220,11 +220,11 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
             <h3 className="text-sm font-medium text-foreground">Accounts</h3>
             <p className="text-xs text-muted-foreground">
               {stillLoading
-                ? "Looking up accounts…"
+                ? "Looking up their accounts…"
                 : !debouncedName.trim()
-                  ? "Type the client's name and we'll find their accounts."
+                  ? "Type the client's name and we'll find their accounts on each platform."
                   : connectedCount === 0
-                    ? "No matching accounts found. Add them below, or skip and add them later."
+                    ? "We didn't find any accounts with that name. Add them below, or skip this and add them later."
                     : "Check these are the right accounts. You can also add or change them later."}
             </p>
           </div>
@@ -263,7 +263,7 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
                       >
                         Add its API key
                       </Link>{" "}
-                      (new tab), then click Refresh accounts.
+                      (opens a new tab), then come back and click &ldquo;Reload account lists&rdquo;.
                     </p>
                   )}
                 </div>

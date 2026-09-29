@@ -45,13 +45,13 @@ export function SeoEditorialForm({
     <form action={formAction} className="flex flex-col gap-4">
       {prevMonthSummary && (
         <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Prev. month summary</p>
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Last month&apos;s notes</p>
           <p className="mt-1 text-sm text-foreground/80 whitespace-pre-wrap">{prevMonthSummary}</p>
         </div>
       )}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`seoOwner-${clientId}`}>SEO Owner</Label>
+        <Label htmlFor={`seoOwner-${clientId}`}>Who looks after this client</Label>
         <Input id={`seoOwner-${clientId}`} name="seoOwner" defaultValue={seoOwner ?? ""} placeholder="Unassigned" />
       </div>
 
@@ -73,7 +73,7 @@ export function SeoEditorialForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`notes-${clientId}`}>Notes / Action Items</Label>
+        <Label htmlFor={`notes-${clientId}`}>Notes and next steps</Label>
         <textarea
           id={`notes-${clientId}`}
           name="notes"

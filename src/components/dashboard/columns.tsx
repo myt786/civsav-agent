@@ -102,7 +102,7 @@ export function createClientColumns(
   columnHelper.accessor("leads", {
     id: "leads",
     header: () => (
-      <ColumnHeader label="Leads 7d" tooltip="Sum of daily lead counts from Lead Dashboard over the trailing 7 full days (not including today, which is still incomplete)." />
+      <ColumnHeader label="Leads 7d" tooltip="Leads in the last 7 full days (today isn't counted yet because it isn't over)." />
     ),
     cell: (info) => {
       const leadsSeries = detailsByClient[info.row.original.clientId]?.sparklines.find((s) => s.key === "leads");
@@ -119,8 +119,8 @@ export function createClientColumns(
     id: "leadsDelta",
     header: () => (
       <ColumnHeader
-        label="vs prev 7d"
-        tooltip="Percent change in Leads 7d against the 7 days immediately before that window. Shown muted (—) when the change is within ±5% — day-to-day noise at that size usually isn't a real trend."
+        label="vs week before"
+        tooltip="How leads this week compare with the week before. Changes smaller than 5% show as — because they're usually just normal ups and downs."
       />
     ),
     cell: (info) => <DeltaCellView delta={info.getValue()} />,
@@ -135,7 +135,7 @@ export function createClientColumns(
     header: () => (
       <ColumnHeader
         label="Calls / Missed"
-        tooltip="Total calls from OpenPhone over 7 days, summed. Missed excludes any call that was flagged missed but actually forwarded and answered elsewhere — never double-counted."
+        tooltip="Calls in the last 7 days, and how many were missed. A call forwarded and answered somewhere else doesn't count as missed."
       />
     ),
     cell: (info) => (
@@ -157,7 +157,7 @@ export function createClientColumns(
     header: () => (
       <ColumnHeader
         label="Spend"
-        tooltip="Google Ads cost plus Meta Ads spend, combined and summed over the trailing 7 days."
+        tooltip="Ad spend in the last 7 days, Google Ads and Meta combined."
       />
     ),
     cell: (info) => <DataCell state={info.getValue()} format={formatCurrency} />,
@@ -167,8 +167,8 @@ export function createClientColumns(
     id: "cpl",
     header: () => (
       <ColumnHeader
-        label="CPL"
-        tooltip="Cost per lead: Spend ÷ Leads for the same 7-day window. Shows — (not $0) when there are no leads to divide by."
+        label="Cost per lead"
+        tooltip="Ad spend divided by leads, for the last 7 days. Shows — when there were no leads."
       />
     ),
     cell: (info) => <DataCell state={info.getValue()} format={formatCurrency} />,
@@ -176,14 +176,14 @@ export function createClientColumns(
   }),
   columnHelper.accessor("sessions", {
     id: "sessions",
-    header: () => <ColumnHeader label="Sessions" tooltip="Website sessions from GA4, summed over the trailing 7 days." />,
+    header: () => <ColumnHeader label="Website visits" tooltip="Visits to the client's website in the last 7 days (from Google Analytics)." />,
     cell: (info) => <DataCell state={info.getValue()} format={formatInteger} />,
     sortFn: sortByCell("sessions"),
   }),
   columnHelper.accessor("conversions", {
     id: "conversions",
     header: () => (
-      <ColumnHeader label="Conversions" tooltip="On-site conversion events from GA4, summed over the trailing 7 days." />
+      <ColumnHeader label="Enquiries" tooltip="Enquiries and other goals completed on the website in the last 7 days (from Google Analytics)." />
     ),
     cell: (info) => <DataCell state={info.getValue()} format={formatInteger} />,
     sortFn: sortByCell("conversions"),
@@ -192,8 +192,8 @@ export function createClientColumns(
     id: "avgPosition",
     header: () => (
       <ColumnHeader
-        label="Position"
-        tooltip="Average organic search ranking position from Search Console, averaged (not summed) across the days with data. Lower is better."
+        label="Google rank"
+        tooltip="Average position in Google search results (from Search Console). Lower is better — 1 is the top result."
       />
     ),
     cell: (info) => <DataCell state={info.getValue()} format={formatPosition} />,
@@ -202,7 +202,7 @@ export function createClientColumns(
   columnHelper.accessor("lastSyncedAt", {
     id: "lastSynced",
     header: () => (
-      <ColumnHeader label="Synced" tooltip="The most recent successful data fetch for this client, across any connected platform." />
+      <ColumnHeader label="Updated" tooltip="When this client's numbers were last updated." />
     ),
     cell: (info) => {
       const at = info.getValue();

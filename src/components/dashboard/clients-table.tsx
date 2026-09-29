@@ -86,7 +86,7 @@ export function ClientsTable({
             full breakdown
           </span>
           <span className="flex items-center gap-1.5">
-            <UnverifiedMark /> unverified — account mapping not yet confirmed in Settings
+            <UnverifiedMark /> not checked yet — probably right, but the account hasn't been confirmed in Settings
           </span>
         </div>
         <div className="overflow-hidden rounded-lg border border-border shadow-sm">
@@ -153,7 +153,7 @@ export function ClientsTable({
           {empty.length > 0 && (
             <div className="flex items-center justify-between gap-2 border-t border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
               <span>
-                {empty.length} client{empty.length === 1 ? " has" : "s have"} no data from any platform yet
+                {empty.length} client{empty.length === 1 ? " has" : "s have"} no numbers yet from any platform
                 {showEmpty ? " — shown at the bottom." : "."}
               </span>
               <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowEmpty((v) => !v)}>

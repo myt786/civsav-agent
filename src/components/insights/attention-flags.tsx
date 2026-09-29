@@ -1,16 +1,17 @@
 import { AlertTriangleIcon, CheckCircle2Icon, ExternalLinkIcon } from "lucide-react";
 import { ClientChips } from "./client-chips";
 import { cn } from "@/lib/utils";
+import { friendlyError } from "@/lib/friendly-error";
 import type { AttentionFlag } from "@/lib/insights/types";
 
 const KIND_LABEL: Record<AttentionFlag["kind"], string> = {
-  sync_error: "Sync error",
-  stale_sync: "Stale sync",
-  leads_down: "Leads down",
+  sync_error: "Not updating",
+  stale_sync: "Out of date",
+  leads_down: "Fewer leads",
   missed_calls_high: "Missed calls",
-  position_worsening: "SEO position",
-  spend_spike: "Spend spike",
-  sessions_drop: "Sessions drop",
+  position_worsening: "Google ranking",
+  spend_spike: "Spend jump",
+  sessions_drop: "Fewer visits",
 };
 
 const URL_RE = /https?:\/\/[^\s)]+[^\s).,]/g;
@@ -43,7 +44,7 @@ function groupFlags(flags: AttentionFlag[]): FlagGroup[] {
   const groups = new Map<string, FlagGroup>();
   flags.forEach((flag, i) => {
     const groupable = flag.kind === "sync_error" || flag.kind === "stale_sync";
-    const message = flag.kind === "stale_sync" ? "No successful sync within the freshness window" : normalizeMessage(flag.message);
+    const message = flag.kind === "stale_sync" ? "Numbers haven't updated for over a day" : normalizeMessage(flag.message);
     const key = groupable ? `${flag.kind}|${flag.severity}|${message}` : `${flag.clientId}|${flag.kind}|${i}`;
     const existing = groups.get(key);
     if (existing) {
@@ -69,7 +70,11 @@ function FlagGroupRow({ group }: { group: FlagGroup }) {
   const critical = group.severity === "critical";
   // A lone flag keeps its original, client-specific wording; a group shows
   // the shared wording once and the affected clients underneath.
-  const message = single ? normalizeMessage(group.flags[0].message) : group.message;
+  const rawMessage = single ? normalizeMessage(group.flags[0].message) : group.message;
+  // Sync errors carry the platform's raw error ("Leads failed to sync: 401
+  // ..."); show a plain explanation and keep the original behind a toggle.
+  const syncError = group.kind === "sync_error" ? splitSyncError(rawMessage) : null;
+  const message = syncError ? `${syncError.what} couldn't be updated. ${syncError.friendly.summary}` : rawMessage;
 
   return (
     <div
@@ -113,10 +118,22 @@ function FlagGroupRow({ group }: { group: FlagGroup }) {
             </>
           )}
         </span>
+        {syncError?.friendly.detail && (
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer select-none">Technical details</summary>
+            <p className="mt-1 font-mono break-all">{syncError.friendly.detail}</p>
+          </details>
+        )}
         {!single && <ClientChips names={group.flags.map((f) => f.clientName)} />}
       </div>
     </div>
   );
+}
+
+function splitSyncError(message: string) {
+  const [what, ...rest] = message.split(" failed to sync: ");
+  const raw = rest.join(" failed to sync: ");
+  return { what: raw ? what : "Some numbers", friendly: friendlyError(raw || message) };
 }
 
 // Deterministic, rule-based flags — computed from the same cells the table

@@ -16,22 +16,22 @@ export function SyncNowButton() {
       router.refresh();
 
       if (outcome.status === "failed") {
-        toast({ variant: "error", title: "Sync failed", description: `0/${outcome.attempted} succeeded` });
+        toast({ variant: "error", title: "Couldn't update any data", description: "Every platform failed. Check the red dots above for details." });
       } else if (outcome.errorCount > 0) {
         toast({
           variant: "error",
-          title: "Sync completed with errors",
-          description: `${outcome.attempted - outcome.errorCount}/${outcome.attempted} succeeded`,
+          title: "Updated, with some problems",
+          description: `${outcome.attempted - outcome.errorCount} of ${outcome.attempted} updated. The rest are marked in red.`,
         });
       } else {
-        toast({ variant: "success", title: "Sync complete", description: `${outcome.attempted} platform mappings synced` });
+        toast({ variant: "success", title: "Data updated", description: `All ${outcome.attempted} connected accounts are up to date.` });
       }
     });
   }
 
   return (
     <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={handleClick}>
-      {pending ? "Syncing…" : "Sync now"}
+      {pending ? "Updating… (can take a few minutes)" : "Update data now"}
     </Button>
   );
 }

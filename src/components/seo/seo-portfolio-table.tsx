@@ -175,7 +175,7 @@ export function SeoPortfolioTable({ rows, months }: { rows: SeoClientRow[]; mont
                   onSort={handleSort}
                   align="right"
                 />
-                <SortableHead label="MoM%" sortKey="mom" activeKey={sortKey} direction={sortDir} onSort={handleSort} align="right" />
+                <SortableHead label="vs last month" sortKey="mom" activeKey={sortKey} direction={sortDir} onSort={handleSort} align="right" />
                 {showOwner && (
                   <TableHead className="h-9 bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                     SEO Owner

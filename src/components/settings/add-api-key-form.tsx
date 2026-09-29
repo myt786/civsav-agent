@@ -96,14 +96,14 @@ export function AddApiKeyForm({
         </div>
         {platform === "ghl" && (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="key-location">Location ID</Label>
+            <Label htmlFor="key-location">Sub-account ID</Label>
             <Input
               id="key-location"
               name="locationId"
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
               required
-              placeholder="From the sub-account's address bar"
+              placeholder="Copied from the address bar"
               className="font-mono"
             />
           </div>
@@ -138,13 +138,13 @@ function HowToGetKey({ platform }: { platform: KeyPlatform }) {
     platform === "ghl"
       ? [
           "Open the client's sub-account in GoHighLevel.",
-          "Settings → Private Integrations → Create new integration. Tick the Opportunities (view) scope, then copy the token.",
-          "The location ID is in the address bar: app.gohighlevel.com/v2/location/THIS-PART/…",
+          "Go to Settings → Private Integrations → Create new integration. Tick “View Opportunities”, create it, and copy the key it shows you.",
+          "Copy the sub-account ID from your browser's address bar — it's the part right after /location/.",
         ]
       : [
           "In OpenPhone, open the workspace the client's number lives in (you need to be an owner or admin).",
-          "Settings → API → Generate API key, then copy it.",
-          "One key covers every number in that workspace — only add it once.",
+          "Go to Settings → API → Generate API key, and copy the key.",
+          "One key covers every phone number in that workspace, so you only need to add it once."
         ];
   return (
     <ol className={cn("flex list-decimal flex-col gap-1 pl-5 text-xs text-muted-foreground")}>

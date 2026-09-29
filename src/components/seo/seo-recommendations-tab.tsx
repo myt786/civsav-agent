@@ -52,8 +52,8 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
             : r,
         ),
       );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate");
+    } catch {
+      setError("Couldn't write recommendations right now. Please try again in a minute.");
     } finally {
       setGeneratingIds((prev) => {
         const next = new Set(prev);
@@ -112,7 +112,7 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
         </p>
         <Button size="sm" onClick={generateAllMissing} disabled={bulkRunning || missingCount === 0}>
           <SparklesIcon className={bulkRunning ? "size-3.5 animate-pulse" : "size-3.5"} aria-hidden />
-          {bulkRunning ? `Generating ${bulkProgress.done}/${bulkProgress.total}…` : "Generate all missing"}
+          {bulkRunning ? `Writing ${bulkProgress.done} of ${bulkProgress.total}…` : "Write any missing ones"}
         </Button>
       </div>
 
@@ -132,7 +132,7 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
                 Latest recommendation
               </TableHead>
               <TableHead className="h-9 bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Generated
+                Written
               </TableHead>
               <TableHead className="h-9 w-24 bg-muted/40" />
             </TableRow>
@@ -147,7 +147,7 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
                     <TierBadge tier={row.tier} />
                   </TableCell>
                   <TableCell className="max-w-md truncate text-muted-foreground">
-                    {isGenerating ? "Generating…" : row.recommendations?.[0] ?? "Not generated yet"}
+                    {isGenerating ? "Writing…" : row.recommendations?.[0] ?? "Not written yet"}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {row.generatedAt ? formatRelativeTime(new Date(row.generatedAt), new Date()) : "—"}
@@ -179,7 +179,7 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
             <SheetHeader>
               <SheetTitle>{selected.clientName}</SheetTitle>
               <SheetDescription>
-                {selected.generatedAt ? `Generated ${formatRelativeTime(new Date(selected.generatedAt), new Date())}` : "Not generated yet"}
+                {selected.generatedAt ? `Written ${formatRelativeTime(new Date(selected.generatedAt), new Date())}` : "Not written yet"}
                 {selected.sitemapUrlCount !== null && ` · ${selected.sitemapUrlCount} sitemap URLs considered`}
               </SheetDescription>
             </SheetHeader>
@@ -194,7 +194,7 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
               </ul>
               <Button size="sm" variant="outline" disabled={generatingIds.has(selected.clientId)} onClick={() => regenerate(selected.clientId)} className="self-start">
                 <RefreshCwIcon className={generatingIds.has(selected.clientId) ? "size-3.5 animate-spin" : "size-3.5"} aria-hidden />
-                Regenerate
+                Write again
               </Button>
             </div>
           </SheetContent>
