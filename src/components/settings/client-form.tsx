@@ -60,7 +60,7 @@ export function ClientForm({
         <div className="flex flex-col">
           <span className="text-sm text-foreground">Active</span>
           <span className="text-xs text-muted-foreground">
-            Deactivating excludes this client from sync but keeps its history.
+            Turn off to stop collecting new numbers for this client. Everything collected so far is kept.
           </span>
         </div>
         <Switch name="active" value="true" checked={active} onCheckedChange={setActive} />

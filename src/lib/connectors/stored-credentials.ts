@@ -38,7 +38,7 @@ function encryptionKeys(): Buffer[] {
   const session = process.env.SETTINGS_SESSION_SECRET;
   if (session && session.length >= 16) keys.push(createHash("sha256").update(`civsav-credentials:${session}`).digest());
   if (keys.length === 0) {
-    throw new Error("Set CREDENTIALS_ENCRYPTION_KEY (or SETTINGS_SESSION_SECRET) to save API keys.");
+    throw new Error("Saving keys isn't set up yet — ask your developer to set CREDENTIALS_ENCRYPTION_KEY.");
   }
   return keys;
 }

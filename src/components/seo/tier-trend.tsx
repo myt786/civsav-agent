@@ -12,7 +12,7 @@ const TIER_STYLE: Record<Tier, { label: string; className: string }> = {
   moderate: { label: "Moderate", className: "border-primary/30 bg-primary/10 text-primary" },
   small: { label: "Small", className: "border-warning/30 bg-warning/10 text-warning" },
   minimal: { label: "Minimal", className: "border-destructive/30 bg-destructive/10 text-destructive" },
-  no_data: { label: "No Data", className: "border-border bg-muted text-muted-foreground" },
+  no_data: { label: "No data", className: "border-border bg-muted text-muted-foreground" },
 };
 
 export function TierBadge({ tier }: { tier: Tier }) {
@@ -25,7 +25,7 @@ export function TierBadge({ tier }: { tier: Tier }) {
 }
 
 const TREND_STYLE: Record<Trend, { label: string; className: string; icon: typeof ArrowUpIcon | null }> = {
-  low_vol: { label: "Low Vol", className: "text-muted-foreground", icon: null },
+  low_vol: { label: "Too little data", className: "text-muted-foreground", icon: null },
   growing_fast: { label: "Growing fast", className: "text-success", icon: ArrowUpIcon },
   growing: { label: "Growing", className: "text-success", icon: ArrowUpIcon },
   stable: { label: "Stable", className: "text-muted-foreground", icon: MinusIcon },

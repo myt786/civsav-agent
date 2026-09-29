@@ -16,11 +16,11 @@ export function PlatformHelpPopover({ help }: { help: PlatformHelp }) {
       <PopoverContent align="start" className="flex flex-col gap-2.5 text-sm">
         <p className="text-foreground">{help.what}</p>
         <p className="text-muted-foreground">
-          <span className="font-medium text-foreground">If it&apos;s wrong: </span>
+          <span className="font-medium text-foreground">If the wrong account is picked: </span>
           {help.ifWrong}
         </p>
         <p className="text-muted-foreground">
-          <span className="font-medium text-foreground">If the dropdown is empty: </span>
+          <span className="font-medium text-foreground">If you can&apos;t find it in the list: </span>
           {help.ifEmpty}
         </p>
       </PopoverContent>

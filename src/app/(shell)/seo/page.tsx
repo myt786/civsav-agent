@@ -37,7 +37,7 @@ export default async function SeoDashboardPage() {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Search Console + Ahrefs, rolled up by client — {data.months[0]} through {data.months[data.months.length - 1]}.
+          Each client's Google search performance (from Search Console and Ahrefs), {data.months[0]} to {data.months[data.months.length - 1]}.
         </p>
       </header>
 
@@ -64,7 +64,7 @@ export default async function SeoDashboardPage() {
             icon: <UsersIcon className="size-3.5" aria-hidden />,
           },
           {
-            label: "Min / no data",
+            label: "Minimal or no data",
             value: minZero,
             formatKind: "integer",
             icon: <UsersIcon className="size-3.5" aria-hidden />,

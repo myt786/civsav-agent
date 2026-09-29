@@ -286,7 +286,7 @@ export async function listOpenPhoneNumbers(): Promise<DiscoveryResult> {
 // many numbers it can see) before it's saved.
 export async function testOpenPhoneKey(apiKey: string): Promise<{ ok: true; numberCount: number } | { ok: false; error: string }> {
   const baseUrl = process.env.OPENPHONE_API_BASE_URL;
-  if (!baseUrl) return { ok: false, error: "OPENPHONE_API_BASE_URL not configured." };
+  if (!baseUrl) return { ok: false, error: "OpenPhone isn't fully set up in this app yet — ask your developer to finish connecting it." };
 
   await rateLimiter.wait();
   try {
@@ -294,9 +294,9 @@ export async function testOpenPhoneKey(apiKey: string): Promise<{ ok: true; numb
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (response.status === 401 || response.status === 403) {
-      return { ok: false, error: "OpenPhone rejected this key. Check it was copied in full from Workspace settings → API." };
+      return { ok: false, error: "OpenPhone didn't accept this key. Check you copied the whole key from Settings → API in OpenPhone." };
     }
-    if (!response.ok) return { ok: false, error: `OpenPhone returned ${response.status} ${response.statusText}.` };
+    if (!response.ok) return { ok: false, error: "OpenPhone had a problem checking this key. Please try again in a minute." };
     const parsed = (await response.json()) as Partial<PhoneNumbersResponse>;
     return { ok: true, numberCount: parsed.data?.length ?? 0 };
   } catch (err) {

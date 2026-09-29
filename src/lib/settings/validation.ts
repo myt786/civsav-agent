@@ -23,7 +23,7 @@ const ga4ExternalId = z
       return;
     }
     if (!/^\d+$/.test(value)) {
-      ctx.addIssue({ code: "custom", message: "Must be a numeric GA4 Property ID, e.g. 123456789." });
+      ctx.addIssue({ code: "custom", message: "Use the GA4 property number, e.g. 123456789." });
     }
   });
 
@@ -33,7 +33,7 @@ const searchConsoleExternalId = z
   .min(1, "Site is required.")
   .refine((value) => /^sc-domain:[a-z0-9.-]+\.[a-z]{2,}$/i.test(value) || /^https?:\/\/\S+\/$/i.test(value), {
     message:
-      "Use a full site URL ending in / (e.g. https://example.com/) or a Domain property (e.g. sc-domain:example.com).",
+      "Use the full website address ending in / (e.g. https://example.com/), or sc-domain:example.com if that's how it appears in Search Console.",
   });
 
 const googleAdsExternalId = z
@@ -48,16 +48,16 @@ const metaExternalId = z
   .string()
   .trim()
   .refine((value) => /^(act_)?\d+$/.test(value), {
-    message: "Use the numeric ad account ID, with or without the act_ prefix (e.g. act_123456789 or 123456789).",
+    message: "Use the ad account number from Meta, e.g. 123456789.",
   })
   .transform((value) => (value.startsWith("act_") ? value : `act_${value}`));
 
 const ghlExternalId = z
   .string()
   .trim()
-  .min(1, "Location ID is required.")
+  .min(1, "Sub-account ID is required.")
   .refine((value) => /^[a-zA-Z0-9_-]+$/.test(value), {
-    message: "Use the GoHighLevel location ID (letters, numbers, - and _ only).",
+    message: "That doesn't look like a sub-account ID. Copy it from the address bar, after /location/.",
   });
 
 const ahrefsExternalId = z
@@ -68,12 +68,12 @@ const ahrefsExternalId = z
     if (/^https?:\/\//i.test(value)) {
       ctx.addIssue({
         code: "custom",
-        message: "Enter the bare domain, no protocol (e.g. example.com, not https://example.com).",
+        message: "Enter just the website address, without https:// (e.g. example.com).",
       });
       return;
     }
     if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(value)) {
-      ctx.addIssue({ code: "custom", message: "Enter a valid domain, e.g. example.com." });
+      ctx.addIssue({ code: "custom", message: "Enter a website address, e.g. example.com." });
     }
   });
 
@@ -81,7 +81,7 @@ const openphoneExternalId = z
   .string()
   .trim()
   .refine((value) => /^\+[1-9]\d{6,14}$/.test(value), {
-    message: "Use E.164 format: a leading +, country code, and number with no spaces or dashes (e.g. +14155551234).",
+    message: "Type the number with a + and country code, and no spaces or dashes (e.g. +14155551234).",
   });
 
 const leadDashboardExternalId = z.string().trim().min(1, "Client ID is required.");
@@ -98,12 +98,12 @@ export const externalIdSchemas: Record<Platform, z.ZodType<string, string>> = {
 };
 
 export const externalIdHints: Record<Platform, string> = {
-  ga4: "Numeric property ID, e.g. 123456789 — not the G-XXXXXXX measurement ID.",
-  search_console: "Site URL, e.g. https://example.com/ or sc-domain:example.com",
-  google_ads: "Customer ID, e.g. 123-456-7890 or 1234567890 (dashes are stripped automatically).",
-  meta: "Ad account ID, e.g. act_123456789 or 123456789 (stored with the act_ prefix).",
-  ghl: "GoHighLevel location ID — from the sub-account's URL: app.gohighlevel.com/v2/location/<locationId>/...",
-  ahrefs: "Domain, no protocol — e.g. example.com.",
-  openphone: "Phone number in E.164 format, e.g. +14155551234.",
-  lead_dashboard: "Internal lead-dashboard client ID.",
+  ga4: "Property number, e.g. 123456789 (not the one starting with G-).",
+  search_console: "Website address, e.g. https://example.com/",
+  google_ads: "Customer ID, e.g. 123-456-7890.",
+  meta: "Ad account number, e.g. 123456789.",
+  ghl: "Sub-account ID — in the address bar after /location/",
+  ahrefs: "Website address, e.g. example.com",
+  openphone: "Phone number with country code, e.g. +14155551234",
+  lead_dashboard: "Client ID from the lead dashboard",
 };

@@ -52,7 +52,7 @@ function encrypt(apiKey: string): { ok: true; value: string } | { ok: false; err
 
 const addSchema = z.object({
   platform: keyPlatformSchema,
-  name: z.string().trim().min(1, "Give the key a name.").max(200, "Name is too long."),
+  name: z.string().trim().min(1, "Give the key a name, like the client's name.").max(200, "That name is too long."),
   apiKey: z.string().trim().min(8, "Paste the full API key."),
   locationId: z.string().trim().optional(),
   clientId: z.string().uuid().optional(),
@@ -71,7 +71,7 @@ export async function addPlatformCredential(
     locationId: formData.get("locationId") || undefined,
     clientId: formData.get("clientId") || undefined,
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Something in the form isn't right — please check it." };
   const { platform, name, apiKey, clientId } = parsed.data;
 
   let locationId: string | null = null;
@@ -87,7 +87,7 @@ export async function addPlatformCredential(
     .from(platformCredentials)
     .where(and(eq(platformCredentials.platform, platform), eq(platformCredentials.name, name)))
     .limit(1);
-  if (existing) return { error: `There's already a key named "${name}". Pick another name, or replace that key's value.` };
+  if (existing) return { error: `You already have a key called "${name}". Use a different name, or use "Replace with a new key" on that one below.` };
 
   const test = await testKey(platform, apiKey, locationId);
   if (!test.ok) return { error: test.error };
@@ -166,7 +166,7 @@ export async function replacePlatformCredential(
   await requireSession();
 
   const apiKey = z.string().trim().min(8, "Paste the full API key.").safeParse(formData.get("apiKey"));
-  if (!apiKey.success) return { error: apiKey.error.issues[0]?.message ?? "Invalid key." };
+  if (!apiKey.success) return { error: apiKey.error.issues[0]?.message ?? "Please paste the full key." };
 
   const db = await credentialsDb();
   const [row] = await db.select().from(platformCredentials).where(eq(platformCredentials.id, credentialId)).limit(1);

@@ -57,9 +57,9 @@ function TooltipContentInner({
 // (muted deltas under the noise band, no_data vs. a real 0) never to imply
 // a judgment the data doesn't actually support. Same reasoning here.
 const TREND_META: Record<MetricForecast["trend"], { label: string; icon: typeof TrendingUpIcon }> = {
-  up: { label: "trending up", icon: TrendingUpIcon },
-  down: { label: "trending down", icon: TrendingDownIcon },
-  flat: { label: "holding flat", icon: MinusIcon },
+  up: { label: "going up", icon: TrendingUpIcon },
+  down: { label: "going down", icon: TrendingDownIcon },
+  flat: { label: "steady", icon: MinusIcon },
   unknown: { label: "not enough history yet", icon: MinusIcon },
 };
 
@@ -85,7 +85,7 @@ export function ForecastChart({ clientName, metric }: { clientName: string; metr
       {projectedTotal !== null && (
         <div className="flex items-baseline gap-1.5">
           <span className="font-mono text-lg font-medium tabular-nums text-foreground">{format(projectedTotal)}</span>
-          <span className="text-xs text-muted-foreground">projected, next 7d</span>
+          <span className="text-xs text-muted-foreground">expected in the next 7 days</span>
         </div>
       )}
 
@@ -127,7 +127,7 @@ export function ForecastChart({ clientName, metric }: { clientName: string; metr
         </ResponsiveContainer>
       ) : (
         <div className="flex h-[90px] items-center justify-center text-xs text-muted-foreground/70">
-          Not enough synced days to project a trend
+          Not enough days of data to make a prediction yet
         </div>
       )}
     </div>

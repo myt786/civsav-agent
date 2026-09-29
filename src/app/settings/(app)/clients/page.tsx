@@ -20,7 +20,7 @@ export default async function ClientsListPage() {
     <div className="flex animate-in flex-col gap-6 fade-in-0 duration-300">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="font-heading text-base font-medium text-foreground">Sync</h2>
+          <h2 className="font-heading text-base font-medium text-foreground">Data updates</h2>
           <SyncNowButton />
         </div>
         <SyncStatusStrip data={syncStatus} now={now} />
@@ -30,7 +30,7 @@ export default async function ClientsListPage() {
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
             <h2 className="font-heading text-base font-medium text-foreground">Clients</h2>
-            <p className="text-sm text-muted-foreground">Client identity and platform account mappings.</p>
+            <p className="text-sm text-muted-foreground">Everyone we report on, and which of their accounts we pull numbers from.</p>
           </div>
           <Button asChild size="sm">
             <Link href="/settings/clients/new">Add client</Link>

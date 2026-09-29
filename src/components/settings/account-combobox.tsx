@@ -19,6 +19,7 @@ import type { DiscoveredAccount } from "@/lib/connectors/types";
 import { externalIdHints } from "@/lib/settings/validation";
 import type { Platform } from "@/lib/connectors/types";
 import { cn } from "@/lib/utils";
+import { friendlyError } from "@/lib/friendly-error";
 
 function humanizeLabel(label: string): string {
   return label
@@ -110,7 +111,7 @@ export function AccountCombobox({
               onValueChange={(label) => onCredentialLabelChange?.(label)}
             >
               <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Workspace" />
+                <SelectValue placeholder="Which access key?" />
               </SelectTrigger>
               <SelectContent>
                 {workspaceLabels.map((label) => (
@@ -143,7 +144,7 @@ export function AccountCombobox({
                     {suggestedId === selected.id && (
                       <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
                         <SparklesIcon className="size-3" />
-                        suggested
+                        best match
                       </Badge>
                     )}
                   </>
@@ -162,7 +163,7 @@ export function AccountCombobox({
             <Command>
               <CommandInput placeholder="Search accounts…" />
               <CommandList>
-                <CommandEmpty>No matching accounts.</CommandEmpty>
+                <CommandEmpty>No matching accounts. Try another spelling, or type it in instead.</CommandEmpty>
                 <CommandGroup>
                   {accounts.map((account) => (
                     <CommandItem
@@ -191,7 +192,7 @@ export function AccountCombobox({
                       {suggestedId === account.id && (
                         <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
                           <SparklesIcon className="size-3" />
-                          suggested
+                          best match
                         </Badge>
                       )}
                     </CommandItem>
@@ -205,7 +206,7 @@ export function AccountCombobox({
 
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         {discovery.status === "error" ? (
-          <p className="text-xs text-warning">{discovery.error}</p>
+          <p className="text-xs text-warning">{friendlyError(discovery.error).summary}</p>
         ) : (
           <span />
         )}
@@ -215,7 +216,7 @@ export function AccountCombobox({
             onClick={() => setManual((m) => !m)}
             className="text-xs whitespace-nowrap text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
           >
-            {manual ? "Choose from list" : "Enter ID manually"}
+            {manual ? "Pick from the list instead" : "Not listed? Type it in"}
           </button>
         )}
       </div>

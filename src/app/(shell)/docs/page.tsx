@@ -1,23 +1,23 @@
 import Link from "next/link";
 import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, ClockAlertIcon, MinusCircleIcon, SparklesIcon } from "lucide-react";
+import { UnverifiedMark } from "@/components/dashboard/data-cell";
 import { Badge } from "@/components/ui/badge";
 import { PLATFORM_HELP, PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/connectors/platform-labels";
 import { STALE_HOURS } from "@/lib/dashboard/constants";
 
 const TOC = [
   { id: "numbers", label: "Reading a number" },
-  { id: "compare", label: "What to compare" },
-  { id: "metrics", label: "How each column is computed" },
-  { id: "verify", label: "Verified vs. unverified" },
-  { id: "sync", label: "Sync status & how data is fetched" },
-  { id: "freshness", label: "Freshness" },
-  { id: "insights", label: "Insights: flags, forecast, AI summary & chat" },
+  { id: "columns", label: "What each column means" },
+  { id: "add-client", label: "Adding a new client" },
+  { id: "accounts", label: "Is the right account connected?" },
+  { id: "updates", label: "How often numbers update" },
+  { id: "insights", label: "The Insights page" },
   { id: "platforms", label: "Connected platforms" },
 ];
 
 export const metadata = {
-  title: "Docs — Client Dashboard",
-  description: "What the numbers, badges, sync states, and Insights flags on the dashboard mean.",
+  title: "Help — Client Dashboard",
+  description: "How to read the dashboard, add clients, and fix common problems.",
 };
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -45,11 +45,10 @@ export default function DocsPage() {
     <div className="mx-auto grid w-full max-w-5xl animate-in grid-cols-1 gap-10 px-6 py-10 fade-in-0 duration-300 lg:grid-cols-[1fr_220px]">
       <div className="flex min-w-0 flex-col gap-10">
       <header className="flex flex-col gap-2 border-b border-border pb-6">
-        <p className="text-xs font-medium tracking-wide text-primary uppercase">Reference</p>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Understanding the dashboard</h1>
+        <p className="text-xs font-medium tracking-wide text-primary uppercase">Help</p>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">How to use the dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          What every badge, icon, and status on the client dashboard, Insights, and settings pages means — and what
-          to do about it.
+          What the numbers and icons mean, how to add a client, and what to do when something looks wrong.
         </p>
         <nav className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm lg:hidden">
           {TOC.map((item) => (
@@ -61,96 +60,53 @@ export default function DocsPage() {
       </header>
 
       <Section id="numbers" title="Reading a number">
-        <p>
-          Every metric on the dashboard — leads, calls, spend, sessions — can be in one of four states. They&apos;re drawn
-          deliberately differently so one is never mistaken for another; a missing number and a real zero are never
-          the same thing here.
-        </p>
+        <p>Every number on the dashboard looks like one of these:</p>
         <div className="flex flex-col gap-2">
-          <Swatch caption="A confirmed, real number — the mapping behind it has been checked at least once.">
+          <Swatch caption="A normal number. Good to use.">
             <span className="font-mono tabular-nums text-foreground">1,204</span>
           </Swatch>
-          <Swatch caption="A real number pulled from a live sync, but this mapping hasn't been checked yet — treat with a little less certainty.">
-            <span className="flex items-center gap-1.5 font-mono tabular-nums text-warning">
+          <Swatch caption="A number with a small ring: probably right, but nobody has confirmed this client's account yet. See “Is the right account connected?” below.">
+            <span className="flex items-center gap-1.5 font-mono tabular-nums text-foreground/85">
               1,204
-              <Badge
-                variant="outline"
-                className="h-4 shrink-0 border-warning/30 px-1 text-[10px] font-sans leading-none text-warning"
-              >
-                unverified
-              </Badge>
+              <UnverifiedMark />
             </span>
           </Swatch>
-          <Swatch caption="No data — the platform genuinely reported nothing for this period. Not an error, not a zero.">
+          <Swatch caption="A dash: nothing happened in this period (for example, no ads ran). It's not a mistake, and it's not the same as zero.">
             <span className="font-mono tabular-nums text-muted-foreground/50">—</span>
           </Swatch>
-          <Swatch caption="Sync error — the connector failed to fetch. Hover the warning icon on the dashboard to see why.">
+          <Swatch caption="A red warning: we couldn't get this number. Hover over it to see why.">
             <span className="flex items-center gap-1 font-mono tabular-nums text-destructive">
               <AlertTriangleIcon className="size-3.5" aria-hidden />
-              <span className="text-xs">error</span>
             </span>
           </Swatch>
         </div>
       </Section>
 
-      <Section id="compare" title="What to compare">
+      <Section id="columns" title="What each column means">
         <p>
-          The table always shows two windows at once, plus a longer trend — each answers a different question.
+          Unless it says otherwise, every number covers the <strong>last 7 full days</strong>. Today isn&apos;t
+          included yet because the day isn&apos;t over.
         </p>
-        <ul className="ml-4 list-disc space-y-1">
-          <li>
-            <strong>Leads 7d / Calls / Spend / CPL / Sessions / Conversions / Avg. position</strong> — the trailing 7
-            full days (not including today, which is still incomplete). This is the number to compare{" "}
-            <em>across clients</em> at a glance.
-          </li>
-          <li>
-            <strong>vs prev 7d</strong> — that same 7-day window compared to the 7 days immediately before it. A
-            change under ±5% renders muted (—) rather than a false-precision +2.1%, since day-to-day noise at that
-            size usually isn&apos;t a real trend.
-          </li>
-          <li>
-            <strong>30-day trend</strong> (in the row&apos;s detail sheet) — the shape over time, for spotting a
-            slow decline or a spike a single week&apos;s number would hide. Gaps in the line are real gaps — a day
-            with no data is never interpolated into a fake value.
-          </li>
-        </ul>
-        <p>
-          One caveat when comparing <em>between</em> clients: an <strong>unverified</strong> number and a plain
-          confirmed one can sit side by side and look identical in weight — check the badge before treating two
-          clients&apos; figures as equally trustworthy.
-        </p>
-      </Section>
-
-      <Section id="metrics" title="How each column is computed">
-        <p>All figures are summed (or averaged, for Avg. position) over the daily numbers each connector reports.</p>
         <div className="overflow-hidden rounded-lg border border-border">
           {[
-            { label: "Leads 7d", body: "Sum of daily lead counts from Lead Dashboard over the window." },
+            { label: "Leads", body: "New leads, from the lead dashboard." },
             {
-              label: "vs prev 7d",
-              body: "Percent change of Leads 7d against the prior 7-day window. Muted when within ±5%.",
+              label: "vs week before",
+              body: "How leads this week compare with the week before. Small changes (under 5%) show as — because they're usually just normal ups and downs.",
             },
             {
               label: "Calls / Missed",
-              body: "Total calls from OpenPhone, summed. Missed = missedCalls minus calls that were flagged missed but actually forwarded and answered elsewhere — never double-counted as both.",
+              body: "Phone calls from OpenPhone, and how many were missed. A call forwarded and answered somewhere else doesn't count as missed.",
             },
+            { label: "Spend", body: "Money spent on Google Ads and Meta (Facebook/Instagram) ads, added together." },
+            { label: "Cost per lead", body: "Ad spend divided by leads. Shows — when there were no leads." },
+            { label: "Website visits", body: "Visits to the client's website, from Google Analytics." },
+            { label: "Enquiries", body: "Form fills and other goals completed on the website, from Google Analytics." },
             {
-              label: "Spend (Google + Meta)",
-              body: "Google Ads cost plus Meta Ads spend, summed together over the window.",
+              label: "Google rank",
+              body: "Where the client's website shows up in Google search on average. Lower is better — 1 is the top result.",
             },
-            {
-              label: "CPL",
-              body: "Spend ÷ Leads for the same window. Shows — (not $0) when there are no leads to divide by.",
-            },
-            { label: "Sessions / Conversions", body: "Summed from GA4 over the window." },
-            {
-              label: "Avg. position",
-              body: "Averaged (not summed) from Search Console across the days with data — lower is better.",
-            },
-            {
-              label: "Last synced",
-              body: "The most recent successful fetch for this client, across any platform.",
-            },
+            { label: "Updated", body: "When this client's numbers were last updated." },
           ].map((row) => (
             <div key={row.label} className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-b-0">
               <span className="text-sm font-medium text-foreground">{row.label}</span>
@@ -158,116 +114,107 @@ export default function DocsPage() {
             </div>
           ))}
         </div>
+        <p>Click any client in the table to see their last 30 days as a chart.</p>
       </Section>
 
-      <Section id="verify" title="Verified vs. unverified">
+      <Section id="add-client" title="Adding a new client">
+        <ol className="ml-4 list-decimal space-y-1.5">
+          <li>
+            Go to{" "}
+            <Link href="/settings/clients/new" className="text-primary hover:underline">
+              Settings → Add client
+            </Link>{" "}
+            and type the client&apos;s name.
+          </li>
+          <li>
+            We look for accounts with that name on every platform and fill them in for you. Check they&apos;re the
+            right ones. Remove any that are wrong with ✕, or add a missing platform from the &ldquo;Add&rdquo;
+            buttons.
+          </li>
+          <li>
+            Click <strong>Create client</strong>. We check each account works and show the result on the
+            client&apos;s page.
+          </li>
+          <li>
+            GoHighLevel and OpenPhone need a key for each client first. On the client&apos;s page, click{" "}
+            <strong>Add this client&apos;s GoHighLevel key</strong> and follow the steps shown.
+          </li>
+        </ol>
+        <p>New clients&apos; numbers appear on the dashboard after the next daily update.</p>
+      </Section>
+
+      <Section id="accounts" title="Is the right account connected?">
         <p>
-          Each client&apos;s platform connection (in <Link href="/settings/clients" className="text-primary hover:underline">Settings</Link>) carries its own status. It&apos;s checked automatically when the client is created and whenever a mapping
-          is saved — the real connector runs against the last 7 days and shows you the actual figures it got back.
-          Use <strong>Re-check</strong> on one mapping, or <strong>Check all</strong>, to run it again.
+          On each client&apos;s page in{" "}
+          <Link href="/settings/clients" className="text-primary hover:underline">
+            Settings
+          </Link>
+          , every platform shows one of these. We check automatically when you create a client or save an account.
+          Click <strong>Re-check</strong> (or <strong>Check all</strong>) to check again.
         </p>
         <div className="flex flex-col gap-2">
-          <Swatch caption="This mapping hasn't been checked yet (e.g. it was imported rather than saved in Settings).">
-            <Badge variant="outline" className="gap-1 text-muted-foreground">
-              <CircleIcon className="size-3" />
-              not verified
-            </Badge>
-          </Swatch>
-          <Swatch caption="The check ran and returned real figures — this mapping is confirmed correct.">
+          <Swatch caption="Working — we can see this account's numbers.">
             <Badge variant="outline" className="gap-1 border-success/30 text-success">
               <CheckCircle2Icon className="size-3" />
-              verified
+              working
             </Badge>
           </Swatch>
-          <Swatch caption="The check ran successfully but the platform returned nothing for the test period — often normal for a quiet client, worth a second look if unexpected.">
+          <Swatch caption="Connected, but nothing happened in the last 7 days. Normal for a quiet account — double-check it's the right one if that's unexpected.">
             <Badge variant="outline" className="gap-1 border-warning/30 text-warning">
               <MinusCircleIcon className="size-3" />
-              no data
+              connected, no activity
             </Badge>
           </Swatch>
-          <Swatch caption="The check failed — the external API rejected the request or errored. Hover it in Settings for the exact message.">
+          <Swatch caption="Not working — hover over it to see what's wrong and how to fix it.">
             <Badge variant="outline" className="gap-1 border-destructive/30 text-destructive">
               <AlertTriangleIcon className="size-3" />
-              error
+              not working
+            </Badge>
+          </Swatch>
+          <Swatch caption="Not checked yet — click Check all on the client's page.">
+            <Badge variant="outline" className="gap-1 text-muted-foreground">
+              <CircleIcon className="size-3" />
+              not checked yet
             </Badge>
           </Swatch>
         </div>
-        <p>
-          A dashboard cell shows the <strong>unverified</strong> badge specifically when real synced data exists for
-          that platform but its mapping has never been checked — the number is probably right, it just hasn&apos;t been
-          double-checked yet. Click <strong>Check all</strong> on that client in Settings to clear it.
-        </p>
       </Section>
 
-      <Section id="sync" title="Sync status & how data is fetched">
+      <Section id="updates" title="How often numbers update">
         <p>
-          Once a day (plus on demand), a sync run goes through every active client and every platform mapped to
-          them, and asks each connector for exactly one day: <strong>yesterday, in that client&apos;s own
-          timezone</strong> — never the platform&apos;s default timezone, never the server&apos;s. Two clients synced
-          in the same run can land on different calendar days if their timezones differ.
+          Every morning we collect the previous day&apos;s numbers for every active client. You can also click{" "}
+          <strong>Update data now</strong> in{" "}
+          <Link href="/settings/clients" className="text-primary hover:underline">
+            Settings
+          </Link>{" "}
+          — handy right after fixing an account, so you don&apos;t have to wait until tomorrow.
         </p>
         <p>
-          Each attempt is recorded twice: the untouched raw API response (for the audit trail and for debugging a
-          connector), and — if it succeeded — the normalized daily figures that actually power the table. A day
-          that returns real-but-empty data is stored as a genuine absence, never coerced into a zero; a day that
-          fails to fetch is recorded as an error, not silently skipped.
+          The row of platforms under the charts shows when each one last updated. A red dot means some clients on
+          that platform couldn&apos;t be updated last time — the Insights page lists them.
         </p>
-        <p>
-          <strong>Last sync run</strong> (shown at the top of the dashboard and in Settings) reports on the most
-          recent time this ran across every connected platform.
-        </p>
-        <ul className="ml-4 list-disc space-y-1">
-          <li>
-            <strong>never</strong> — no sync has ever run.
-          </li>
-          <li>
-            <strong>completed</strong> — every platform for every client synced without error.
-          </li>
-          <li>
-            <strong>completed with errors</strong> — some platforms failed; others still updated normally. Check the
-            per-platform strip for which ones.
-          </li>
-          <li>
-            <strong>failed</strong> — every attempt in that run errored.
-          </li>
-        </ul>
-        <p>
-          In <Link href="/settings/clients" className="text-primary hover:underline">Settings</Link>, a{" "}
-          <strong>Sync now</strong> button triggers a run on demand — useful right after fixing a broken mapping,
-          without waiting for the next scheduled run. It only ever fetches yesterday, same as the scheduled run — it
-          doesn&apos;t go back and fill in older days.
-        </p>
-      </Section>
-
-      <Section id="freshness" title="Freshness">
-        <p>
-          Each client row shows when its data was last synced. If it&apos;s gone stale — more than {STALE_HOURS} hours
-          since the last successful sync — a warning icon appears next to it:
-        </p>
-        <Swatch caption={`Last synced over ${STALE_HOURS}h ago — worth checking why the next scheduled sync hasn't picked it up.`}>
+        <Swatch caption={`If a client hasn't updated for more than ${STALE_HOURS} hours, its "Updated" time turns red. Check its accounts in Settings.`}>
           <span className="flex items-center gap-1.5 font-mono text-destructive">
             <ClockAlertIcon className="size-3.5" aria-hidden />
-            18h ago
+            40h ago
           </span>
         </Swatch>
       </Section>
 
-      <Section id="insights" title="Insights: flags, forecast, AI summary & chat">
+      <Section id="insights" title="The Insights page">
         <p>
           <Link href="/insights" className="text-primary hover:underline">
             Insights
           </Link>{" "}
-          layers four things on top of the same data the dashboard already shows — nothing here is a separate
-          fetch or a separate source of truth, and none of it can disagree with what the table displays.
+          uses the same numbers as the dashboard to point out what needs your attention.
         </p>
 
-        <p className="text-foreground">Attention flags</p>
+        <p className="text-foreground">Needs attention</p>
         <p>
-          A small set of rule-based checks, computed instantly with no model call. The same check that flags a
-          client on the Insights page also puts a warning icon next to that client&apos;s name on the main
-          dashboard table:
+          A list of clients where something looks off. The same clients get a warning icon next to their name on the
+          dashboard:
         </p>
-        <Swatch caption="Hover it on the dashboard for the same message shown in full on Insights.">
+        <Swatch caption="Hover over the icon on the dashboard to see what's wrong.">
           <span className="flex items-center gap-1.5 font-medium text-foreground">
             <AlertTriangleIcon className="size-3.5 text-warning" aria-hidden />
             Acme Roofing
@@ -275,13 +222,13 @@ export default function DocsPage() {
         </Swatch>
         <div className="overflow-hidden rounded-lg border border-border">
           {[
-            { label: "Sync error", body: "A metric failed to fetch on the last attempt. The only critical-severity flag — everything else is a warning." },
-            { label: "Stale sync", body: `No successful sync for this client in over ${STALE_HOURS} hours.` },
-            { label: "Leads down", body: "The same vs prev 7d delta shown on the dashboard, when it's down beyond the ±5% noise band." },
-            { label: "Missed calls high", body: "Over 30% of this week's calls were missed, on at least 5 calls (too little volume to mean anything below that)." },
+            { label: "Not updating", body: "We couldn't get some of this client's numbers. Usually an account needs fixing in Settings." },
+            { label: "Out of date", body: `This client's numbers haven't updated in over ${STALE_HOURS} hours.` },
+            { label: "Fewer leads", body: "Leads dropped by more than 5% compared with the week before." },
+            { label: "Missed calls", body: "More than 30% of this week's calls were missed (only checked when there were at least 5 calls)." },
             {
-              label: "SEO position worsening / Spend spike / Sessions drop",
-              body: "Statistical, not a fixed threshold: this week's average is compared to that client's own baseline from the rest of the last 30 days, scaled by how much that client's own numbers normally move. A client that's naturally volatile won't trigger on a normal swing; a steady one will trigger on a much smaller real shift.",
+              label: "Google ranking / Spend jump / Fewer visits",
+              body: "This week is clearly different from what's normal for this client. We compare each client with their own usual numbers, so a client whose numbers always bounce around won't be flagged for a normal week.",
             },
           ].map((row) => (
             <div key={row.label} className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-b-0">
@@ -291,44 +238,37 @@ export default function DocsPage() {
           ))}
         </div>
 
-        <p className="text-foreground">Lead & spend forecast</p>
+        <p className="text-foreground">What to expect</p>
         <p>
-          A short (7-day) straight-line projection from each client&apos;s last 30 days, shown as a dashed
-          continuation of the solid history line. It never projects a negative number, and it refuses to guess at
-          all — showing “not enough history” instead — with fewer than 5 known days behind it.
+          A best guess at each client&apos;s leads and ad spend over the next 7 days, based on the last 30 days. It
+          only appears once there&apos;s enough data to make a sensible guess.
         </p>
 
-        <p className="text-foreground">AI summary</p>
+        <p className="text-foreground">This week in brief</p>
         <p>
           <span className="inline-flex items-center gap-1 align-text-bottom">
             <SparklesIcon className="size-3.5 text-primary" aria-hidden />
           </span>{" "}
-          Generated on demand (not on every page load) by turning this week&apos;s numbers and attention flags into
-          plain English. It&apos;s given the same computed figures shown elsewhere on the page and instructed to
-          only describe those — it can&apos;t introduce a number that isn&apos;t already visible somewhere else in
-          the app.
+          Click <strong>Write summary</strong> for a short written summary of the week, written by AI. It only uses
+          the numbers you can already see in the app.
         </p>
 
-        <p className="text-foreground">Chat</p>
+        <p className="text-foreground">Ask a question</p>
         <p>
-          Opens from the sparkles icon at the top of every page (or the same icon in the sidebar on mobile), not just
-          Insights. Answers questions by calling the same read-only data functions the dashboard itself uses — it
-          looks numbers up in real time rather than guessing or relying on anything said earlier in the conversation.
+          Click the sparkles icon at the top of any page to ask a question in plain English, like &ldquo;Who has
+          the highest cost per lead?&rdquo;. It looks up the answer from the same numbers as the dashboard.
         </p>
       </Section>
 
       <Section id="platforms" title="Connected platforms">
-        <p>
-          Each client can be connected to any of these. What breaks and how to fix it, in plain terms — the same
-          text shown next to each row in Settings.
-        </p>
+        <p>What each platform gives us, and what to do if a client&apos;s account can&apos;t be found.</p>
         <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
           {PLATFORM_ORDER.map((platform) => (
             <div key={platform} className="flex flex-col gap-1.5 px-4 py-3">
               <span className="text-sm font-medium text-foreground">{PLATFORM_LABELS[platform]}</span>
               <p className="text-sm text-muted-foreground">{PLATFORM_HELP[platform].what}</p>
               <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground/80">If empty: </span>
+                <span className="font-medium text-foreground/80">Can&apos;t find the account? </span>
                 {PLATFORM_HELP[platform].ifEmpty}
               </p>
             </div>

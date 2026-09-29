@@ -50,7 +50,7 @@ export function MappingsSection({
       router.refresh();
       const failed = results.filter((r) => r.result.status === "error");
       if (failed.length === 0) {
-        toast({ variant: "success", title: `All ${results.length} accounts connected` });
+        toast({ variant: "success", title: `All ${results.length} accounts are working` });
       } else {
         toast({
           variant: "error",
@@ -70,7 +70,7 @@ export function MappingsSection({
     <TooltipProvider>
       <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-medium text-foreground">Platform mappings</h3>
+          <h3 className="text-sm font-medium text-foreground">Connected accounts</h3>
           <div className="flex items-center gap-2">
             {mappingByPlatform.size > 0 && (
               <Button type="button" variant="outline" size="sm" disabled={checking} onClick={checkAll}>

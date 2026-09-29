@@ -37,7 +37,7 @@ export default async function InsightsPage() {
       <header className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Insights</h1>
         <p className="text-sm text-muted-foreground">
-          What needs attention, a plain-English summary, and a 7-day forecast — from the same data as the dashboard.
+          What needs your attention, a written summary, and what to expect over the next week.
         </p>
       </header>
 
@@ -55,7 +55,7 @@ export default async function InsightsPage() {
         </section>
 
         <section className="flex flex-col gap-2">
-          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">AI summary</h2>
+          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">This week in brief</h2>
           <AiSummary />
         </section>
       </div>
@@ -63,19 +63,19 @@ export default async function InsightsPage() {
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Forecast — next {FORECAST_DAYS} days (from the last {SPARKLINE_DAYS})
+            What to expect — next {FORECAST_DAYS} days (based on the last {SPARKLINE_DAYS} days)
           </h2>
         </div>
 
         <Tabs defaultValue="leads">
           <TabsList>
             <TabsTrigger value="leads">Leads</TabsTrigger>
-            <TabsTrigger value="spend">Spend</TabsTrigger>
+            <TabsTrigger value="spend">Ad spend</TabsTrigger>
           </TabsList>
 
           <TabsContent value="leads">
             {leadsForecasts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active clients to forecast.</p>
+              <p className="text-sm text-muted-foreground">No active clients yet.</p>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {leadsForecasts.map((f) => (
@@ -87,7 +87,7 @@ export default async function InsightsPage() {
 
           <TabsContent value="spend">
             {spendForecasts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active clients to forecast.</p>
+              <p className="text-sm text-muted-foreground">No active clients yet.</p>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {spendForecasts.map((f) => (

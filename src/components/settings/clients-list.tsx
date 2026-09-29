@@ -39,9 +39,9 @@ export function ClientsList({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter clients…"
+            placeholder="Search clients…"
             className="pl-8"
-            aria-label="Filter clients"
+            aria-label="Search clients"
           />
         </div>
       )}
@@ -75,11 +75,11 @@ export function ClientsList({
                 <TableCell>
                   {client.active ? (
                     <Badge variant="outline" className="border-success/30 text-success">
-                      active
+                      Active
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
-                      inactive
+                      Paused
                     </Badge>
                   )}
                 </TableCell>
@@ -90,9 +90,9 @@ export function ClientsList({
                         type="submit"
                         size="sm"
                         variant="ghost"
-                        confirmMessage={`Deactivate ${client.name}? This excludes it from future syncs but keeps its history.`}
+                        confirmMessage={`Pause ${client.name}? We'll stop collecting new numbers for them, but keep everything collected so far.`}
                       >
-                        Deactivate
+                        Pause
                       </ConfirmSubmitButton>
                     </form>
                   )}
@@ -102,7 +102,7 @@ export function ClientsList({
             {clients.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                  No clients yet.
+                  No clients yet — click &ldquo;Add client&rdquo; to add your first one.
                 </TableCell>
               </TableRow>
             )}

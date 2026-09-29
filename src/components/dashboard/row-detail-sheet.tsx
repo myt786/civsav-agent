@@ -36,13 +36,13 @@ export function RowDetailSheet({
       <SheetContent className="sm:max-w-lg" side="right">
         <SheetHeader>
           <SheetTitle>{row.clientName}</SheetTitle>
-          <SheetDescription>30-day trend and source breakdown</SheetDescription>
+          <SheetDescription>The last 30 days, and where this week&apos;s numbers came from</SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-6">
           <section>
             <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Source breakdown (7d)
+              Where the numbers came from (last 7 days)
             </h3>
             <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
               {detail.breakdown.map((item, i) => (
@@ -58,7 +58,7 @@ export function RowDetailSheet({
           </section>
 
           <section className="flex flex-col gap-5">
-            <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">30-day trend</h3>
+            <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Last 30 days</h3>
 
             <SparklineBlock label="Leads">
               <Sparkline
@@ -84,21 +84,21 @@ export function RowDetailSheet({
               />
             </SparklineBlock>
 
-            <SparklineBlock label="Sessions">
+            <SparklineBlock label="Website visits">
               <Sparkline
                 series={[{ label: "Sessions", points: byKey.sessions.points, stroke: "var(--chart-4)" }]}
                 formatValue={formatInteger}
               />
             </SparklineBlock>
 
-            <SparklineBlock label="Conversions">
+            <SparklineBlock label="Enquiries">
               <Sparkline
                 series={[{ label: "Conversions", points: byKey.conversions.points, stroke: "var(--chart-5)" }]}
                 formatValue={formatInteger}
               />
             </SparklineBlock>
 
-            <SparklineBlock label="Avg. position" caption="lower is better">
+            <SparklineBlock label="Google rank" caption="lower is better">
               <Sparkline
                 series={[{ label: "Position", points: byKey.avgPosition.points, stroke: "var(--chart-6)" }]}
                 formatValue={formatPosition}

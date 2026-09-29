@@ -55,7 +55,8 @@ export function ApiKeysList({
             )}
             {envNames.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Also configured in Vercel (still works): <span className="font-mono">{envNames.join(", ")}</span>
+                Plus {envNames.length} older key{envNames.length === 1 ? "" : "s"} set up by a developer (still
+                working, nothing to do).
               </p>
             )}
           </section>
@@ -105,14 +106,14 @@ function KeyRow({ row }: { row: ApiKeyRow }) {
         <div className="flex min-w-0 items-center gap-2">
           <KeyRoundIcon className="size-4 shrink-0 text-muted-foreground" />
           <span className="truncate text-sm font-medium text-foreground">{row.name}</span>
-          {row.locationId && <span className="truncate font-mono text-xs text-muted-foreground">{row.locationId}</span>}
+          
           <Badge variant="outline" className="shrink-0 text-muted-foreground">
-            {row.usedBy === 0 ? "not used yet" : `used by ${row.usedBy} client${row.usedBy === 1 ? "" : "s"}`}
+            {row.usedBy === 0 ? "not used by any client yet" : `used by ${row.usedBy} client${row.usedBy === 1 ? "" : "s"}`}
           </Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => setReplacing((r) => !r)}>
-            {replacing ? "Cancel" : "Replace key"}
+            {replacing ? "Cancel" : "Replace with a new key"}
           </Button>
           <form action={deleteAction}>
             <ConfirmSubmitButton
@@ -120,7 +121,7 @@ function KeyRow({ row }: { row: ApiKeyRow }) {
               size="sm"
               variant="ghost"
               disabled={deletePending}
-              confirmMessage={`Delete the saved key "${row.name}"?`}
+              confirmMessage={`Delete the key "${row.name}"? You can add it again later if you need to.`}
             >
               Delete
             </ConfirmSubmitButton>

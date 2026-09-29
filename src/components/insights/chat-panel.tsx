@@ -12,7 +12,7 @@ import type { InsightsAgentUIMessage } from "@/lib/agents/insights-agent";
 const SUGGESTIONS = [
   "Which clients need attention this week?",
   "Who has the highest cost per lead?",
-  "Any connectors currently failing to sync?",
+  "Is any client's data not updating?",
 ];
 
 function Avatar({ role }: { role: "user" | "assistant" }) {
@@ -44,7 +44,7 @@ function TypingIndicator() {
 }
 
 export function ChatPanel() {
-  const { messages, sendMessage, status, error, regenerate } = useChat<InsightsAgentUIMessage>({
+  const { messages, sendMessage, status, regenerate } = useChat<InsightsAgentUIMessage>({
     transport: new DefaultChatTransport({ api: "/api/insights/chat" }),
   });
   const [input, setInput] = useState("");
@@ -81,7 +81,7 @@ export function ChatPanel() {
               <SparklesIcon className="size-5" aria-hidden />
             </span>
             <p className="max-w-xs text-sm text-muted-foreground">
-              Ask anything about the fleet — leads, spend, sync health, individual clients.
+              Ask anything about your clients — leads, spend, calls, or a specific client.
             </p>
             <div className="flex flex-wrap justify-center gap-1.5">
               {SUGGESTIONS.map((s) => (
@@ -110,7 +110,7 @@ export function ChatPanel() {
               <AlertTriangleIcon className="size-3.5" aria-hidden />
             </span>
             <div className="flex max-w-[85%] flex-col gap-2 rounded-2xl bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-              <span>{error?.message ?? "Something went wrong answering that."}</span>
+              <span>Something went wrong answering that. Please try again.</span>
               <button type="button" onClick={() => regenerate()} className="w-fit text-xs font-medium underline underline-offset-2 hover:no-underline">
                 Try again
               </button>

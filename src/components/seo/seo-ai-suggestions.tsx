@@ -33,8 +33,8 @@ export function SeoAiSuggestions({ clientId }: { clientId: string }) {
       }
       const { suggestions }: { suggestions: string[] } = await res.json();
       setState({ status: "ok", suggestions });
-    } catch (error) {
-      setState({ status: "error", message: error instanceof Error ? error.message : "Failed to generate suggestions" });
+    } catch {
+      setState({ status: "error", message: "Couldn't get suggestions right now. Please try again in a minute." });
     }
   }
 

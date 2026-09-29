@@ -69,9 +69,9 @@ export default async function ApiKeysPage({
       <div className="flex flex-col gap-1">
         <h2 className="font-heading text-base font-medium text-foreground">API keys</h2>
         <p className="text-sm text-muted-foreground">
-          GoHighLevel and OpenPhone give out keys per client (per sub-account or per workspace) rather than one key for
-          everything. Paste each one here — it&apos;s tested before saving, stored encrypted, and shows up in the
-          account picker straight away. No Vercel changes or redeploys.
+          An API key is like a password that lets this app read a client&apos;s numbers. GoHighLevel and OpenPhone
+          need a separate key for each client, so paste each one here. We test it before saving and keep it
+          locked away — no one can see it again after it&apos;s saved.
         </p>
       </div>
 

@@ -3,6 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import type { CellState, DeltaCell } from "@/lib/dashboard/types";
 import { formatPercent } from "@/lib/dashboard/format";
+import { friendlyError } from "@/lib/friendly-error";
 
 // The four data states, rendered so they can never be mistaken for one
 // another at a glance: a real number, a muted em dash, a warning icon with
@@ -36,10 +37,12 @@ export function DataCell<T>({
             className={cn("flex items-center gap-1 font-mono tabular-nums text-destructive", alignClass)}
           >
             <AlertTriangleIcon className="size-3.5" aria-hidden />
-            <span className="sr-only">Sync error</span>
+            <span className="sr-only">Couldn't update</span>
           </span>
         </TooltipTrigger>
-        <TooltipContent className="max-w-72 text-pretty">{state.message}</TooltipContent>
+        <TooltipContent className="max-w-72 text-pretty">
+          Couldn&apos;t update this number. {friendlyError(state.message).summary}
+        </TooltipContent>
       </Tooltip>
     );
   }
@@ -62,11 +65,12 @@ export function DataCell<T>({
           >
             {text}
             <UnverifiedMark />
-            <span className="sr-only">(unverified)</span>
+            <span className="sr-only">(not checked yet)</span>
           </span>
         </TooltipTrigger>
         <TooltipContent className="max-w-64 text-pretty">
-          Unverified — this client&apos;s account mapping hasn&apos;t been confirmed in Settings yet.
+          Not checked yet — this number is probably right, but nobody has confirmed this client&apos;s account in
+          Settings yet.
         </TooltipContent>
       </Tooltip>
     );

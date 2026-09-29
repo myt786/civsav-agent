@@ -37,24 +37,24 @@ export default async function DashboardPage() {
       <header className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Client performance</h1>
         <p className="text-sm text-muted-foreground">
-          Read-only daily snapshot across every connected platform.{" "}
+          Your clients' numbers from every platform, updated daily.{" "}
           <Link href="/docs#numbers" className="text-primary hover:underline">
-            What do these mean?
+            How to read this page
           </Link>
         </p>
       </header>
 
       <StatCards
         stats={[
-          { label: "Leads (7d)", value: totalLeads, formatKind: "integer", icon: <UsersIcon className="size-3.5" aria-hidden /> },
+          { label: "Leads (last 7 days)", value: totalLeads, formatKind: "integer", icon: <UsersIcon className="size-3.5" aria-hidden /> },
           {
-            label: "Spend (7d)",
+            label: "Ad spend (last 7 days)",
             value: totalSpend,
             formatKind: "currency",
             icon: <DollarSignIcon className="size-3.5" aria-hidden />,
           },
           {
-            label: "Sessions (7d)",
+            label: "Website visits (last 7 days)",
             value: totalSessions,
             formatKind: "integer",
             icon: <ActivityIcon className="size-3.5" aria-hidden />,

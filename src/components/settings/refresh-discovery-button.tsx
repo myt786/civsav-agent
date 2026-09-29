@@ -17,7 +17,7 @@ export function RefreshDiscoveryButton({ onRefresh }: { onRefresh: () => Promise
       onClick={() => startTransition(onRefresh)}
     >
       <RefreshCwIcon className={cn("size-3.5", pending && "animate-spin")} />
-      {pending ? "Refreshing…" : "Refresh accounts"}
+      {pending ? "Reloading…" : "Reload account lists"}
     </Button>
   );
 }

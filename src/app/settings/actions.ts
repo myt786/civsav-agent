@@ -13,6 +13,7 @@ import { connectorRegistry } from "@/lib/connectors/registry";
 import { getAllDiscoveredAccounts, type DiscoveredAccounts } from "@/lib/connectors/discovery-cache";
 import type { Platform, PlatformAccount, DateRange, ConnectorResult } from "@/lib/connectors/types";
 import { runSync } from "@/lib/sync/run";
+import { PLATFORM_LABELS } from "@/lib/connectors/platform-labels";
 import { format, subDays } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
@@ -27,7 +28,7 @@ function isValidTimezone(tz: string): boolean {
 
 const clientSchema = z.object({
   name: z.string().trim().min(1, "Name is required.").max(200, "Name is too long."),
-  timezone: z.string().trim().refine(isValidTimezone, "Not a recognized IANA timezone."),
+  timezone: z.string().trim().refine(isValidTimezone, "Please pick a timezone from the list."),
   active: z.boolean(),
 });
 
@@ -50,7 +51,7 @@ export async function updateClient(
 ): Promise<ClientFormState> {
   const session = await requireSession();
   const parsed = readClientFormData(formData);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Something in the form isn't right — please check it." };
 
   const db = await getDb();
   const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
@@ -134,7 +135,7 @@ export async function upsertMapping(
 
   const idParsed = externalIdSchemas[platform].safeParse(rawExternalId);
   if (!idParsed.success) {
-    return { error: idParsed.error.issues[0]?.message ?? "Invalid value." };
+    return { error: idParsed.error.issues[0]?.message ?? "That doesn't look right — please check it." };
   }
 
   const db = await getDb();
@@ -250,7 +251,7 @@ async function runVerification(clientId: string, platform: Platform): Promise<Ve
     .limit(1);
 
   if (!client || !mapping) {
-    return { status: "error", message: "Save the mapping before verifying it." };
+    return { status: "error", message: "Save this account first, then check it." };
   }
 
   const connector = connectorRegistry[platform];
@@ -332,7 +333,7 @@ export async function createClientWithMappings(
 
   const parsedClient = clientSchema.safeParse({ name, timezone, active: true });
   if (!parsedClient.success) {
-    return { error: parsedClient.error.issues[0]?.message ?? "Invalid input." };
+    return { error: parsedClient.error.issues[0]?.message ?? "Something in the form isn't right — please check it." };
   }
 
   const parsedMappings: { platform: Platform; externalId: string; active: boolean; credentialLabel: string | null }[] =
@@ -341,7 +342,7 @@ export async function createClientWithMappings(
     if (mapping.externalId.trim().length === 0) continue;
     const idParsed = externalIdSchemas[mapping.platform].safeParse(mapping.externalId);
     if (!idParsed.success) {
-      return { error: `${mapping.platform}: ${idParsed.error.issues[0]?.message ?? "Invalid value."}` };
+      return { error: `${PLATFORM_LABELS[mapping.platform]}: ${idParsed.error.issues[0]?.message ?? "That doesn't look right."}` };
     }
     parsedMappings.push({
       platform: mapping.platform,
