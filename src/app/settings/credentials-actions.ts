@@ -98,7 +98,7 @@ export async function addPlatformCredential(
   const [created] = await db
     .insert(platformCredentials)
     .values({ platform, name, externalId: locationId, secretEncrypted: encrypted.value, createdBy: session.email })
-    .returning({ id: platformCredentials.id });
+    .returning();
 
   invalidateDiscovery(platform);
   revalidatePath("/settings/api-keys");

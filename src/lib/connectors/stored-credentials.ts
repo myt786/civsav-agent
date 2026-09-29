@@ -1,6 +1,8 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { and, asc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { getDb } from "../db";
+import * as schema from "../db/schema";
 import { platformCredentials } from "../db/schema";
 import type { Platform } from "./types";
 
@@ -70,13 +72,16 @@ export function decryptSecret(stored: string): string {
 // idempotent too, so running the migration afterwards is harmless.
 let tableReady: Promise<void> | undefined;
 
-export async function credentialsDb(): Promise<Awaited<ReturnType<typeof getDb>>> {
-  const db = await getDb();
-  // getDb() is a union of the postgres-js and PGlite drizzle types, whose
-  // generic execute() signatures TypeScript can't call through a union.
-  const execute = (query: SQL) => (db as unknown as { execute: (q: SQL) => Promise<unknown> }).execute(query);
+// getDb() is typed as a union of the postgres-js and PGlite drizzle
+// databases, and TypeScript can't call overloaded or generic query-builder
+// methods (execute, returning(fields), ...) through that union. Both extend
+// PgDatabase, so this hands back that single common type instead.
+export type CredentialsDb = PgDatabase<PgQueryResultHKT, typeof schema>;
+
+export async function credentialsDb(): Promise<CredentialsDb> {
+  const db = (await getDb()) as unknown as CredentialsDb;
   tableReady ??= (async () => {
-    await execute(
+    await db.execute(
       sql.raw(`CREATE TABLE IF NOT EXISTS "platform_credentials" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
         "platform" "platform" NOT NULL,
@@ -88,7 +93,7 @@ export async function credentialsDb(): Promise<Awaited<ReturnType<typeof getDb>>
         "updated_at" timestamp with time zone DEFAULT now() NOT NULL
       )`),
     );
-    await execute(
+    await db.execute(
       sql.raw(
         `CREATE UNIQUE INDEX IF NOT EXISTS "platform_credentials_platform_name_idx" ON "platform_credentials" USING btree ("platform","name")`,
       ),
