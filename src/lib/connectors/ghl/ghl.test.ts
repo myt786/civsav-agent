@@ -1,6 +1,16 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { ghlConnector } from "./index";
 import type { PlatformAccount, DateRange } from "../types";
+import { listStoredCredentials } from "../stored-credentials";
+
+// Saved (Settings → API keys) credentials live in the database; these
+// tests exercise the env-var and fixture paths, plus a saved key where
+// stubbed explicitly.
+vi.mock("../stored-credentials", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../stored-credentials")>()),
+  listStoredCredentials: vi.fn(async () => []),
+  storedSecretForLabel: vi.fn(async () => undefined),
+}));
 
 const account: PlatformAccount = {
   clientId: "client-1",
@@ -218,5 +228,31 @@ describe("ghlConnector.listAccounts", () => {
     expect(result.accounts).toHaveLength(2);
     expect(result.accounts.map((a) => a.credentialLabel).sort()).toEqual(["FIVE_STAR", "HILLVIEW"]);
     expect(result.accounts.every((a) => a.id === "")).toBe(true);
+  });
+
+  it("lists keys saved in Settings as real locations, by name", async () => {
+    delete process.env.CONNECTOR_MODE;
+    vi.mocked(listStoredCredentials).mockResolvedValueOnce([
+      {
+        id: "7d8f7c52-1a0e-4f7e-9b1c-2f3a4b5c6d7e",
+        label: "db:7d8f7c52-1a0e-4f7e-9b1c-2f3a4b5c6d7e",
+        name: "Acme Roofing",
+        externalId: "0kZ2SuULgx1e4t2h97fg",
+        secret: "pit-123",
+      },
+    ]);
+
+    const result = await ghlConnector.listAccounts!();
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toEqual([
+      {
+        id: "0kZ2SuULgx1e4t2h97fg",
+        name: "Acme Roofing",
+        credentialLabel: "db:7d8f7c52-1a0e-4f7e-9b1c-2f3a4b5c6d7e",
+        credentialName: "Acme Roofing",
+      },
+    ]);
   });
 });

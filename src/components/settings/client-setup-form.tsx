@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { PlusIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -251,6 +252,20 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
                     credentialLabel={rows[platform].credentialLabel}
                     onCredentialLabelChange={(credentialLabel) => updateRow(platform, { credentialLabel })}
                   />
+                  {(platform === "ghl" || platform === "openphone") && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Not in the list?{" "}
+                      <Link
+                        href={`/settings/api-keys?platform=${platform}&name=${encodeURIComponent(name)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary underline-offset-2 hover:underline"
+                      >
+                        Add its API key
+                      </Link>{" "}
+                      (new tab), then click Refresh accounts.
+                    </p>
+                  )}
                 </div>
                 <Button
                   type="button"

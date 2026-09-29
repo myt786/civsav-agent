@@ -85,6 +85,35 @@ export const clientPlatformAccounts = pgTable(
   ],
 );
 
+// API keys pasted in Settings → API keys, for platforms whose keys are
+// per-tenant rather than one shared credential (GHL: one key per
+// sub-account; OpenPhone: one key per workspace). Replaces the old
+// one-env-var-per-key setup, which needed a Vercel edit and a redeploy for
+// every new client. A mapping points at one of these through
+// credentialLabel = "db:<id>" (see connectors/stored-credentials.ts);
+// env-var labels keep working alongside.
+export const platformCredentials = pgTable(
+  "platform_credentials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    platform: platformEnum("platform").notNull(),
+    // Shown in the account picker — usually the client's name for GHL, or
+    // the workspace's name for OpenPhone.
+    name: text("name").notNull(),
+    // GHL only: the location (sub-account) this key was created inside.
+    // Stored with the key so the location shows up in discovery by name,
+    // instead of someone typing the ID on every client that uses it.
+    externalId: text("external_id"),
+    // AES-256-GCM, keyed by CREDENTIALS_ENCRYPTION_KEY. Never sent to the
+    // browser.
+    secretEncrypted: text("secret_encrypted").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("platform_credentials_platform_name_idx").on(table.platform, table.name)],
+);
+
 export const syncRuns = pgTable("sync_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),

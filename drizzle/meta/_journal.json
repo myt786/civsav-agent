@@ -43,6 +43,13 @@
       "when": 1789498302222,
       "tag": "0005_pale_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790604000000,
+      "tag": "0006_saved_api_keys",
+      "breakpoints": true
     }
   ]
 }

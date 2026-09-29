@@ -2,6 +2,15 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { openPhoneConnector } from "./index";
 import type { PlatformAccount, DateRange } from "../types";
 
+// Saved (Settings → API keys) credentials live in the database; these
+// tests exercise the env-var and fixture paths, plus a saved key where
+// stubbed explicitly.
+vi.mock("../stored-credentials", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../stored-credentials")>()),
+  listStoredCredentials: vi.fn(async () => []),
+  storedSecretForLabel: vi.fn(async () => undefined),
+}));
+
 const account: PlatformAccount = {
   clientId: "client-1",
   clientTimezone: "America/New_York",
@@ -138,6 +147,7 @@ describe("openPhoneConnector.listAccounts", () => {
       name: "Acme Roofing Main Line",
       extra: "Workspace: Main",
       credentialLabel: "MAIN",
+      credentialName: "Main",
     });
     expect(result.accounts[2].credentialLabel).toBe("NORTHEAST");
   });
@@ -263,7 +273,13 @@ describe("openPhoneConnector.listAccounts — multi-workspace", () => {
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("expected ok");
     expect(result.accounts).toEqual([
-      { id: "+15125550100", name: "Real Line", extra: "Workspace: Main", credentialLabel: "MAIN" },
+      {
+        id: "+15125550100",
+        name: "Real Line",
+        extra: "Workspace: Main",
+        credentialLabel: "MAIN",
+        credentialName: "Main",
+      },
     ]);
   });
 });

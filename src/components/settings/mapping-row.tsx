@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, MinusCircleIcon } from "lucide-react";
 import { upsertMapping, verifyMapping, type MappingFormState, type VerifyResult } from "@/app/settings/actions";
@@ -104,6 +105,7 @@ export function MappingRow({
   mapping,
   discovery,
   suggestedId,
+  addKeyHref,
 }: {
   clientId: string;
   platform: Platform;
@@ -112,6 +114,8 @@ export function MappingRow({
   mapping: MappingRowData | null;
   discovery: DiscoveryState;
   suggestedId?: string;
+  // GHL/OpenPhone only: where to paste this client's own API key.
+  addKeyHref?: string;
 }) {
   const boundUpsert = upsertMapping.bind(null, clientId, platform);
   const [state, formAction, savePending] = useActionState(boundUpsert, initialState);
@@ -172,6 +176,14 @@ export function MappingRow({
             credentialLabelName="credentialLabel"
             onCredentialLabelChange={setCredentialLabel}
           />
+          {addKeyHref && (
+            <Link
+              href={addKeyHref}
+              className="self-start text-xs text-primary underline-offset-2 hover:underline"
+            >
+              {platform === "ghl" ? "Add this client's GoHighLevel key" : "Add an OpenPhone workspace key"}
+            </Link>
+          )}
           {liveError && <p className="text-xs text-destructive">{liveError}</p>}
           {state.error && <p className="text-xs text-destructive">{state.error}</p>}
         </div>
