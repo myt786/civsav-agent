@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, SearchIcon } from "lucide-react";
+import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, SearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import { deactivateClient, reactivateClient, verifyAllMappings } from "@/app/settings/actions";
@@ -44,13 +44,30 @@ function accountState(account: ClientAccount): AccountState {
   return "working";
 }
 
-const STATE_STYLE: Record<AccountState, { badge: string; dot: string; label: string }> = {
-  working: { badge: "border-success/30 text-success", dot: "bg-success", label: "Working" },
-  quiet: { badge: "border-warning/30 text-warning", dot: "bg-warning", label: "Connected, no recent activity" },
-  broken: { badge: "border-destructive/40 bg-destructive/5 text-destructive", dot: "bg-destructive", label: "Not working" },
-  unchecked: { badge: "border-border text-muted-foreground", dot: "border border-muted-foreground/70", label: "Not checked yet" },
-  paused: { badge: "border-dashed border-border text-muted-foreground/70", dot: "bg-muted-foreground/40", label: "Updates paused" },
+// Working accounts are deliberately plain (the Health column already says
+// "All working"); only accounts that need a look carry colour, so problems
+// stand out instead of every chip competing for attention.
+const STATE_STYLE: Record<AccountState, { chip: string; label: string }> = {
+  working: { chip: "bg-muted text-foreground/75", label: "Working" },
+  quiet: { chip: "bg-warning/10 text-warning", label: "No recent activity" },
+  broken: { chip: "bg-destructive/10 font-medium text-destructive", label: "Not working" },
+  unchecked: { chip: "border border-dashed border-muted-foreground/40 text-muted-foreground", label: "Not checked yet" },
+  paused: { chip: "bg-muted/50 text-muted-foreground/60", label: "Updates paused" },
 };
+
+function Chip({ state, children }: { state: AccountState; children: React.ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs leading-5 whitespace-nowrap",
+        STATE_STYLE[state].chip,
+      )}
+    >
+      {state === "broken" && <AlertTriangleIcon className="size-3" aria-hidden />}
+      {children}
+    </span>
+  );
+}
 
 // Short names so a client with every platform still fits on one line.
 const SHORT_LABEL: Record<Platform, string> = {
@@ -285,10 +302,9 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
           </span>
           <span className="flex flex-wrap items-center gap-3">
             {(["working", "quiet", "broken", "unchecked"] as const).map((state) => (
-              <span key={state} className="flex items-center gap-1.5">
-                <span className={cn("inline-block size-2 rounded-full", STATE_STYLE[state].dot)} aria-hidden />
+              <Chip key={state} state={state}>
                 {STATE_STYLE[state].label}
-              </span>
+              </Chip>
             ))}
           </span>
         </div>
@@ -303,22 +319,15 @@ function AccountBadges({ accounts }: { accounts: ClientAccount[] }) {
   }
   const sorted = [...accounts].sort((a, b) => PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform));
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1">
       {sorted.map((account) => {
         const state = accountState(account);
         const style = STATE_STYLE[state];
         return (
           <Tooltip key={account.platform}>
             <TooltipTrigger asChild>
-              <span
-                tabIndex={0}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs whitespace-nowrap outline-none",
-                  style.badge,
-                )}
-              >
-                <span className={cn("inline-block size-1.5 rounded-full", style.dot)} aria-hidden />
-                {SHORT_LABEL[account.platform]}
+              <span tabIndex={0} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+                <Chip state={state}>{SHORT_LABEL[account.platform]}</Chip>
               </span>
             </TooltipTrigger>
             <TooltipContent className="max-w-72 text-pretty">
