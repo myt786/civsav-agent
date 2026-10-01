@@ -238,6 +238,71 @@ export async function verifyAllMappings(clientId: string): Promise<{ platform: P
   return results;
 }
 
+export interface CheckAllAccountsResult {
+  checked: number;
+  working: number;
+  notWorking: number;
+  // Accounts not reached before the time budget ran out — clicking again
+  // carries on with them.
+  remaining: number;
+}
+
+// The "Check all accounts" button in Settings: checks every active
+// client's accounts that aren't already confirmed working (never checked,
+// or last check failed). Already-working accounts are skipped, which keeps
+// the run short and avoids spending metered Ahrefs units twice.
+export async function checkAllUncheckedAccounts(): Promise<CheckAllAccountsResult> {
+  await requireSession();
+  const db = await getDb();
+
+  const activeClientIds = new Set(
+    (await db.select({ id: clients.id }).from(clients).where(eq(clients.active, true))).map((c) => c.id),
+  );
+  const mappings = await db
+    .select({
+      clientId: clientPlatformAccounts.clientId,
+      platform: clientPlatformAccounts.platform,
+      active: clientPlatformAccounts.active,
+      verifiedAt: clientPlatformAccounts.verifiedAt,
+      verifiedStatus: clientPlatformAccounts.verifiedStatus,
+    })
+    .from(clientPlatformAccounts);
+
+  const todo = mappings.filter(
+    (m) =>
+      m.active &&
+      activeClientIds.has(m.clientId) &&
+      connectorRegistry[m.platform] &&
+      (m.verifiedAt === null || m.verifiedStatus === "error"),
+  );
+
+  // The settings page allows 300s; stop starting new checks well before.
+  const startedAt = Date.now();
+  const TIME_BUDGET_MS = 240_000;
+  const CONCURRENCY = 6;
+  const result: CheckAllAccountsResult = { checked: 0, working: 0, notWorking: 0, remaining: 0 };
+
+  let next = 0;
+  async function worker() {
+    while (next < todo.length) {
+      const mapping = todo[next++];
+      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+        result.remaining++;
+        continue;
+      }
+      const outcome = await runVerification(mapping.clientId, mapping.platform);
+      result.checked++;
+      if (outcome.status === "error") result.notWorking++;
+      else result.working++;
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, () => worker()));
+
+  revalidatePath("/settings/clients");
+  revalidatePath("/");
+  return result;
+}
+
 // Shared by Verify, Check all, saving a mapping, and creating a client — a
 // mapping is checked the moment it's saved, so nobody has to remember a
 // separate Verify click before the dashboard trusts its numbers.

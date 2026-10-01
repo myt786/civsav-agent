@@ -171,7 +171,7 @@ export default function DocsPage() {
               not working
             </Badge>
           </Swatch>
-          <Swatch caption="Not checked yet — click Check all on the client's page.">
+          <Swatch caption="Not checked yet — click Check all accounts in Settings to check every client at once.">
             <Badge variant="outline" className="gap-1 text-muted-foreground">
               <CircleIcon className="size-3" />
               not checked yet

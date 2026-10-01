@@ -112,8 +112,8 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                   </TooltipTrigger>
                   <TooltipContent className="max-w-64 text-pretty">
                     How many clients&apos; {PLATFORM_LABELS[connector.platform]} accounts have been checked in
-                    Settings. Unchecked ones are probably fine — open the client in Settings and click &ldquo;Check
-                    all&rdquo; to confirm them.
+                    Settings. Unchecked ones are probably fine — click &ldquo;Check all accounts&rdquo; in Settings to
+                    confirm them.
                   </TooltipContent>
                 </Tooltip>
               </div>

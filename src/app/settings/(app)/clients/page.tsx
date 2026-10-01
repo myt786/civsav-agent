@@ -5,6 +5,7 @@ import { deactivateClient } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { SyncStatusStrip } from "@/components/dashboard/sync-status-strip";
 import { SyncNowButton } from "@/components/settings/sync-now-button";
+import { CheckAllAccountsButton } from "@/components/settings/check-all-accounts-button";
 import { ClientsList } from "@/components/settings/clients-list";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,10 @@ export default async function ClientsListPage() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-4">
           <h2 className="font-heading text-base font-medium text-foreground">Data updates</h2>
-          <SyncNowButton />
+          <div className="flex flex-wrap items-center gap-2">
+            <CheckAllAccountsButton />
+            <SyncNowButton />
+          </div>
         </div>
         <SyncStatusStrip data={syncStatus} now={now} />
       </div>
