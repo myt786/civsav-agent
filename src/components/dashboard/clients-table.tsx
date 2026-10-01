@@ -32,8 +32,8 @@ function hasNoData(row: ClientRow): boolean {
   );
 }
 
-function has<T>(cell: CellState<T>): cell is Extract<CellState<T>, { value: T }> {
-  return cell.kind === "ok" || cell.kind === "unverified";
+function valueOf(cell: CellState<number>): number | null {
+  return cell.kind === "ok" || cell.kind === "unverified" ? cell.value : null;
 }
 
 type QuickFilter = "all" | "attention" | "ads" | "calls" | "website";
@@ -48,41 +48,51 @@ const QUICK_FILTERS: { value: QuickFilter; label: string }[] = [
 
 function matchesQuickFilter(row: ClientRow, filter: QuickFilter, flagged: Set<string>): boolean {
   if (filter === "attention") return flagged.has(row.clientId);
-  if (filter === "ads") return has(row.spend) && row.spend.value > 0;
-  if (filter === "calls") return has(row.calls);
-  if (filter === "website") return has(row.sessions);
+  if (filter === "ads") return (valueOf(row.spend) ?? 0) > 0;
+  if (filter === "calls") return row.calls.kind === "ok" || row.calls.kind === "unverified";
+  if (filter === "website") return valueOf(row.sessions) !== null;
   return true;
 }
 
 // Totals for whatever rows are showing, computed from the same cells, so
 // the footer always adds up to what's on screen.
 function totalsFor(rows: ClientRow[]): Record<string, string> {
-  const sumOf = (pick: (row: ClientRow) => CellState<number>) => {
-    const values = rows.flatMap((row) => {
-      const cell = pick(row);
-      return has(cell) ? [cell.value] : [];
-    });
-    return values.length > 0 ? values.reduce((a, b) => a + b, 0) : null;
-  };
-  const leads = sumOf((r) => r.leads);
-  const spend = sumOf((r) => r.spend);
-  const sessions = sumOf((r) => r.sessions);
-  const conversions = sumOf((r) => r.conversions);
-  const callValues = rows.flatMap((r) => (has(r.calls) ? [r.calls.value] : []));
-  const calls = callValues.reduce((a, c) => a + c.total, 0);
-  const missed = callValues.reduce((a, c) => a + c.missed, 0);
+  let leads: number | null = null;
+  let spend: number | null = null;
+  let sessions: number | null = null;
+  let conversions: number | null = null;
+  let calls: { total: number; missed: number } | null = null;
   // Blended cost per lead only over clients that have one, so a client
   // with leads but no ads doesn't drag it down.
-  const cplRows = rows.filter((r) => has(r.cpl) && has(r.spend) && has(r.leads));
-  const cplSpend = sumOf((r) => (cplRows.includes(r) ? r.spend : { kind: "no_data" }));
-  const cplLeads = sumOf((r) => (cplRows.includes(r) ? r.leads : { kind: "no_data" }));
+  let cplSpend = 0;
+  let cplLeads = 0;
+  const add = (sum: number | null, value: number | null) => (value === null ? sum : (sum ?? 0) + value);
+
+  for (const row of rows) {
+    const rowLeads = valueOf(row.leads);
+    const rowSpend = valueOf(row.spend);
+    leads = add(leads, rowLeads);
+    spend = add(spend, rowSpend);
+    sessions = add(sessions, valueOf(row.sessions));
+    conversions = add(conversions, valueOf(row.conversions));
+    if (row.calls.kind === "ok" || row.calls.kind === "unverified") {
+      calls = {
+        total: (calls?.total ?? 0) + row.calls.value.total,
+        missed: (calls?.missed ?? 0) + row.calls.value.missed,
+      };
+    }
+    if (valueOf(row.cpl) !== null && rowSpend !== null && rowLeads !== null) {
+      cplSpend += rowSpend;
+      cplLeads += rowLeads;
+    }
+  }
 
   const show = (value: number | null, format: (n: number) => string) => (value === null ? "—" : format(value));
   return {
     leads: show(leads, formatInteger),
-    calls: callValues.length > 0 ? `${formatInteger(calls)} / ${formatInteger(missed)}` : "—",
+    calls: calls ? `${formatInteger(calls.total)} / ${formatInteger(calls.missed)}` : "—",
     spend: show(spend, formatCurrency),
-    cpl: cplSpend !== null && cplLeads ? formatCurrency(cplSpend / cplLeads) : "—",
+    cpl: cplLeads > 0 ? formatCurrency(cplSpend / cplLeads) : "—",
     sessions: show(sessions, formatInteger),
     conversions: show(conversions, formatInteger),
   };
