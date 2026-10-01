@@ -14,18 +14,17 @@ export default async function SettingsLayout({ children }: { children: ReactNode
           like a different app and wide content (the platform strip, the
           client list) has room. Forms keep their own narrower widths. */}
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-6 py-8">
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
-            <p className="text-sm text-muted-foreground">Signed in as {session.email}</p>
-          </div>
+        <header className="flex flex-col gap-1">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
+          <p className="text-sm text-muted-foreground">Signed in as {session.email}</p>
+        </header>
+        <SettingsTabs>
           <form action={logout}>
-            <Button type="submit" variant="outline" size="sm">
+            <Button type="submit" variant="ghost" size="sm">
               Sign out
             </Button>
           </form>
-        </header>
-        <SettingsTabs />
+        </SettingsTabs>
         {children}
       </div>
     </AppShell>
