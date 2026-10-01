@@ -18,9 +18,10 @@ export function formatPosition(value: number): string {
   return value.toFixed(1);
 }
 
+// One decimal only where it's meaningful: "+4.2%" but "+900%", not "+900.0%".
 export function formatPercent(pct: number): string {
   const sign = pct > 0 ? "+" : "";
-  return `${sign}${pct.toFixed(1)}%`;
+  return `${sign}${pct.toFixed(Math.abs(pct) >= 10 ? 0 : 1)}%`;
 }
 
 export function formatRelativeTime(date: Date, now: Date): string {

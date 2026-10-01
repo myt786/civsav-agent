@@ -105,9 +105,7 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                       tabIndex={0}
                       className="w-fit cursor-help truncate font-mono text-[11px] tabular-nums text-muted-foreground/70 outline-none"
                     >
-                      {total === 0
-                        ? "no clients connected"
-                        : `${connector.verifiedCount} of ${total} client${total === 1 ? "" : "s"} checked`}
+                      {total === 0 ? "no clients connected" : `${connector.verifiedCount}/${total} checked`}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-64 text-pretty">
