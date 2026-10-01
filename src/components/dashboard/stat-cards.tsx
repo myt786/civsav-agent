@@ -28,6 +28,72 @@ export interface Stat {
   icon: ReactNode;
   tone?: "default" | "warning";
   href?: string;
+  // Week-over-week change in percent (already ×100). Null hides it.
+  changePct?: number | null;
+  // Whether a rise is good news (leads, visits) or neutral (spend) —
+  // spend going up isn't "bad", so it's never coloured red or green.
+  changeTone?: "up-is-good" | "neutral";
+  // One quiet line of context under the number.
+  hint?: string;
+  // Daily values behind the card, drawn as a soft trend line along the
+  // bottom edge.
+  trend?: (number | null)[];
+  trendColor?: string;
+}
+
+// A width-filling SVG sparkline — recharts is overkill for a decorative
+// shape with no axes or tooltip. Gaps (null days) break the line.
+function CardTrend({ values, color }: { values: (number | null)[]; color: string }) {
+  const known = values.filter((v): v is number => v !== null);
+  if (known.length < 2) return null;
+  const max = Math.max(...known);
+  const min = Math.min(...known);
+  const span = max - min || 1;
+  const w = 100;
+  const h = 28;
+  const step = values.length > 1 ? w / (values.length - 1) : w;
+  // Split into runs of consecutive known days; a null day breaks the line.
+  const segments: { d: string; x0: string; x1: string }[] = [];
+  let current: { d: string; x0: string; x1: string } | null = null;
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v === null) {
+      if (current) segments.push(current);
+      current = null;
+      continue;
+    }
+    const x = (i * step).toFixed(2);
+    const y = (h - 2 - ((v - min) / span) * (h - 4)).toFixed(2);
+    current = current ? { ...current, d: `${current.d}L${x},${y}`, x1: x } : { d: `M${x},${y}`, x0: x, x1: x };
+  }
+  if (current) segments.push(current);
+  const gradientId = `card-trend-${color.replace(/[^a-z0-9]/gi, "")}`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-8 w-full" aria-hidden>
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      {segments.map((seg, i) => (
+        <g key={i}>
+          <path d={`${seg.d}L${seg.x1},${h}L${seg.x0},${h}Z`} fill={`url(#${gradientId})`} />
+          <path d={seg.d} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function ChangePill({ pct, tone }: { pct: number; tone: NonNullable<Stat["changeTone"]> }) {
+  const flat = Math.abs(pct) < 1;
+  const color = flat || tone === "neutral" ? "bg-muted text-muted-foreground" : pct > 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive";
+  return (
+    <span className={cn("rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums", color)}>
+      {flat ? "±0%" : `${pct > 0 ? "↑" : "↓"} ${formatPercent(Math.abs(pct)).replace("+", "")}`}
+    </span>
+  );
 }
 
 const TONE_CHIP: Record<NonNullable<Stat["tone"]>, string> = {
@@ -42,23 +108,42 @@ function StatCard({ stat }: { stat: Stat }) {
   const body = (
     <div
       className={cn(
-        "group flex flex-col gap-3 rounded-lg border border-border bg-card shadow-sm p-4 transition-all duration-200",
+        "group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-all duration-200",
         stat.href && "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{stat.label}</span>
-        <span className={cn("flex size-7 items-center justify-center rounded-md", TONE_CHIP[stat.tone ?? "default"])}>
-          {stat.icon}
-        </span>
+      <div className="flex flex-1 flex-col gap-2 p-4 pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{stat.label}</span>
+          <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", TONE_CHIP[stat.tone ?? "default"])}>
+            {stat.icon}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="font-mono text-2xl tabular-nums text-foreground">{display}</span>
+          {stat.changePct !== undefined && stat.changePct !== null && (
+            <ChangePill pct={stat.changePct} tone={stat.changeTone ?? "up-is-good"} />
+          )}
+        </div>
+        {(stat.hint || (stat.changePct !== undefined && stat.changePct !== null)) && (
+          <span className="text-xs text-muted-foreground">
+            {[stat.changePct !== undefined && stat.changePct !== null ? "vs the week before" : null, stat.hint]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        )}
       </div>
-      <span className="font-mono text-2xl tabular-nums text-foreground">{display}</span>
+      {stat.trend ? (
+        <CardTrend values={stat.trend} color={stat.trendColor ?? "var(--chart-1)"} />
+      ) : (
+        <div className="h-2" aria-hidden />
+      )}
     </div>
   );
 
   if (stat.href) {
     return (
-      <Link href={stat.href} className="rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+      <Link href={stat.href} className="h-full rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
         {body}
       </Link>
     );

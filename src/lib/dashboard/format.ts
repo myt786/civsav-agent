@@ -38,3 +38,13 @@ export function formatRelativeTime(date: Date, now: Date): string {
   }
   return relativeTimeFormatter.format(Math.round(diffHours / 24), "day");
 }
+
+// Table-width version of formatRelativeTime: "23m ago", "11h ago", "3d ago".
+export function formatRelativeTimeShort(date: Date, now: Date): string {
+  const minutes = Math.round((now.getTime() - date.getTime()) / (1000 * 60));
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
