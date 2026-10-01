@@ -82,6 +82,26 @@ export async function updateClient(
   return {};
 }
 
+// "Resume" in the Settings client list — the counterpart of Pause.
+export async function reactivateClient(clientId: string): Promise<void> {
+  const session = await requireSession();
+  const db = await getDb();
+  const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (!existing || existing.active) return;
+
+  await db.update(clients).set({ active: true }).where(eq(clients.id, clientId));
+  await logChange(db, {
+    userEmail: session.email,
+    clientId,
+    field: "active",
+    oldValue: "false",
+    newValue: "true",
+  });
+
+  revalidatePath("/settings/clients");
+  revalidatePath(`/settings/clients/${clientId}`);
+}
+
 export async function deactivateClient(clientId: string): Promise<void> {
   const session = await requireSession();
   const db = await getDb();

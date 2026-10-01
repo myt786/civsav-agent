@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { clientPlatformAccounts, clients } from "../db/schema";
+import { clientPlatformAccounts, clients, metricSnapshots } from "../db/schema";
 import type { Platform } from "../connectors/types";
 
 export async function listClients() {
@@ -23,13 +23,16 @@ export interface ClientWithAccounts {
   timezone: string;
   active: boolean;
   accounts: ClientAccountSummary[];
+  // When this client's numbers last arrived from any platform (null if
+  // never).
+  lastUpdatedAt: Date | null;
 }
 
 // The Settings client list: every client plus the status of each connected
 // account, so the list can show per-row account badges and filter by them.
 export async function listClientsWithAccounts(): Promise<ClientWithAccounts[]> {
   const db = await getDb();
-  const [clientRows, mappingRows] = await Promise.all([
+  const [clientRows, mappingRows, lastUpdateRows] = await Promise.all([
     db.select().from(clients).orderBy(clients.name),
     db
       .select({
@@ -41,7 +44,15 @@ export async function listClientsWithAccounts(): Promise<ClientWithAccounts[]> {
         lastError: clientPlatformAccounts.lastError,
       })
       .from(clientPlatformAccounts),
+    db
+      .select({
+        clientId: metricSnapshots.clientId,
+        last: sql<string | null>`max(${metricSnapshots.createdAt})`,
+      })
+      .from(metricSnapshots)
+      .groupBy(metricSnapshots.clientId),
   ]);
+  const lastUpdateByClient = new Map(lastUpdateRows.map((row) => [row.clientId, row.last]));
 
   const byClient = new Map<string, ClientAccountSummary[]>();
   for (const { clientId, ...account } of mappingRows) {
@@ -56,6 +67,7 @@ export async function listClientsWithAccounts(): Promise<ClientWithAccounts[]> {
     timezone: client.timezone,
     active: client.active,
     accounts: byClient.get(client.id) ?? [],
+    lastUpdatedAt: lastUpdateByClient.get(client.id) ? new Date(lastUpdateByClient.get(client.id)!) : null,
   }));
 }
 

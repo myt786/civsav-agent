@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { listClientsWithAccounts } from "@/lib/settings/queries";
 import { getSyncStatus } from "@/lib/dashboard/queries";
-import { deactivateClient } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { SyncStatusStrip } from "@/components/dashboard/sync-status-strip";
 import { SyncNowButton } from "@/components/settings/sync-now-button";
@@ -33,7 +32,7 @@ export default async function ClientsListPage() {
           </Button>
         </div>
 
-        <ClientsList clients={clients} deactivateClient={deactivateClient} />
+        <ClientsList clients={clients} />
       </section>
 
       <section className="flex flex-col gap-3">
