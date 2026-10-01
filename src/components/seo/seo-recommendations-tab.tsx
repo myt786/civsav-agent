@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TierBadge } from "./tier-trend";
+import { LinkifiedText, shortenUrls } from "@/components/linkified-text";
 import { formatRelativeTime } from "@/lib/dashboard/format";
 import type { SeoRecommendationRow } from "@/lib/seo/queries";
 
@@ -147,7 +148,7 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
                     <TierBadge tier={row.tier} />
                   </TableCell>
                   <TableCell className="max-w-md truncate text-muted-foreground">
-                    {isGenerating ? "Writing…" : row.recommendations?.[0] ?? "Not written yet"}
+                    {isGenerating ? "Writing…" : row.recommendations?.[0] ? shortenUrls(row.recommendations[0]) : "Not written yet"}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {row.generatedAt ? formatRelativeTime(new Date(row.generatedAt), new Date()) : "—"}
@@ -163,7 +164,7 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
                       }}
                     >
                       <RefreshCwIcon className={isGenerating ? "size-3 animate-spin" : "size-3"} aria-hidden />
-                      {row.recommendations ? "Regenerate" : "Generate"}
+                      {row.recommendations ? "Write again" : "Write"}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -188,7 +189,7 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
                 {(selected.recommendations ?? []).map((rec, i) => (
                   <li key={i} className="flex gap-2.5 rounded-lg border border-border bg-card p-3 shadow-sm">
                     <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
-                    <span className="break-words">{rec}</span>
+                    <LinkifiedText text={rec} />
                   </li>
                 ))}
               </ul>

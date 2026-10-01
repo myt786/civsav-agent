@@ -70,7 +70,7 @@ export function ChatPanel() {
         </span>
         <div>
           <h2 className="text-sm font-medium text-foreground">Ask about your clients</h2>
-          <p className="text-xs text-muted-foreground">Grounded in the same live data as the dashboard — it looks numbers up, never guesses.</p>
+          <p className="text-xs text-muted-foreground">Answers come from the same numbers as the dashboard.</p>
         </div>
       </div>
 
@@ -149,6 +149,19 @@ export function ChatPanel() {
   );
 }
 
+// The agent's tools have code names (getFleetSnapshot…); show what each
+// one is actually doing instead.
+const TOOL_LABELS: Record<string, [string, string]> = {
+  getFleetSnapshot: ["Looking at all your clients…", "Looked at all your clients"],
+  getClientDetail: ["Looking at this client in detail…", "Looked at this client in detail"],
+  getSyncStatus: ["Checking when data last updated…", "Checked when data last updated"],
+};
+
+function toolLabel(name: string, done: boolean): string {
+  const labels = TOOL_LABELS[name] ?? ["Looking up the numbers…", "Looked up the numbers"];
+  return done ? labels[1] : labels[0];
+}
+
 function ChatMessage({ message }: { message: InsightsAgentUIMessage }) {
   const isUser = message.role === "user";
   return (
@@ -161,7 +174,7 @@ function ChatMessage({ message }: { message: InsightsAgentUIMessage }) {
               <div
                 key={i}
                 className={cn(
-                  "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap",
+                  "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]",
                   isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground shadow-sm",
                 )}
               >
@@ -173,7 +186,7 @@ function ChatMessage({ message }: { message: InsightsAgentUIMessage }) {
             return (
               <div key={i} className="flex items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-1 text-xs text-muted-foreground">
                 <WrenchIcon className="size-3" aria-hidden />
-                {part.state === "output-available" ? `checked ${getToolName(part)}` : `checking ${getToolName(part)}…`}
+                {toolLabel(getToolName(part), part.state === "output-available")}
               </div>
             );
           }

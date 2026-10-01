@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkifiedText } from "@/components/linkified-text";
 import { useState } from "react";
 import { RefreshCwIcon, SparklesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,7 @@ export function SeoAiSuggestions({ clientId }: { clientId: string }) {
           {state.suggestions.map((s, i) => (
             <li key={i} className="flex gap-2">
               <span className="mt-1.5 size-1 shrink-0 rounded-full bg-primary" aria-hidden />
-              <span>{s}</span>
+              <LinkifiedText text={s} />
             </li>
           ))}
         </ul>

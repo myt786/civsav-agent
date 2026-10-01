@@ -29,6 +29,8 @@ export function formatRelativeTime(date: Date, now: Date): string {
   const diffHours = diffMs / (1000 * 60 * 60);
   if (Math.abs(diffHours) < 1) {
     const diffMinutes = Math.round(diffMs / (1000 * 60));
+    // Intl says "this minute"; "just now" reads better.
+    if (diffMinutes === 0) return "just now";
     return relativeTimeFormatter.format(diffMinutes, "minute");
   }
   if (Math.abs(diffHours) < 48) {
