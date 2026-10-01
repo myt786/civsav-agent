@@ -316,7 +316,7 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
     details[client.id] = { clientId: client.id, sparklines, breakdown };
   }
 
-  const syncStatus = await getSyncStatus(now);
+  const syncStatus = await getSyncStatus();
 
   return { generatedAt: now, syncStatus, rows, details };
 }
@@ -324,7 +324,7 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
 // Standalone (not folded into getDashboardData's batched queries) so
 // /settings/clients can show sync status next to the "Sync now" button
 // without pulling in the full per-client metrics computation above.
-export async function getSyncStatus(now: Date = new Date()): Promise<SyncStatusStrip> {
+export async function getSyncStatus(): Promise<SyncStatusStrip> {
   const db = await getDb();
   const [latestRun] = await db.select().from(syncRuns).orderBy(desc(syncRuns.startedAt)).limit(1);
 
@@ -333,16 +333,21 @@ export async function getSyncStatus(now: Date = new Date()): Promise<SyncStatusS
     .from(metricSnapshots)
     .groupBy(metricSnapshots.platform);
 
-  const verifiedSinceKey = format(subDays(now, WINDOW_DAYS + 1), "yyyy-MM-dd");
-  const verifiedRows = await db
+  // Per platform: how many active clients' accounts have been checked in
+  // Settings (verifiedAt set). This is the same check that removes the
+  // "not checked yet" ring on the dashboard. It used to count
+  // metric_snapshots.verified instead, which nothing in this app ever sets,
+  // so it always read 0.
+  const mappingRows = await db
     .select({
-      platform: metricSnapshots.platform,
-      verified: metricSnapshots.verified,
-      count: sql<string | number>`count(*)`,
+      clientId: clientPlatformAccounts.clientId,
+      platform: clientPlatformAccounts.platform,
+      active: clientPlatformAccounts.active,
+      verifiedAt: clientPlatformAccounts.verifiedAt,
     })
-    .from(metricSnapshots)
-    .where(gte(metricSnapshots.date, verifiedSinceKey))
-    .groupBy(metricSnapshots.platform, metricSnapshots.verified);
+    .from(clientPlatformAccounts);
+  const activeClientRows = await db.select({ id: clients.id }).from(clients).where(eq(clients.active, true));
+  const activeClientIds = new Set(activeClientRows.map((row) => row.id));
 
   const errorsInLastRun = latestRun
     ? await db.select().from(rawResponses).where(eq(rawResponses.syncRunId, latestRun.id))
@@ -354,11 +359,11 @@ export async function getSyncStatus(now: Date = new Date()): Promise<SyncStatusS
   }
 
   const verifiedByPlatform = new Map<Platform, { verified: number; unverified: number }>();
-  for (const row of verifiedRows) {
+  for (const row of mappingRows) {
+    if (!row.active || !activeClientIds.has(row.clientId)) continue;
     const entry = verifiedByPlatform.get(row.platform) ?? { verified: 0, unverified: 0 };
-    const count = Number(row.count);
-    if (row.verified) entry.verified += count;
-    else entry.unverified += count;
+    if (row.verifiedAt) entry.verified += 1;
+    else entry.unverified += 1;
     verifiedByPlatform.set(row.platform, entry);
   }
 
