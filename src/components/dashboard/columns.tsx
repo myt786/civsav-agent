@@ -6,7 +6,7 @@ import type { CallsValue, CellState, ClientDetail, ClientRow } from "@/lib/dashb
 import type { AttentionFlag } from "@/lib/insights/types";
 import { DataCell, DeltaCellView } from "./data-cell";
 import { MiniSparkline } from "./mini-sparkline";
-import { formatCurrency, formatInteger, formatPosition, formatRelativeTime } from "@/lib/dashboard/format";
+import { formatCurrency, formatInteger, formatPosition, formatRelativeTimeShort } from "@/lib/dashboard/format";
 import { STALE_HOURS } from "@/lib/dashboard/constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -224,7 +224,7 @@ export function createClientColumns(
       return (
         <span
           className={cn(
-            "flex items-center justify-end gap-1.5 font-mono tabular-nums",
+            "flex items-center justify-end gap-1.5 text-sm tabular-nums",
             stale ? "text-destructive" : "text-muted-foreground",
           )}
         >
@@ -238,7 +238,7 @@ export function createClientColumns(
               </TooltipContent>
             </Tooltip>
           )}
-          {formatRelativeTime(at, now)}
+          <span title={at.toLocaleString()}>{formatRelativeTimeShort(at, now)}</span>
         </span>
       );
     },

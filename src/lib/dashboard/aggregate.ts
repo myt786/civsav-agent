@@ -43,3 +43,27 @@ export function buildFleetDailySeries(details: Record<string, ClientDetail>, key
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, { sum, any }]) => ({ date, value: any ? sum : null }));
 }
+
+// Last 7 days vs the 7 before, from a fleet daily series. Null when either
+// week has too few days with data to compare honestly (e.g. spend that only
+// started being collected last week) or the earlier week was zero.
+export function weekOverWeekPct(points: DailyPoint[]): number | null {
+  const recent = points.slice(-7);
+  const previous = points.slice(-14, -7);
+  const sum = (week: DailyPoint[]) => {
+    const values = week.map((p) => p.value).filter((v): v is number => v !== null);
+    return values.length >= 4 ? values.reduce((a, b) => a + b, 0) : null;
+  };
+  const a = sum(recent);
+  const b = sum(previous);
+  if (a === null || b === null || b === 0) return null;
+  return ((a - b) / b) * 100;
+}
+
+// How many clients have a usable value in a cell — "from 28 clients".
+export function countWithValue(rows: ClientRow[], selector: (row: ClientRow) => CellState<unknown>): number {
+  return rows.filter((row) => {
+    const cell = selector(row);
+    return cell.kind === "ok" || cell.kind === "unverified";
+  }).length;
+}
