@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getClient, getClientMappings } from "@/lib/settings/queries";
 import { getRecentChanges } from "@/lib/settings/audit";
@@ -70,9 +71,12 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
   );
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex w-full max-w-4xl flex-col gap-8">
       <div className="flex flex-col gap-1">
-        <h2 className="font-heading text-base font-medium text-foreground">{client.name}</h2>
+        <Link href="/settings/clients" className="w-fit text-sm text-muted-foreground hover:text-foreground">
+          ← All clients
+        </Link>
+        <h2 className="font-heading text-lg font-medium text-foreground">{client.name}</h2>
         <p className="text-sm text-muted-foreground">
           This client&apos;s details, and which of their accounts we pull numbers from.
         </p>
