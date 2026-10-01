@@ -18,7 +18,7 @@ export function LoginForm({ next }: { next: string }) {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">Email</Label>
         <Input id="email" name="email" type="email" placeholder="you@company.com" required autoFocus />
-        <p className="text-xs text-muted-foreground">Used to attribute changes in the audit log.</p>
+        <p className="text-xs text-muted-foreground">So we can show who made each change.</p>
       </div>
 
       <div className="flex flex-col gap-1.5">

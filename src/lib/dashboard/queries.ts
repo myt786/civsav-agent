@@ -151,7 +151,7 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
   // A mapping the settings UI has never run Verify against — its
   // verifiedAt is null regardless of how much data has synced for it.
   const mappingVerifiedSet = new Set(
-    mappingRows.filter((m) => m.verifiedAt !== null).map((m) => `${m.clientId}:${m.platform}`),
+    mappingRows.filter((m) => m.verifiedAt !== null && m.verifiedStatus !== "error").map((m) => `${m.clientId}:${m.platform}`),
   );
   const isMappingVerified = (clientId: string, platform: Platform) =>
     mappingVerifiedSet.has(`${clientId}:${platform}`);
@@ -224,7 +224,10 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
       isMappingVerified(client.id, "search_console"),
     );
 
-    const allRawForClient = rawRows.filter((r) => r.clientId === client.id);
+    // Only successful attempts count as "updated": counting failures too
+    // kept a client whose every platform errors daily looking fresh, so the
+    // stale/"Out of date" warning never fired for exactly those clients.
+    const allRawForClient = rawRows.filter((r) => r.clientId === client.id && !isErrorPayload(r.payload));
     const lastSyncedAt =
       allRawForClient.length > 0
         ? allRawForClient.reduce((max, r) => (r.fetchedAt > max ? r.fetchedAt : max), allRawForClient[0].fetchedAt)
@@ -344,6 +347,7 @@ export async function getSyncStatus(): Promise<SyncStatusStrip> {
       platform: clientPlatformAccounts.platform,
       active: clientPlatformAccounts.active,
       verifiedAt: clientPlatformAccounts.verifiedAt,
+      verifiedStatus: clientPlatformAccounts.verifiedStatus,
     })
     .from(clientPlatformAccounts);
   const activeClientRows = await db.select({ id: clients.id }).from(clients).where(eq(clients.active, true));
@@ -362,7 +366,8 @@ export async function getSyncStatus(): Promise<SyncStatusStrip> {
   for (const row of mappingRows) {
     if (!row.active || !activeClientIds.has(row.clientId)) continue;
     const entry = verifiedByPlatform.get(row.platform) ?? { verified: 0, unverified: 0 };
-    if (row.verifiedAt) entry.verified += 1;
+    // A check that failed doesn't count: the account isn't confirmed working.
+    if (row.verifiedAt && row.verifiedStatus !== "error") entry.verified += 1;
     else entry.unverified += 1;
     verifiedByPlatform.set(row.platform, entry);
   }

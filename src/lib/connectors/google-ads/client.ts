@@ -5,10 +5,12 @@ import { formatInTimeZone } from "date-fns-tz";
 import { RateLimiter } from "../shared/http";
 import type { PlatformAccount, DateRange, DiscoveredAccount, DiscoveryResult } from "../types";
 
-// Explorer access tier caps at 2,880 operations/day — 1 op per 30s on
-// average. Report queries are already batched per client (one call per
-// sync), so this limiter just keeps consecutive client syncs spaced out.
-const rateLimiter = new RateLimiter({ requestsPerSecond: 1 / 30 });
+// Explorer access tier caps at 2,880 operations per DAY, not per second.
+// Report queries are batched per client (one call per sync), so a daily run
+// uses a handful of operations. This used to space calls 30s apart, which
+// spent 2-3 minutes of the sync's 5-minute budget doing nothing; 1/s keeps
+// a polite gap without that cost.
+const rateLimiter = new RateLimiter({ requestsPerSecond: 1 });
 
 const FIXTURES_DIR = path.join(process.cwd(), "fixtures", "google-ads");
 

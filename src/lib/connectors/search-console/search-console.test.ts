@@ -97,6 +97,30 @@ describe("searchConsoleConnector", () => {
     expect(result.status).toBe("error");
   });
 
+  it("uses the site's true totals, not the sum of the top queries", async () => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.GOOGLE_SERVICE_ACCOUNT_JSON = JSON.stringify({
+      client_email: "test@test.iam.gserviceaccount.com",
+      private_key: "test",
+    });
+    queryMock
+      // 1st call: no dimensions -> site totals
+      .mockResolvedValueOnce({ data: { rows: [{ clicks: 500, impressions: 9000, ctr: 0.055, position: 7.2 }] } })
+      // 2nd call: by query -> top queries only
+      .mockResolvedValueOnce({
+        data: { rows: [{ keys: ["plumber"], clicks: 40, impressions: 600, ctr: 0.066, position: 4.1 }] },
+      });
+
+    const result = await searchConsoleConnector.fetch(account, range);
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.data.totalClicks).toBe(500);
+    expect(result.data.totalImpressions).toBe(9000);
+    expect(result.data.averagePosition).toBe(7.2);
+    expect(result.data.topQueries[0].query).toBe("plumber");
+  });
+
   it("does not retry a 429 and returns error immediately", async () => {
     delete process.env.CONNECTOR_MODE;
     process.env.GOOGLE_SERVICE_ACCOUNT_JSON = JSON.stringify({

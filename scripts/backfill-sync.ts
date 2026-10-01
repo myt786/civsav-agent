@@ -25,7 +25,9 @@ async function main() {
     const fakeNow = subDays(today, n - 1);
     const targetDayLabel = subDays(today, n).toISOString().slice(0, 10);
     console.log(`\n[${days - n + 1}/${days}] target ~${targetDayLabel} (per client timezone)...`);
-    const summary = await runSync(fakeNow);
+    // ahrefs is metered and monthly-only (see /api/cron/sync-monthly) —
+    // backfilling 30 days used to spend 30 Ahrefs pulls.
+    const summary = await runSync(fakeNow, { excludePlatforms: ["ahrefs"] });
     console.log(
       `  status=${summary.status} attempted=${summary.attempted} errors=${summary.errors.length}`,
     );

@@ -31,14 +31,20 @@ export const searchConsoleConnector: Connector<SearchConsoleData> = {
     }
 
     const rows = parsed.data.rows ?? [];
-    if (rows.length === 0) {
+    const totals = parsed.data.totals ?? null;
+    if (rows.length === 0 && (!totals || totals.impressions === 0)) {
       return { status: "no_data", raw };
     }
 
-    const totalClicks = rows.reduce((sum, row) => sum + row.clicks, 0);
-    const totalImpressions = rows.reduce((sum, row) => sum + row.impressions, 0);
-    const averagePosition =
-      totalImpressions === 0
+    // Prefer the site-level totals; summing query rows only covers the top
+    // 25 queries. The fallback keeps older payloads/fixtures working.
+    const totalClicks = totals ? Math.round(totals.clicks) : rows.reduce((sum, row) => sum + row.clicks, 0);
+    const totalImpressions = totals
+      ? Math.round(totals.impressions)
+      : rows.reduce((sum, row) => sum + row.impressions, 0);
+    const averagePosition = totals
+      ? totals.position
+      : totalImpressions === 0
         ? rows.reduce((sum, row) => sum + row.position, 0) / rows.length
         : rows.reduce((sum, row) => sum + row.position * row.impressions, 0) / totalImpressions;
 

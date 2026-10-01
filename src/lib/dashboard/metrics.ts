@@ -31,9 +31,12 @@ function average(values: number[]): number {
 // some window. Empty window + a failed most-recent attempt -> error (there
 // really is no number, and the reason is a fetch failure, not silence).
 // Empty window + no recorded attempt -> no_data (never configured, or a
-// genuinely empty response). Any contributing row unverified -> the whole
-// rollup is unverified; a week built from partly-unreconciled days is
-// honestly reported as unreconciled, not quietly promoted to "ok".
+// genuinely empty response). Otherwise "ok"; whether the number is shown as
+// "not checked yet" is decided by downgradeIfUnverifiedMapping, from the
+// account check in Settings. (This used to mark the cell unverified when any
+// row's per-day `verified` flag was false — but nothing in this app ever
+// sets that flag, so every number carried the "not checked" ring forever,
+// no matter how many accounts were checked.)
 export function buildNumericCell<TData>(
   rows: SnapshotRow[],
   schema: z.ZodType<TData>,
@@ -46,7 +49,6 @@ export function buildNumericCell<TData>(
   }
 
   const values: number[] = [];
-  let anyUnverified = false;
   for (const row of rows) {
     const parsed = schema.safeParse(row.metrics);
     if (!parsed.success) {
@@ -56,11 +58,9 @@ export function buildNumericCell<TData>(
       };
     }
     values.push(extract(parsed.data));
-    if (!row.verified) anyUnverified = true;
   }
 
-  const value = reducer(values);
-  return anyUnverified ? { kind: "unverified", value } : { kind: "ok", value };
+  return { kind: "ok", value: reducer(values) };
 }
 
 export function buildCallsCell(
@@ -74,7 +74,6 @@ export function buildCallsCell(
 
   let total = 0;
   let missed = 0;
-  let anyUnverified = false;
   for (const row of rows) {
     const parsed = schema.safeParse(row.metrics);
     if (!parsed.success) {
@@ -88,11 +87,9 @@ export function buildCallsCell(
     // flagged "missed" that was actually forwarded and answered elsewhere
     // shouldn't inflate the missed count.
     missed += parsed.data.missedCalls - parsed.data.missedAndForwardedCalls;
-    if (!row.verified) anyUnverified = true;
   }
 
-  const value: CallsValue = { total, missed };
-  return anyUnverified ? { kind: "unverified", value } : { kind: "ok", value };
+  return { kind: "ok", value: { total, missed } };
 }
 
 // Combines cells that feed one blended column (e.g. spend = google_ads +

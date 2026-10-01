@@ -71,24 +71,44 @@ export async function fetchRawSearchAnalytics(
   });
   const searchconsole = google.searchconsole({ version: "v1", auth });
 
-  // Search Console reports lag 2-3 days behind real time, so "yesterday" in
-  // the client's timezone may not be ready yet — an empty result here is a
-  // legitimate no_data, not a bug.
-  const date = formatInTimeZone(range.start, account.clientTimezone, "yyyy-MM-dd");
+  // Search Console reports lag 2-3 days behind real time; the sync asks for
+  // a lagged day (see DATA_LAG_DAYS in sync/run.ts), so an empty result
+  // here is a legitimate no_data. Both ends of the range are used, so a
+  // multi-day range (Verify's 7 days) covers every day, not just the first.
+  const startDate = formatInTimeZone(range.start, account.clientTimezone, "yyyy-MM-dd");
+  const endDate = formatInTimeZone(range.end, account.clientTimezone, "yyyy-MM-dd");
 
-  const response = await withRetry(() =>
+  // Two queries: one with no dimensions for the site's true totals, and one
+  // by query for the top-queries list. Summing the top 25 queries instead
+  // undercounted every client — it drops the long tail and the queries
+  // Google anonymizes.
+  // Sequential, so a failing site fails on the first call instead of
+  // retrying two requests in parallel.
+  const totalsResponse = await withRetry(() =>
     searchconsole.searchanalytics.query({
       siteUrl: account.externalId,
-      requestBody: {
-        startDate: date,
-        endDate: date,
-        dimensions: ["query"],
-        rowLimit: 25,
-      },
+      requestBody: { startDate, endDate },
+    }),
+  );
+  await rateLimiter.wait();
+  const queryResponse = await withRetry(() =>
+    searchconsole.searchanalytics.query({
+      siteUrl: account.externalId,
+      requestBody: { startDate, endDate, dimensions: ["query"], rowLimit: 25 },
     }),
   );
 
-  return response.data;
+  const totalsRow = totalsResponse.data.rows?.[0];
+  return {
+    rows: queryResponse.data.rows ?? undefined,
+    totals: totalsRow
+      ? {
+          clicks: totalsRow.clicks ?? 0,
+          impressions: totalsRow.impressions ?? 0,
+          position: totalsRow.position ?? 0,
+        }
+      : null,
+  };
 }
 
 export interface GscBreakdownRow {

@@ -144,8 +144,12 @@ export const openPhoneProvider: Telephony = {
       const url = new URL(`${baseUrl}/conversations`);
       url.searchParams.set("phoneNumbers", phoneNumberId);
       url.searchParams.set("maxResults", "100");
+      // No updatedBefore: a conversation's "updated" time is its latest
+      // activity, so a caller who rang in the window and rang or texted
+      // again later (e.g. this morning, before the sync ran) would be
+      // filtered out and their calls dropped. The calls query below still
+      // limits calls to the window by createdAfter/createdBefore.
       url.searchParams.set("updatedAfter", rangeStart);
-      url.searchParams.set("updatedBefore", rangeEnd);
       if (pageToken) url.searchParams.set("pageToken", pageToken);
       return url;
     }, apiKey);

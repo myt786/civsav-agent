@@ -12,6 +12,13 @@ export const searchConsoleRowSchema = z.object({
 
 export const searchConsoleResponseSchema = z.object({
   rows: z.array(searchConsoleRowSchema).optional(),
+  // The site's true totals for the period (a query with no dimensions).
+  // Optional so older stored payloads and fixtures without it still parse;
+  // the connector falls back to summing rows when it's absent.
+  totals: z
+    .object({ clicks: z.number(), impressions: z.number(), position: z.number() })
+    .nullable()
+    .optional(),
 });
 
 export type SearchConsoleResponse = z.infer<typeof searchConsoleResponseSchema>;
