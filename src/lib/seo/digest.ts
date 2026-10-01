@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { formatPercent } from "../dashboard/format";
 import type { SeoDashboardData } from "./types";
+import { postToSlack, type SlackPostResult } from "../slack";
 
 // Port of build_slack_message()/build_slack_blocks() in the Python
 // pipeline's run_monthly.py — the Google Sheet links and clients.json
@@ -122,31 +123,11 @@ export function buildDigestBlocks(s: DigestSummary): object[] {
   return blocks;
 }
 
-export interface SlackPostResult {
-  posted: boolean;
-  reason?: string;
-}
+export type { SlackPostResult } from "../slack";
 
 // `text` is the plain fallback shown in notifications/search and by
 // clients that don't render Block Kit; `blocks` is the rich rendering —
 // same split as the Python original.
 export async function postSeoDigestToSlack(summary: DigestSummary): Promise<SlackPostResult> {
-  const token = process.env.SLACK_BOT_TOKEN;
-  const channel = process.env.SLACK_CHANNEL_ID;
-  if (!token || !channel) {
-    return { posted: false, reason: "SLACK_BOT_TOKEN / SLACK_CHANNEL_ID not configured" };
-  }
-
-  const response = await fetch("https://slack.com/api/chat.postMessage", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ channel, text: buildDigestText(summary), blocks: buildDigestBlocks(summary) }),
-  });
-
-  const body = (await response.json()) as { ok: boolean; error?: string };
-  if (!response.ok || !body.ok) {
-    throw new Error(`Slack chat.postMessage failed: ${body.error ?? response.statusText}`);
-  }
-
-  return { posted: true };
+  return postToSlack({ text: buildDigestText(summary), blocks: buildDigestBlocks(summary) });
 }

@@ -3,19 +3,20 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, MinusCircleIcon } from "lucide-react";
+import { RefreshCwIcon } from "lucide-react";
 import { upsertMapping, verifyMapping, type MappingFormState, type VerifyResult } from "@/app/settings/actions";
 import type { Platform } from "@/lib/connectors/types";
 import { externalIdSchemas } from "@/lib/settings/validation";
 import { AccountCombobox, type DiscoveryState } from "@/components/settings/account-combobox";
 import { PlatformHelpPopover } from "@/components/settings/platform-help-popover";
 import type { PlatformHelp } from "@/lib/connectors/platform-labels";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/toaster";
 import { friendlyError } from "@/lib/friendly-error";
+import { formatRelativeTime } from "@/lib/dashboard/format";
+import { cn } from "@/lib/utils";
 
 export interface MappingRowData {
   externalId: string;
@@ -26,41 +27,36 @@ export interface MappingRowData {
   lastError: string | null;
 }
 
-function StatusBadge({ mapping }: { mapping: MappingRowData | null }) {
-  if (!mapping || !mapping.verifiedAt) {
-    return (
-      <Badge variant="outline" className="gap-1 text-muted-foreground">
-        <CircleIcon className="size-3" />
-        {mapping ? "not checked yet" : "not connected"}
-      </Badge>
-    );
-  }
-  if (mapping.verifiedStatus === "ok") {
-    return (
-      <Badge variant="outline" className="gap-1 border-success/30 text-success">
-        <CheckCircle2Icon className="size-3" />
-        working
-      </Badge>
-    );
-  }
-  if (mapping.verifiedStatus === "no_data") {
-    return (
-      <Badge variant="outline" className="gap-1 border-warning/30 text-warning">
-        <MinusCircleIcon className="size-3" />
-        connected, no activity
-      </Badge>
-    );
-  }
+const STATUS_STYLE = {
+  none: { dot: "bg-muted-foreground/30", text: "text-muted-foreground" },
+  unchecked: { dot: "border border-dashed border-muted-foreground bg-transparent", text: "text-muted-foreground" },
+  ok: { dot: "bg-success", text: "text-muted-foreground" },
+  no_data: { dot: "bg-warning", text: "text-warning" },
+  error: { dot: "bg-destructive", text: "font-medium text-destructive" },
+} as const;
+
+// One quiet line under the platform name: a coloured dot plus plain words,
+// with when it was last checked — instead of a badge and a full timestamp.
+function StatusLine({ mapping }: { mapping: MappingRowData | null }) {
+  const key = !mapping ? "none" : !mapping.verifiedAt ? "unchecked" : (mapping.verifiedStatus ?? "unchecked");
+  const label = {
+    none: "Not connected",
+    unchecked: "Not checked yet",
+    ok: "Working",
+    no_data: "No recent activity",
+    error: "Not working",
+  }[key];
+  const style = STATUS_STYLE[key];
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge variant="outline" className="gap-1 border-destructive/30 text-destructive" tabIndex={0}>
-          <AlertTriangleIcon className="size-3" />
-          not working
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-72 text-pretty">{friendlyError(mapping.lastError).summary}</TooltipContent>
-    </Tooltip>
+    <span className={cn("flex items-center gap-1.5 text-xs", style.text)}>
+      <span className={cn("size-2 shrink-0 rounded-full", style.dot)} aria-hidden />
+      {label}
+      {mapping?.verifiedAt && (
+        <span className="font-normal text-muted-foreground" title={mapping.verifiedAt.toLocaleString()}>
+          · {formatRelativeTime(mapping.verifiedAt, new Date())}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -154,66 +150,83 @@ export function MappingRow({
     });
   }
 
+  const dirty =
+    !mapping ||
+    externalId !== mapping.externalId ||
+    active !== mapping.active ||
+    (credentialLabel ?? null) !== (mapping.credentialLabel ?? null);
+  // A saved error shows inline (not just in a tooltip) until a fresh check
+  // replaces it, so the reason is readable at a glance.
+  const savedError =
+    !verifyResult && mapping?.verifiedAt && mapping.verifiedStatus === "error" ? friendlyError(mapping.lastError).summary : null;
+
   return (
-    <div className="flex flex-col gap-2.5 border-b border-border px-4 py-3.5 last:border-b-0">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <span className="w-32 shrink-0 text-sm font-medium text-foreground">{label}</span>
+    <form
+      action={formAction}
+      className={cn(
+        "grid gap-x-4 gap-y-2 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[11rem_minmax(0,1fr)_auto] md:items-start",
+        mapping?.verifiedStatus === "error" && mapping.verifiedAt && "bg-destructive/[0.03]",
+      )}
+    >
+      <div className="flex flex-col gap-0.5 md:pt-1">
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-medium text-foreground">{label}</span>
           <PlatformHelpPopover help={help} />
-          <StatusBadge mapping={mapping} />
         </div>
-        {mapping?.verifiedAt && (
-          <span className="text-xs text-muted-foreground">Last checked {mapping.verifiedAt.toLocaleString()}</span>
+        <StatusLine mapping={mapping} />
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-1">
+        <AccountCombobox
+          platform={platform}
+          name="externalId"
+          value={externalId}
+          onChange={setExternalId}
+          discovery={discovery}
+          suggestedId={suggestedId}
+          credentialLabel={credentialLabel}
+          credentialLabelName="credentialLabel"
+          onCredentialLabelChange={setCredentialLabel}
+        />
+        {savedError && <p className="text-xs text-destructive">{savedError}</p>}
+        {liveError && <p className="text-xs text-destructive">{liveError}</p>}
+        {state.error && <p className="text-xs text-destructive">{state.error}</p>}
+        {verifyResult && <VerifyOutcome result={verifyResult} />}
+        {/* Only worth the space while there's something to fix. */}
+        {addKeyHref && (!mapping || mapping.verifiedStatus === "error") && (
+          <Link href={addKeyHref} className="self-start text-xs text-primary underline-offset-2 hover:underline">
+            {platform === "ghl" ? "Add this client's GoHighLevel key" : "Add an OpenPhone workspace key"}
+          </Link>
         )}
       </div>
 
-      <form action={formAction} className="flex flex-wrap items-start gap-3">
-        <div className="flex min-w-64 flex-1 flex-col gap-1">
-          <AccountCombobox
-            platform={platform}
-            name="externalId"
-            value={externalId}
-            onChange={setExternalId}
-            discovery={discovery}
-            suggestedId={suggestedId}
-            credentialLabel={credentialLabel}
-            credentialLabelName="credentialLabel"
-            onCredentialLabelChange={setCredentialLabel}
-          />
-          {addKeyHref && (
-            <Link
-              href={addKeyHref}
-              className="self-start text-xs text-primary underline-offset-2 hover:underline"
-            >
-              {platform === "ghl" ? "Add this client's GoHighLevel key" : "Add an OpenPhone workspace key"}
-            </Link>
-          )}
-          {liveError && <p className="text-xs text-destructive">{liveError}</p>}
-          {state.error && <p className="text-xs text-destructive">{state.error}</p>}
-        </div>
-
-        <div className="flex items-center gap-1.5 pt-1.5">
-          <Switch name="active" value="true" checked={active} onCheckedChange={setActive} size="sm" />
-          <span className="text-xs text-muted-foreground">include in updates</span>
-        </div>
-
-        <div className="flex items-center gap-2 pt-0.5">
-          <Button type="submit" size="sm" variant="secondary" disabled={savePending || externalId.trim().length === 0}>
-            {savePending ? "Saving and checking…" : "Save"}
+      <div className="flex items-center gap-2 md:h-8 md:justify-end md:self-start md:pt-0.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="flex items-center">
+              <Switch
+                name="active"
+                value="true"
+                checked={active}
+                onCheckedChange={setActive}
+                size="sm"
+                aria-label={`Include ${label} in daily updates`}
+              />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{active ? "Included in daily updates" : "Left out of daily updates"}</TooltipContent>
+        </Tooltip>
+        {dirty ? (
+          <Button type="submit" size="sm" disabled={savePending || externalId.trim().length === 0}>
+            {savePending ? "Saving…" : mapping ? "Save" : "Connect"}
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={verifying || !mapping}
-            onClick={handleVerify}
-          >
+        ) : (
+          <Button type="button" size="sm" variant="ghost" disabled={verifying} onClick={handleVerify}>
+            <RefreshCwIcon className={cn("size-3.5", verifying && "animate-spin")} />
             {verifying ? "Checking…" : "Re-check"}
           </Button>
-        </div>
-      </form>
-
-      {verifyResult && <VerifyOutcome result={verifyResult} />}
-    </div>
+        )}
+      </div>
+    </form>
   );
 }
