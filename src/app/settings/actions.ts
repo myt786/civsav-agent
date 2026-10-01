@@ -375,6 +375,27 @@ export async function runSyncNow(): Promise<SyncNowResult> {
   return { status: summary.status, attempted: summary.attempted, errorCount: summary.errors.length };
 }
 
+// One day of the "Fill in missing Search Console days" button. The browser
+// calls this once per day (oldest first) so each call stays well inside the
+// 300s limit. runSync's `now` is shifted so that day lands as "yesterday";
+// the sync then applies Search Console's publishing lag on top.
+export async function backfillSearchConsoleDay(daysAgo: number): Promise<SyncNowResult> {
+  await requireSession();
+  const day = Math.trunc(daysAgo);
+  if (!Number.isFinite(day) || day < 1 || day > 90) {
+    return { status: "failed", attempted: 0, errorCount: 0 };
+  }
+  const summary = await runSync(subDays(new Date(), day - 1), { platforms: ["search_console"] });
+  return { status: summary.status, attempted: summary.attempted, errorCount: summary.errors.length };
+}
+
+export async function finishBackfill(): Promise<void> {
+  await requireSession();
+  revalidatePath("/settings/clients");
+  revalidatePath("/");
+  revalidatePath("/seo");
+}
+
 export interface NewMappingInput {
   platform: Platform;
   externalId: string;

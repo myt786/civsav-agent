@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SyncStatusStrip } from "@/components/dashboard/sync-status-strip";
 import { SyncNowButton } from "@/components/settings/sync-now-button";
 import { CheckAllAccountsButton } from "@/components/settings/check-all-accounts-button";
+import { BackfillSearchConsoleButton } from "@/components/settings/backfill-search-console-button";
 import { ClientsList } from "@/components/settings/clients-list";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,10 @@ export default async function ClientsListPage() {
           </div>
         </div>
         <SyncStatusStrip data={syncStatus} now={now} />
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>Search Console publishes a few days late, so recent days can be missing. This fills them in.</span>
+          <BackfillSearchConsoleButton />
+        </div>
       </div>
 
       <div className="flex flex-col gap-4">
