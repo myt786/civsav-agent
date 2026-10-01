@@ -73,7 +73,7 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                     <TooltipTrigger asChild>
                       <span
                         tabIndex={0}
-                        className="w-fit cursor-help truncate font-mono text-[11px] tabular-nums text-muted-foreground outline-none"
+                        className="w-fit cursor-help truncate font-mono text-xs tabular-nums text-muted-foreground outline-none"
                       >
                         {connector.lastSuccessfulSync
                           ? formatRelativeTime(connector.lastSuccessfulSync, now)
@@ -103,7 +103,7 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                   <TooltipTrigger asChild>
                     <span
                       tabIndex={0}
-                      className="w-fit cursor-help truncate font-mono text-[11px] tabular-nums text-muted-foreground/70 outline-none"
+                      className="w-fit cursor-help truncate font-mono text-xs tabular-nums text-muted-foreground outline-none"
                     >
                       {total === 0 ? "no clients connected" : `${connector.verifiedCount}/${total} checked`}
                     </span>
