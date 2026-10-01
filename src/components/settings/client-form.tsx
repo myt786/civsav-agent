@@ -1,11 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import type { ClientFormState } from "@/app/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/toaster";
 
@@ -23,7 +22,6 @@ export function ClientForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
-  const [active, setActive] = useState(defaultValues.active);
 
   const wasPending = useRef(pending);
   useEffect(() => {
@@ -34,7 +32,7 @@ export function ClientForm({
   }, [pending, state.error]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name">Name</Label>
         <Input id="name" name="name" defaultValue={defaultValues.name} required maxLength={200} />
@@ -56,15 +54,9 @@ export function ClientForm({
         </Select>
       </div>
 
-      <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-        <div className="flex flex-col">
-          <span className="text-sm text-foreground">Active</span>
-          <span className="text-xs text-muted-foreground">
-            Turn off to stop collecting new numbers for this client. Everything collected so far is kept.
-          </span>
-        </div>
-        <Switch name="active" value="true" checked={active} onCheckedChange={setActive} />
-      </div>
+      {/* Pause/Resume and Archive live in the page header; the form only
+          carries the current state through so saving a rename never flips it. */}
+      <input type="hidden" name="active" value={String(defaultValues.active)} />
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
 

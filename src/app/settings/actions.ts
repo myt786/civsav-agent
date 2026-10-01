@@ -57,7 +57,12 @@ export async function updateClient(
   const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!existing) return { error: "Client not found." };
 
-  await db.update(clients).set(parsed.data).where(eq(clients.id, clientId));
+  // Switching an archived client back on also un-archives it, so the two
+  // flags can't disagree.
+  await db
+    .update(clients)
+    .set(parsed.data.active ? { ...parsed.data, archivedAt: null } : parsed.data)
+    .where(eq(clients.id, clientId));
 
   await logChanges(db, [
     { userEmail: session.email, clientId, field: "name", oldValue: existing.name, newValue: parsed.data.name },
@@ -82,6 +87,51 @@ export async function updateClient(
   return {};
 }
 
+// Archive: for clients we no longer work with. Hidden from Settings by
+// default, and paused (active = false), so every active-only query — the
+// dashboard, SEO, Insights, AI summaries, the daily and monthly syncs, the
+// digest, "Check all accounts" — leaves them out. Nothing is deleted;
+// unarchiveClient brings the client straight back.
+export async function archiveClient(clientId: string): Promise<void> {
+  const session = await requireSession();
+  const db = await getDb();
+  const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (!existing || existing.archivedAt) return;
+
+  await db.update(clients).set({ active: false, archivedAt: new Date() }).where(eq(clients.id, clientId));
+  await logChanges(db, [
+    { userEmail: session.email, clientId, field: "archived", oldValue: "false", newValue: "true" },
+    { userEmail: session.email, clientId, field: "active", oldValue: String(existing.active), newValue: "false" },
+  ]);
+
+  revalidatePath("/settings/clients");
+  revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath("/");
+  revalidatePath("/seo");
+  revalidatePath("/insights");
+}
+
+// Restore an archived client: back to active, numbers collected again from
+// the next daily update.
+export async function unarchiveClient(clientId: string): Promise<void> {
+  const session = await requireSession();
+  const db = await getDb();
+  const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (!existing || !existing.archivedAt) return;
+
+  await db.update(clients).set({ active: true, archivedAt: null }).where(eq(clients.id, clientId));
+  await logChanges(db, [
+    { userEmail: session.email, clientId, field: "archived", oldValue: "true", newValue: "false" },
+    { userEmail: session.email, clientId, field: "active", oldValue: String(existing.active), newValue: "true" },
+  ]);
+
+  revalidatePath("/settings/clients");
+  revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath("/");
+  revalidatePath("/seo");
+  revalidatePath("/insights");
+}
+
 // "Resume" in the Settings client list — the counterpart of Pause.
 export async function reactivateClient(clientId: string): Promise<void> {
   const session = await requireSession();
@@ -89,7 +139,7 @@ export async function reactivateClient(clientId: string): Promise<void> {
   const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!existing || existing.active) return;
 
-  await db.update(clients).set({ active: true }).where(eq(clients.id, clientId));
+  await db.update(clients).set({ active: true, archivedAt: null }).where(eq(clients.id, clientId));
   await logChange(db, {
     userEmail: session.email,
     clientId,

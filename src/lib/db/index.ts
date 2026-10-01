@@ -5,6 +5,14 @@ import * as schema from "./schema";
 // local dev needs no server install while staying on the same schema
 // (jsonb, enums) as production. Never write raw SQL into the jsonb columns
 // either way — read and write them whole so the two drivers stay swappable.
+// Columns added after launch. Migrations here are run by hand, so the app
+// adds them itself on first connection (idempotent) — otherwise every query
+// that selects them would fail until someone ran db:migrate. Matching
+// migration files exist in drizzle/ so drizzle-kit stays in step. Errors are
+// ignored: on a database without these tables yet, the migrations create
+// them.
+const SELF_HEALING_DDL = `ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "archived_at" timestamp with time zone`;
+
 async function createDb() {
   if (process.env.DATABASE_URL) {
     const { drizzle } = await import("drizzle-orm/postgres-js");
@@ -18,12 +26,14 @@ async function createDb() {
     // reserved for roles with the SUPERUSER attribute"). idle_timeout
     // releases a connection back once this instance goes quiet.
     const client = postgres(process.env.DATABASE_URL, { max: 3, idle_timeout: 20 });
+    await client.unsafe(SELF_HEALING_DDL).catch(() => {});
     return drizzle(client, { schema });
   }
 
   const { drizzle } = await import("drizzle-orm/pglite");
   const { PGlite } = await import("@electric-sql/pglite");
   const client = new PGlite(process.env.PGLITE_DATA_DIR ?? ".pglite-data");
+  await client.exec(SELF_HEALING_DDL).catch(() => {});
   return drizzle(client, { schema });
 }
 

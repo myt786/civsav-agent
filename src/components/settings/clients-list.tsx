@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, SearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
-import { deactivateClient, reactivateClient, verifyAllMappings } from "@/app/settings/actions";
+import { deactivateClient, reactivateClient, unarchiveClient, verifyAllMappings } from "@/app/settings/actions";
 import { formatRelativeTime } from "@/lib/dashboard/format";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +30,7 @@ interface ClientListItem {
   name: string;
   timezone: string;
   active: boolean;
+  archived: boolean;
   accounts: ClientAccount[];
   lastUpdatedAt: Date | null;
 }
@@ -81,7 +82,7 @@ const SHORT_LABEL: Record<Platform, string> = {
   openphone: "OpenPhone",
 };
 
-type StatusFilter = "all" | "attention" | "unchecked" | "none" | "paused";
+type StatusFilter = "all" | "attention" | "unchecked" | "none" | "paused" | "archived";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -89,6 +90,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unchecked", label: "Not checked" },
   { value: "none", label: "No accounts" },
   { value: "paused", label: "Paused" },
+  { value: "archived", label: "Archived" },
 ];
 
 function needsAttention(client: ClientListItem) {
@@ -99,6 +101,9 @@ function hasUnchecked(client: ClientListItem) {
 }
 
 function matchesStatus(client: ClientListItem, filter: StatusFilter) {
+  // Archived clients only appear under their own filter.
+  if (filter === "archived") return client.archived;
+  if (client.archived) return false;
   if (filter === "attention") return needsAttention(client);
   if (filter === "unchecked") return hasUnchecked(client);
   if (filter === "none") return client.accounts.length === 0;
@@ -114,6 +119,7 @@ interface Health {
 }
 
 function healthOf(client: ClientListItem): Health {
+  if (client.archived) return { label: "Archived", tone: "muted", rank: 5 };
   if (!client.active) return { label: "Paused", tone: "muted", rank: 4 };
   if (client.accounts.length === 0) return { label: "No accounts yet", tone: "warn", rank: 1 };
   const states = client.accounts.map(accountState);
@@ -154,13 +160,17 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
   }
 
   const counts = useMemo(
-    () => ({
-      all: clients.length,
-      attention: clients.filter(needsAttention).length,
-      unchecked: clients.filter(hasUnchecked).length,
-      none: clients.filter((c) => c.accounts.length === 0).length,
-      paused: clients.filter((c) => !c.active).length,
-    }),
+    () => {
+      const live = clients.filter((c) => !c.archived);
+      return {
+        all: live.length,
+        attention: live.filter(needsAttention).length,
+        unchecked: live.filter(hasUnchecked).length,
+        none: live.filter((c) => c.accounts.length === 0).length,
+        paused: live.filter((c) => !c.active).length,
+        archived: clients.length - live.length,
+      };
+    },
     [clients],
   );
 
@@ -297,7 +307,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>
-            {filtersActive ? `Showing ${filtered.length} of ${clients.length} clients` : `${clients.length} clients`} ·
+            {filtersActive ? `Showing ${filtered.length} of ${counts.all} clients` : `${counts.all} clients`} ·
             click a client to manage its accounts
           </span>
           <span className="flex flex-wrap items-center gap-3">
@@ -395,6 +405,14 @@ function ClientRow({ client, now, onOpen }: { client: ClientListItem; now: Date;
     });
   }
 
+  function restore() {
+    startToggling(async () => {
+      await unarchiveClient(client.id);
+      router.refresh();
+      toast({ variant: "success", title: `${client.name} restored`, description: "Numbers will be collected again from the next update." });
+    });
+  }
+
   function togglePaused() {
     if (
       client.active &&
@@ -437,9 +455,15 @@ function ClientRow({ client, now, onOpen }: { client: ClientListItem; now: Date;
               {checking ? "Checking…" : "Check"}
             </Button>
           )}
-          <Button type="button" size="sm" variant="ghost" disabled={toggling} onClick={togglePaused}>
-            {client.active ? "Pause" : "Resume"}
-          </Button>
+          {client.archived ? (
+            <Button type="button" size="sm" variant="outline" disabled={toggling} onClick={restore}>
+              Restore
+            </Button>
+          ) : (
+            <Button type="button" size="sm" variant="ghost" disabled={toggling} onClick={togglePaused}>
+              {client.active ? "Pause" : "Resume"}
+            </Button>
+          )}
         </div>
       </TableCell>
     </TableRow>

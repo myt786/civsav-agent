@@ -42,6 +42,11 @@ export const clients = pgTable("clients", {
   name: text("name").notNull(),
   timezone: text("timezone").notNull(),
   active: boolean("active").notNull().default(true),
+  // Set when a client is archived: hidden from Settings by default, and —
+  // since archiving also sets active = false — left out of the dashboard,
+  // SEO, Insights, the daily/monthly syncs and every other active-only
+  // query. Null for live (active or merely paused) clients.
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
 });
 
 // Mapping table: one row per (client, platform). All data joins through
