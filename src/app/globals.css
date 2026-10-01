@@ -185,4 +185,34 @@
   html {
     @apply font-sans;
   }
+
+  /* Tailwind v4 no longer gives buttons a pointer cursor, so many clickable
+     things showed a plain arrow. Every interactive element gets the hand
+     cursor here, once, instead of class by class. Utility classes (e.g.
+     cursor-help on hover-for-info text) still win over this base rule. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="checkbox"]:not(:disabled),
+  [type="radio"]:not(:disabled),
+  a[href],
+  summary,
+  select:not(:disabled),
+  label[for],
+  [role="tab"],
+  [role="radio"],
+  [role="switch"],
+  [role="checkbox"],
+  [role="option"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="menuitemradio"],
+  [role="menuitemcheckbox"],
+  [role="combobox"] {
+    cursor: pointer;
+  }
+  :disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
