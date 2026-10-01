@@ -65,9 +65,9 @@ export default async function ApiKeysPage({
   const initialPlatform = params.platform === "openphone" ? "openphone" : "ghl";
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex w-full max-w-3xl flex-col gap-8">
       <div className="flex flex-col gap-1">
-        <h2 className="font-heading text-base font-medium text-foreground">API keys</h2>
+        <h2 className="font-heading text-lg font-medium text-foreground">API keys</h2>
         <p className="text-sm text-muted-foreground">
           An API key is like a password that lets this app read a client&apos;s numbers. GoHighLevel and OpenPhone
           need a separate key for each client, so paste each one here. We test it before saving and keep it
