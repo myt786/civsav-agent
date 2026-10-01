@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { flexRender, useTable, type SortingState } from "@tanstack/react-table";
 import { ChevronsUpDownIcon, ChevronUpIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { SegmentedFilter } from "@/components/ui/segmented-filter";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -163,40 +164,16 @@ export function ClientsTable({
     <TooltipProvider>
       <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div
-            className="flex h-9 max-w-full items-center gap-0.5 self-start overflow-x-auto rounded-lg bg-muted p-0.5"
-            role="radiogroup"
-            aria-label="Filter clients"
-          >
-            {QUICK_FILTERS.map((f) => {
-              const selected = quickFilter === f.value;
-              return (
-                <button
-                  key={f.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setQuickFilter(f.value)}
-                  className={cn(
-                    "flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm whitespace-nowrap transition-colors",
-                    selected ? "bg-background font-medium text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {f.label}
-                  <span
-                    className={cn(
-                      "min-w-5 rounded-full px-1.5 text-center text-xs leading-5 tabular-nums",
-                      f.value === "attention" && filterCounts.attention > 0
-                        ? "bg-warning/15 font-medium text-warning"
-                        : "text-muted-foreground/80",
-                    )}
-                  >
-                    {filterCounts[f.value]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedFilter
+            ariaLabel="Filter clients"
+            value={quickFilter}
+            onChange={setQuickFilter}
+            options={QUICK_FILTERS.map((f) => ({
+              ...f,
+              count: filterCounts[f.value],
+              alert: f.value === "attention",
+            }))}
+          />
           <div className="relative w-full lg:w-64">
             <SearchIcon
               className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
