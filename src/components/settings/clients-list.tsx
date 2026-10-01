@@ -9,6 +9,7 @@ import { toast } from "@/components/ui/toaster";
 import { deactivateClient, reactivateClient, unarchiveClient, verifyAllMappings } from "@/app/settings/actions";
 import { formatRelativeTime } from "@/lib/dashboard/format";
 import { Input } from "@/components/ui/input";
+import { SegmentedFilter } from "@/components/ui/segmented-filter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -201,50 +202,14 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
       <div className="flex flex-col gap-3">
         {clients.length > 0 && (
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            {/* One segmented control instead of a row of outlined pills —
-                lighter, and it reads as "pick one". Scrolls sideways on
-                narrow screens rather than wrapping onto two lines. */}
-            <div
-              className="flex h-9 max-w-full items-center gap-0.5 self-start overflow-x-auto rounded-lg bg-muted p-0.5"
-              role="radiogroup"
-              aria-label="Filter by status"
-            >
-              {STATUS_FILTERS.filter((f) => f.value !== "archived" || counts.archived > 0 || status === "archived").map(
-                (f) => {
-                  const selected = status === f.value;
-                  const alert = f.value === "attention" && counts.attention > 0;
-                  return (
-                    <button
-                      key={f.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => setStatus(f.value)}
-                      className={cn(
-                        "flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm whitespace-nowrap transition-colors",
-                        selected
-                          ? "bg-background font-medium text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {f.label}
-                      <span
-                        className={cn(
-                          "min-w-5 rounded-full px-1.5 text-center text-xs leading-5 tabular-nums",
-                          alert
-                            ? "bg-destructive/10 font-medium text-destructive"
-                            : selected
-                              ? "bg-muted text-muted-foreground"
-                              : "text-muted-foreground/80",
-                        )}
-                      >
-                        {counts[f.value]}
-                      </span>
-                    </button>
-                  );
-                },
-              )}
-            </div>
+            <SegmentedFilter
+              ariaLabel="Filter by status"
+              value={status}
+              onChange={setStatus}
+              options={STATUS_FILTERS.filter(
+                (f) => f.value !== "archived" || counts.archived > 0 || status === "archived",
+              ).map((f) => ({ ...f, count: counts[f.value], alert: f.value === "attention" }))}
+            />
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Select value={platform} onValueChange={setPlatform}>
