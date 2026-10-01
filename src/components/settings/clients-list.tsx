@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SearchIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, SearchIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toaster";
+import { deactivateClient, reactivateClient, verifyAllMappings } from "@/app/settings/actions";
+import { formatRelativeTime } from "@/lib/dashboard/format";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ConfirmSubmitButton } from "@/components/settings/confirm-submit-button";
 import { PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/connectors/platform-labels";
 import type { Platform } from "@/lib/connectors/types";
 import { friendlyError } from "@/lib/friendly-error";
@@ -29,6 +31,7 @@ interface ClientListItem {
   timezone: string;
   active: boolean;
   accounts: ClientAccount[];
+  lastUpdatedAt: Date | null;
 }
 
 type AccountState = "working" | "quiet" | "broken" | "unchecked" | "paused";
@@ -61,12 +64,13 @@ const SHORT_LABEL: Record<Platform, string> = {
   openphone: "OpenPhone",
 };
 
-type StatusFilter = "all" | "attention" | "unchecked" | "paused";
+type StatusFilter = "all" | "attention" | "unchecked" | "none" | "paused";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "attention", label: "Needs attention" },
   { value: "unchecked", label: "Not checked" },
+  { value: "none", label: "No accounts" },
   { value: "paused", label: "Paused" },
 ];
 
@@ -80,9 +84,37 @@ function hasUnchecked(client: ClientListItem) {
 function matchesStatus(client: ClientListItem, filter: StatusFilter) {
   if (filter === "attention") return needsAttention(client);
   if (filter === "unchecked") return hasUnchecked(client);
+  if (filter === "none") return client.accounts.length === 0;
   if (filter === "paused") return !client.active;
   return true;
 }
+
+interface Health {
+  label: string;
+  tone: "good" | "warn" | "bad" | "muted";
+  // Lower sorts first: problems at the top when sorting by health.
+  rank: number;
+}
+
+function healthOf(client: ClientListItem): Health {
+  if (!client.active) return { label: "Paused", tone: "muted", rank: 4 };
+  if (client.accounts.length === 0) return { label: "No accounts yet", tone: "warn", rank: 1 };
+  const states = client.accounts.map(accountState);
+  const broken = states.filter((s) => s === "broken").length;
+  const unchecked = states.filter((s) => s === "unchecked").length;
+  if (broken > 0) return { label: `${broken} not working`, tone: "bad", rank: 0 };
+  if (unchecked > 0) return { label: `${unchecked} not checked`, tone: "warn", rank: 2 };
+  return { label: "All working", tone: "good", rank: 3 };
+}
+
+const HEALTH_TONE: Record<Health["tone"], string> = {
+  good: "text-success",
+  warn: "text-warning",
+  bad: "text-destructive font-medium",
+  muted: "text-muted-foreground",
+};
+
+type SortKey = "name" | "health" | "updated";
 
 // "any" | "has:<platform>" | "missing:<platform>"
 function matchesPlatform(client: ClientListItem, filter: string) {
@@ -92,23 +124,24 @@ function matchesPlatform(client: ClientListItem, filter: string) {
   return mode === "has" ? has : !has;
 }
 
-export function ClientsList({
-  clients,
-  deactivateClient,
-}: {
-  clients: ClientListItem[];
-  deactivateClient: (clientId: string) => Promise<void>;
-}) {
+export function ClientsList({ clients }: { clients: ClientListItem[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [platform, setPlatform] = useState("any");
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
+  const now = useMemo(() => new Date(), []);
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+  }
 
   const counts = useMemo(
     () => ({
       all: clients.length,
       attention: clients.filter(needsAttention).length,
       unchecked: clients.filter(hasUnchecked).length,
+      none: clients.filter((c) => c.accounts.length === 0).length,
       paused: clients.filter((c) => !c.active).length,
     }),
     [clients],
@@ -116,10 +149,23 @@ export function ClientsList({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return clients.filter(
+    const rows = clients.filter(
       (c) => (!q || c.name.toLowerCase().includes(q)) && matchesStatus(c, status) && matchesPlatform(c, platform),
     );
-  }, [clients, query, status, platform]);
+    const factor = sort.dir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      if (sort.key === "health") {
+        const diff = healthOf(a).rank - healthOf(b).rank;
+        if (diff !== 0) return diff * factor;
+      } else if (sort.key === "updated") {
+        // "asc" = most recently updated first; never-updated last.
+        const at = a.lastUpdatedAt?.getTime() ?? -Infinity;
+        const bt = b.lastUpdatedAt?.getTime() ?? -Infinity;
+        if (at !== bt) return (bt - at) * factor;
+      }
+      return a.name.localeCompare(b.name) * (sort.key === "name" ? factor : 1);
+    });
+  }, [clients, query, status, platform, sort]);
 
   const filtersActive = query.trim() !== "" || status !== "all" || platform !== "any";
 
@@ -192,69 +238,27 @@ export function ClientsList({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[30%]">Client</TableHead>
+                <SortHead label="Client" sortKey="name" sort={sort} onSort={toggleSort} className="w-[24%]" />
                 <TableHead>Connected accounts</TableHead>
-                <TableHead className="w-28">Status</TableHead>
-                <TableHead className="w-1" />
+                <SortHead label="Health" sortKey="health" sort={sort} onSort={toggleSort} className="w-36" />
+                <SortHead label="Last updated" sortKey="updated" sort={sort} onSort={toggleSort} className="w-32" />
+                <TableHead className="w-1 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((client) => (
-                <TableRow
-                  key={client.id}
-                  className="cursor-pointer"
-                  onClick={() => router.push(`/settings/clients/${client.id}`)}
-                >
-                  <TableCell className="py-3">
-                    <Link
-                      href={`/settings/clients/${client.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="font-medium text-foreground hover:underline"
-                    >
-                      {client.name}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">{client.timezone}</div>
-                  </TableCell>
-                  <TableCell className="py-3">
-                    <AccountBadges accounts={client.accounts} />
-                  </TableCell>
-                  <TableCell className="py-3">
-                    {client.active ? (
-                      <Badge variant="outline" className="border-success/30 text-success">
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
-                        Paused
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
-                    {client.active && (
-                      <form action={deactivateClient.bind(null, client.id)}>
-                        <ConfirmSubmitButton
-                          type="submit"
-                          size="sm"
-                          variant="ghost"
-                          confirmMessage={`Pause ${client.name}? We'll stop collecting new numbers for them, but keep everything collected so far.`}
-                        >
-                          Pause
-                        </ConfirmSubmitButton>
-                      </form>
-                    )}
-                  </TableCell>
-                </TableRow>
+                <ClientRow key={client.id} client={client} now={now} onOpen={() => router.push(`/settings/clients/${client.id}`)} />
               ))}
               {clients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                     No clients yet — click &ldquo;Add client&rdquo; to add your first one.
                   </TableCell>
                 </TableRow>
               )}
               {clients.length > 0 && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                     No clients match these filters.{" "}
                     <button
                       type="button"
@@ -325,5 +329,110 @@ function AccountBadges({ accounts }: { accounts: ClientAccount[] }) {
         );
       })}
     </div>
+  );
+}
+
+function SortHead({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: { key: SortKey; dir: "asc" | "desc" };
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort.key === sortKey;
+  const Icon = sort.dir === "asc" ? ArrowUpIcon : ArrowDownIcon;
+  return (
+    <TableHead className={className} aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn("inline-flex items-center gap-1 hover:text-foreground", active && "text-foreground")}
+      >
+        {label}
+        {active && <Icon className="size-3" aria-hidden />}
+      </button>
+    </TableHead>
+  );
+}
+
+function ClientRow({ client, now, onOpen }: { client: ClientListItem; now: Date; onOpen: () => void }) {
+  const router = useRouter();
+  const [checking, startChecking] = useTransition();
+  const [toggling, startToggling] = useTransition();
+  const health = healthOf(client);
+
+  function check() {
+    startChecking(async () => {
+      const results = await verifyAllMappings(client.id);
+      router.refresh();
+      const failed = results.filter((r) => r.result.status === "error").length;
+      if (results.length === 0) {
+        toast({ variant: "default", title: `${client.name} has no accounts to check` });
+      } else if (failed === 0) {
+        toast({ variant: "success", title: `${client.name}: all ${results.length} accounts working` });
+      } else {
+        toast({
+          variant: "error",
+          title: `${client.name}: ${failed} of ${results.length} not working`,
+          description: "Open the client to see why.",
+        });
+      }
+    });
+  }
+
+  function togglePaused() {
+    if (
+      client.active &&
+      !window.confirm(`Pause ${client.name}? We'll stop collecting new numbers for them, but keep everything collected so far.`)
+    ) {
+      return;
+    }
+    startToggling(async () => {
+      if (client.active) await deactivateClient(client.id);
+      else await reactivateClient(client.id);
+      router.refresh();
+      toast({ variant: "success", title: client.active ? `${client.name} paused` : `${client.name} resumed` });
+    });
+  }
+
+  return (
+    <TableRow className={cn("cursor-pointer", !client.active && "opacity-60")} onClick={onOpen}>
+      <TableCell className="py-3">
+        <Link
+          href={`/settings/clients/${client.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="font-medium text-foreground hover:underline"
+        >
+          {client.name}
+        </Link>
+        <div className="text-xs text-muted-foreground">{client.timezone}</div>
+      </TableCell>
+      <TableCell className="py-3">
+        <AccountBadges accounts={client.accounts} />
+      </TableCell>
+      <TableCell className={cn("py-3 text-sm", HEALTH_TONE[health.tone])}>{health.label}</TableCell>
+      <TableCell className="py-3 text-sm text-muted-foreground">
+        {client.lastUpdatedAt ? formatRelativeTime(client.lastUpdatedAt, now) : "Never"}
+      </TableCell>
+      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1">
+          {client.active && client.accounts.length > 0 && (
+            <Button type="button" size="sm" variant="outline" disabled={checking} onClick={check}>
+              <CheckCheckIcon className="size-3.5" aria-hidden />
+              {checking ? "Checking…" : "Check"}
+            </Button>
+          )}
+          <Button type="button" size="sm" variant="ghost" disabled={toggling} onClick={togglePaused}>
+            {client.active ? "Pause" : "Resume"}
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
