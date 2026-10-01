@@ -61,7 +61,9 @@ function totalsFor(rows: ClientRow[]): Record<string, string> {
   let spend: number | null = null;
   let sessions: number | null = null;
   let conversions: number | null = null;
-  let calls: { total: number; missed: number } | null = null;
+  let callsTotal = 0;
+  let callsMissed = 0;
+  let anyCalls = false;
   // Blended cost per lead only over clients that have one, so a client
   // with leads but no ads doesn't drag it down.
   let cplSpend = 0;
@@ -76,10 +78,9 @@ function totalsFor(rows: ClientRow[]): Record<string, string> {
     sessions = add(sessions, valueOf(row.sessions));
     conversions = add(conversions, valueOf(row.conversions));
     if (row.calls.kind === "ok" || row.calls.kind === "unverified") {
-      calls = {
-        total: (calls?.total ?? 0) + row.calls.value.total,
-        missed: (calls?.missed ?? 0) + row.calls.value.missed,
-      };
+      callsTotal += row.calls.value.total;
+      callsMissed += row.calls.value.missed;
+      anyCalls = true;
     }
     if (valueOf(row.cpl) !== null && rowSpend !== null && rowLeads !== null) {
       cplSpend += rowSpend;
@@ -90,7 +91,7 @@ function totalsFor(rows: ClientRow[]): Record<string, string> {
   const show = (value: number | null, format: (n: number) => string) => (value === null ? "—" : format(value));
   return {
     leads: show(leads, formatInteger),
-    calls: calls ? `${formatInteger(calls.total)} / ${formatInteger(calls.missed)}` : "—",
+    calls: anyCalls ? `${formatInteger(callsTotal)} / ${formatInteger(callsMissed)}` : "—",
     spend: show(spend, formatCurrency),
     cpl: cplLeads > 0 ? formatCurrency(cplSpend / cplLeads) : "—",
     sessions: show(sessions, formatInteger),

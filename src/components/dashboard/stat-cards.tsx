@@ -53,20 +53,17 @@ function CardTrend({ values, color }: { values: (number | null)[]; color: string
   const h = 28;
   const step = values.length > 1 ? w / (values.length - 1) : w;
   // Split into runs of consecutive known days; a null day breaks the line.
-  const segments: { d: string; x0: string; x1: string }[] = [];
-  let current: { d: string; x0: string; x1: string } | null = null;
+  // Each segment is the list of [x, y] points in one unbroken run.
+  const segments: [string, string][][] = [[]];
   for (let i = 0; i < values.length; i++) {
     const v = values[i];
     if (v === null) {
-      if (current) segments.push(current);
-      current = null;
+      if (segments[segments.length - 1].length > 0) segments.push([]);
       continue;
     }
-    const x = (i * step).toFixed(2);
-    const y = (h - 2 - ((v - min) / span) * (h - 4)).toFixed(2);
-    current = current ? { ...current, d: `${current.d}L${x},${y}`, x1: x } : { d: `M${x},${y}`, x0: x, x1: x };
+    segments[segments.length - 1].push([(i * step).toFixed(2), (h - 2 - ((v - min) / span) * (h - 4)).toFixed(2)]);
   }
-  if (current) segments.push(current);
+  const runs = segments.filter((points) => points.length > 0);
   const gradientId = `card-trend-${color.replace(/[^a-z0-9]/gi, "")}`;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-8 w-full" aria-hidden>
@@ -76,12 +73,16 @@ function CardTrend({ values, color }: { values: (number | null)[]; color: string
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </linearGradient>
       </defs>
-      {segments.map((seg, i) => (
-        <g key={i}>
-          <path d={`${seg.d}L${seg.x1},${h}L${seg.x0},${h}Z`} fill={`url(#${gradientId})`} />
-          <path d={seg.d} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-        </g>
-      ))}
+      {runs.map((points, i) => {
+        const line = points.map(([x, y], j) => `${j === 0 ? "M" : "L"}${x},${y}`).join("");
+        const area = `${line}L${points[points.length - 1][0]},${h}L${points[0][0]},${h}Z`;
+        return (
+          <g key={i}>
+            <path d={area} fill={`url(#${gradientId})`} />
+            <path d={line} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+          </g>
+        );
+      })}
     </svg>
   );
 }
