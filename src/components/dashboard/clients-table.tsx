@@ -86,7 +86,7 @@ export function ClientsTable({
             full breakdown
           </span>
           <span className="flex items-center gap-1.5">
-            <UnverifiedMark /> not checked yet — probably right, but the account hasn't been confirmed in Settings
+            <UnverifiedMark /> not checked yet — probably right, but the account hasn&apos;t been confirmed in Settings
           </span>
         </div>
         <div className="overflow-hidden rounded-lg border border-border shadow-sm">
@@ -106,6 +106,9 @@ export function ClientsTable({
                           "sticky top-0 z-10 h-9 text-xs font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase select-none",
                           HEAD_BG,
                           header.column.getCanSort() && "cursor-pointer hover:text-foreground",
+                          // Client name stays pinned while the numbers scroll
+                          // sideways on narrower screens.
+                          header.column.id === "client" && "left-0 z-20 shadow-[1px_0_0_var(--border)]",
                         )}
                         onClick={header.column.getToggleSortingHandler()}
                       >
@@ -141,7 +144,13 @@ export function ClientsTable({
                     className={cn("h-11 cursor-pointer", stale && "bg-destructive/[0.035]")}
                   >
                     {row.getAllCells().map((cell) => (
-                      <TableCell key={cell.id} className="py-0 whitespace-nowrap">
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          "py-0 whitespace-nowrap",
+                          cell.column.id === "client" && "sticky left-0 z-[1] bg-card shadow-[1px_0_0_var(--border)]",
+                        )}
+                      >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}

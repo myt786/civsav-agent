@@ -30,7 +30,7 @@ export function UnsyncedNotice({ count }: { count: number }) {
         <span className="font-medium text-foreground">
           {count} client{count === 1 ? " has" : "s have"} no search data yet
         </span>{" "}
-        — usually because we haven't been given access to their Search Console yet.{" "}
+        — usually because we haven&apos;t been given access to their Search Console yet.{" "}
         <Link href="/insights" className="text-primary hover:underline">
           See what&apos;s missing
         </Link>

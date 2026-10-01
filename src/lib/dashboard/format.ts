@@ -18,9 +18,10 @@ export function formatPosition(value: number): string {
   return value.toFixed(1);
 }
 
+// One decimal only where it's meaningful: "+4.2%" but "+900%", not "+900.0%".
 export function formatPercent(pct: number): string {
   const sign = pct > 0 ? "+" : "";
-  return `${sign}${pct.toFixed(1)}%`;
+  return `${sign}${pct.toFixed(Math.abs(pct) >= 10 ? 0 : 1)}%`;
 }
 
 export function formatRelativeTime(date: Date, now: Date): string {
@@ -28,6 +29,8 @@ export function formatRelativeTime(date: Date, now: Date): string {
   const diffHours = diffMs / (1000 * 60 * 60);
   if (Math.abs(diffHours) < 1) {
     const diffMinutes = Math.round(diffMs / (1000 * 60));
+    // Intl says "this minute"; "just now" reads better.
+    if (diffMinutes === 0) return "just now";
     return relativeTimeFormatter.format(diffMinutes, "minute");
   }
   if (Math.abs(diffHours) < 48) {

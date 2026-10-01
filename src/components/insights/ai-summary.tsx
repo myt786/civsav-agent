@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkifiedText } from "@/components/linkified-text";
 import { useState } from "react";
 import { RefreshCwIcon, SparklesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,13 +64,13 @@ export function AiSummary() {
 
       {state.status === "ok" && (
         <div className="flex animate-in flex-col gap-3 text-sm fade-in-0 slide-in-from-bottom-1 duration-300">
-          <p className="text-foreground">{state.narrative.fleetSummary}</p>
+          <p className="text-foreground [overflow-wrap:anywhere]">{state.narrative.fleetSummary}</p>
           {state.narrative.clientNotes.length > 0 && (
             <ul className="flex flex-col gap-1.5 border-t border-border pt-3">
               {state.narrative.clientNotes.map((note) => (
                 <li key={note.clientId} className="flex gap-2">
-                  <span className="shrink-0 font-medium text-foreground">{note.clientName}:</span>
-                  <span className="text-muted-foreground">{note.note}</span>
+                  <span className="max-w-[40%] shrink-0 font-medium text-foreground">{note.clientName}:</span>
+                  <LinkifiedText text={note.note} className="text-muted-foreground" />
                 </li>
               ))}
             </ul>

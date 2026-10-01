@@ -37,7 +37,7 @@ export function DataCell<T>({
             className={cn("flex items-center gap-1 font-mono tabular-nums text-destructive", alignClass)}
           >
             <AlertTriangleIcon className="size-3.5" aria-hidden />
-            <span className="sr-only">Couldn't update</span>
+            <span className="sr-only">Couldn&apos;t update</span>
           </span>
         </TooltipTrigger>
         <TooltipContent className="max-w-72 text-pretty">
