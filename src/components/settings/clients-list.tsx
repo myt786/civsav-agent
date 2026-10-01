@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, SearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
-import { deactivateClient, reactivateClient, verifyAllMappings } from "@/app/settings/actions";
+import { deactivateClient, reactivateClient, unarchiveClient, verifyAllMappings } from "@/app/settings/actions";
 import { formatRelativeTime } from "@/lib/dashboard/format";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +30,7 @@ interface ClientListItem {
   name: string;
   timezone: string;
   active: boolean;
+  archived: boolean;
   accounts: ClientAccount[];
   lastUpdatedAt: Date | null;
 }
@@ -81,7 +82,7 @@ const SHORT_LABEL: Record<Platform, string> = {
   openphone: "OpenPhone",
 };
 
-type StatusFilter = "all" | "attention" | "unchecked" | "none" | "paused";
+type StatusFilter = "all" | "attention" | "unchecked" | "none" | "paused" | "archived";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -89,6 +90,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "unchecked", label: "Not checked" },
   { value: "none", label: "No accounts" },
   { value: "paused", label: "Paused" },
+  { value: "archived", label: "Archived" },
 ];
 
 function needsAttention(client: ClientListItem) {
@@ -99,6 +101,9 @@ function hasUnchecked(client: ClientListItem) {
 }
 
 function matchesStatus(client: ClientListItem, filter: StatusFilter) {
+  // Archived clients only appear under their own filter.
+  if (filter === "archived") return client.archived;
+  if (client.archived) return false;
   if (filter === "attention") return needsAttention(client);
   if (filter === "unchecked") return hasUnchecked(client);
   if (filter === "none") return client.accounts.length === 0;
@@ -114,6 +119,7 @@ interface Health {
 }
 
 function healthOf(client: ClientListItem): Health {
+  if (client.archived) return { label: "Archived", tone: "muted", rank: 5 };
   if (!client.active) return { label: "Paused", tone: "muted", rank: 4 };
   if (client.accounts.length === 0) return { label: "No accounts yet", tone: "warn", rank: 1 };
   const states = client.accounts.map(accountState);
@@ -154,13 +160,17 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
   }
 
   const counts = useMemo(
-    () => ({
-      all: clients.length,
-      attention: clients.filter(needsAttention).length,
-      unchecked: clients.filter(hasUnchecked).length,
-      none: clients.filter((c) => c.accounts.length === 0).length,
-      paused: clients.filter((c) => !c.active).length,
-    }),
+    () => {
+      const live = clients.filter((c) => !c.archived);
+      return {
+        all: live.length,
+        attention: live.filter(needsAttention).length,
+        unchecked: live.filter(hasUnchecked).length,
+        none: live.filter((c) => c.accounts.length === 0).length,
+        paused: live.filter((c) => !c.active).length,
+        archived: clients.length - live.length,
+      };
+    },
     [clients],
   );
 
@@ -191,33 +201,54 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
       <div className="flex flex-col gap-3">
         {clients.length > 0 && (
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Filter by status">
-              {STATUS_FILTERS.map((f) => (
-                <button
-                  key={f.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={status === f.value}
-                  onClick={() => setStatus(f.value)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
-                    status === f.value
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
-                    f.value === "attention" && status !== f.value && counts.attention > 0 && "text-destructive",
-                  )}
-                >
-                  {f.label}
-                  <span className={cn("tabular-nums", status === f.value ? "opacity-80" : "opacity-60")}>
-                    {counts[f.value]}
-                  </span>
-                </button>
-              ))}
+            {/* One segmented control instead of a row of outlined pills —
+                lighter, and it reads as "pick one". Scrolls sideways on
+                narrow screens rather than wrapping onto two lines. */}
+            <div
+              className="flex h-9 max-w-full items-center gap-0.5 self-start overflow-x-auto rounded-lg bg-muted p-0.5"
+              role="radiogroup"
+              aria-label="Filter by status"
+            >
+              {STATUS_FILTERS.filter((f) => f.value !== "archived" || counts.archived > 0 || status === "archived").map(
+                (f) => {
+                  const selected = status === f.value;
+                  const alert = f.value === "attention" && counts.attention > 0;
+                  return (
+                    <button
+                      key={f.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setStatus(f.value)}
+                      className={cn(
+                        "flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm whitespace-nowrap transition-colors",
+                        selected
+                          ? "bg-background font-medium text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {f.label}
+                      <span
+                        className={cn(
+                          "min-w-5 rounded-full px-1.5 text-center text-xs leading-5 tabular-nums",
+                          alert
+                            ? "bg-destructive/10 font-medium text-destructive"
+                            : selected
+                              ? "bg-muted text-muted-foreground"
+                              : "text-muted-foreground/80",
+                        )}
+                      >
+                        {counts[f.value]}
+                      </span>
+                    </button>
+                  );
+                },
+              )}
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Select value={platform} onValueChange={setPlatform}>
-                <SelectTrigger className="w-full sm:w-56" aria-label="Filter by platform">
+                <SelectTrigger className="w-full bg-card data-[size=default]:h-9 sm:w-48" aria-label="Filter by platform">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -234,7 +265,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-60">
                 <SearchIcon
                   className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
                   aria-hidden
@@ -243,7 +274,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search clients…"
-                  className="pl-8"
+                  className="h-9 bg-card pl-8"
                   aria-label="Search clients"
                 />
               </div>
@@ -297,7 +328,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>
-            {filtersActive ? `Showing ${filtered.length} of ${clients.length} clients` : `${clients.length} clients`} ·
+            {filtersActive ? `Showing ${filtered.length} of ${counts.all} clients` : `${counts.all} clients`} ·
             click a client to manage its accounts
           </span>
           <span className="flex flex-wrap items-center gap-3">
@@ -395,6 +426,14 @@ function ClientRow({ client, now, onOpen }: { client: ClientListItem; now: Date;
     });
   }
 
+  function restore() {
+    startToggling(async () => {
+      await unarchiveClient(client.id);
+      router.refresh();
+      toast({ variant: "success", title: `${client.name} restored`, description: "Numbers will be collected again from the next update." });
+    });
+  }
+
   function togglePaused() {
     if (
       client.active &&
@@ -437,9 +476,15 @@ function ClientRow({ client, now, onOpen }: { client: ClientListItem; now: Date;
               {checking ? "Checking…" : "Check"}
             </Button>
           )}
-          <Button type="button" size="sm" variant="ghost" disabled={toggling} onClick={togglePaused}>
-            {client.active ? "Pause" : "Resume"}
-          </Button>
+          {client.archived ? (
+            <Button type="button" size="sm" variant="outline" disabled={toggling} onClick={restore}>
+              Restore
+            </Button>
+          ) : (
+            <Button type="button" size="sm" variant="ghost" disabled={toggling} onClick={togglePaused}>
+              {client.active ? "Pause" : "Resume"}
+            </Button>
+          )}
         </div>
       </TableCell>
     </TableRow>

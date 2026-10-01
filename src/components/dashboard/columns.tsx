@@ -10,9 +10,20 @@ import { formatCurrency, formatInteger, formatPosition, formatRelativeTime } fro
 import { STALE_HOURS } from "@/lib/dashboard/constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { friendlyError } from "@/lib/friendly-error";
 import { dashboardTableFeatures } from "./table-config";
 
 type Features = typeof dashboardTableFeatures;
+
+// Sync-error flags carry the platform's raw message ("Google rank failed to
+// sync: User does not have sufficient permission for site … See also:
+// https://…") — too long and too technical for a hover. Show the plain
+// sentence instead; the full error is on Settings → Clients.
+function readableFlag(message: string): string {
+  const [what, ...rest] = message.split(" failed to sync: ");
+  if (rest.length === 0) return message;
+  return `${what}: ${friendlyError(rest.join(" failed to sync: ")).summary}`;
+}
 
 const columnHelper = createColumnHelper<Features, ClientRow>();
 
@@ -81,9 +92,9 @@ export function createClientColumns(
                 />
               </TooltipTrigger>
               <TooltipContent className="max-w-72 text-pretty">
-                <ul className="flex flex-col gap-1">
+                <ul className="flex min-w-0 flex-col gap-1">
                   {clientFlags.map((f, i) => (
-                    <li key={i}>{f.message}</li>
+                    <li key={i}>{readableFlag(f.message)}</li>
                   ))}
                 </ul>
               </TooltipContent>
