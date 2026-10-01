@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { formatInTimeZone } from "date-fns-tz";
 import { fetchWithRetry, HttpError, RateLimiter } from "../shared/http";
 import type { PlatformAccount, DateRange, DiscoveryResult } from "../types";
 
@@ -35,9 +36,13 @@ export async function fetchRawInsights(
     "fields",
     "spend,impressions,clicks,actions,attribution_setting",
   );
+  // Calendar dates in the CLIENT's timezone, like every other connector.
+  // Slicing the UTC ISO string instead made "yesterday" span two days for
+  // any client east of UTC (local midnight falls on the previous UTC date),
+  // roughly doubling their daily spend.
   url.searchParams.set("time_range", JSON.stringify({
-    since: range.start.toISOString().slice(0, 10),
-    until: range.end.toISOString().slice(0, 10),
+    since: formatInTimeZone(range.start, account.clientTimezone, "yyyy-MM-dd"),
+    until: formatInTimeZone(range.end, account.clientTimezone, "yyyy-MM-dd"),
   }));
   url.searchParams.set("access_token", accessToken);
 

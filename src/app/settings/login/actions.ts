@@ -25,7 +25,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
 
   const expectedPassword = process.env.SETTINGS_PASSWORD;
   if (!expectedPassword) {
-    return { error: "Settings login isn't configured (SETTINGS_PASSWORD is unset)." };
+    return { error: "Sign-in isn't set up yet — ask your developer to set SETTINGS_PASSWORD." };
   }
   if (parsed.data.password !== expectedPassword) {
     return { error: "Incorrect password." };
@@ -41,7 +41,9 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   });
 
   const next = formData.get("next");
-  redirect(typeof next === "string" && next.startsWith("/settings") ? next : "/settings/clients");
+  // Any same-site path ("/insights", "/seo"...) now that every page needs the
+  // login; "//host" is rejected so this can't become an open redirect.
+  redirect(typeof next === "string" && next.startsWith("/") && !next.startsWith("//") ? next : "/");
 }
 
 export async function logout(): Promise<void> {

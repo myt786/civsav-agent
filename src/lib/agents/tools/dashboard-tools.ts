@@ -61,5 +61,5 @@ export const getSyncStatusTool = tool({
     "GoHighLevel, OpenPhone, Ahrefs, Lead Dashboard), how many recent rows are verified vs. unverified and how many " +
     "fetches errored in the last run.",
   inputSchema: z.object({}),
-  execute: async () => getSyncStatus(new Date()),
+  execute: async () => getSyncStatus(),
 });

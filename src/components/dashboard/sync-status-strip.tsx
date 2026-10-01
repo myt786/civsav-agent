@@ -105,12 +105,15 @@ export function SyncStatusStrip({ data, now }: { data: SyncStatusStripData; now:
                       tabIndex={0}
                       className="w-fit cursor-help truncate font-mono text-[11px] tabular-nums text-muted-foreground/70 outline-none"
                     >
-                      {total === 0 ? "no numbers yet" : `${connector.verifiedCount} of ${total} checked`}
+                      {total === 0
+                        ? "no clients connected"
+                        : `${connector.verifiedCount} of ${total} client${total === 1 ? "" : "s"} checked`}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-64 text-pretty">
-                    How many recent {PLATFORM_LABELS[connector.platform]} numbers come from an account we&apos;ve
-                    confirmed is the right one. The rest are probably fine — they just haven&apos;t been checked yet.
+                    How many clients&apos; {PLATFORM_LABELS[connector.platform]} accounts have been checked in
+                    Settings. Unchecked ones are probably fine — open the client in Settings and click &ldquo;Check
+                    all&rdquo; to confirm them.
                   </TooltipContent>
                 </Tooltip>
               </div>

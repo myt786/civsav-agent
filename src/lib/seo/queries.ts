@@ -160,7 +160,7 @@ export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDa
   // (the 58 clients just onboarded from seo-ai-tool's roster) start out
   // unverified until someone clicks Verify at /settings/clients/[id].
   const mappingVerifiedSet = new Set(
-    mappingRows.filter((m) => m.verifiedAt !== null).map((m) => `${m.clientId}:${m.platform}`),
+    mappingRows.filter((m) => m.verifiedAt !== null && m.verifiedStatus !== "error").map((m) => `${m.clientId}:${m.platform}`),
   );
   const isMappingVerified = (clientId: string, platform: "search_console" | "ahrefs") =>
     mappingVerifiedSet.has(`${clientId}:${platform}`);
@@ -268,7 +268,7 @@ export async function getSeoClientSnapshot(clientId: string, now: Date = new Dat
 
   const seoMonthlyByMonth = new Map(seoMonthlyRows.map((r) => [r.month, r]));
   const isVerified = (platform: "search_console" | "ahrefs") =>
-    mappingRows.some((m) => m.platform === platform && m.verifiedAt !== null);
+    mappingRows.some((m) => m.platform === platform && m.verifiedAt !== null && m.verifiedStatus !== "error");
 
   const { row } = buildClientRow(
     client,

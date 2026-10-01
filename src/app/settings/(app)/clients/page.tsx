@@ -14,7 +14,7 @@ export const maxDuration = 300;
 
 export default async function ClientsListPage() {
   const now = new Date();
-  const [clients, syncStatus] = await Promise.all([listClients(), getSyncStatus(now)]);
+  const [clients, syncStatus] = await Promise.all([listClients(), getSyncStatus()]);
 
   return (
     <div className="flex animate-in flex-col gap-6 fade-in-0 duration-300">

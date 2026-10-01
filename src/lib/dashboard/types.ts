@@ -46,6 +46,8 @@ export interface ClientRow {
 export interface ConnectorStatus {
   platform: Platform;
   lastSuccessfulSync: Date | null;
+  // Active clients connected to this platform whose account has / hasn't
+  // been checked in Settings.
   verifiedCount: number;
   unverifiedCount: number;
   errorCountLastRun: number;

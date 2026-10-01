@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { getSeoDashboardData } from "@/lib/seo/queries";
 import { buildDigestSummary, postSeoDigestToSlack } from "@/lib/seo/digest";
 
-// Runs after /api/cron/sync-monthly (see vercel.json) so the Ahrefs data
-// it summarizes is fresh for the month just completed.
+// Runs on the 4th (see vercel.json): after /api/cron/sync-monthly (Ahrefs,
+// on the 1st), and after Search Console has published the last days of the
+// month just completed (it lags 2-3 days). On the 1st, those days were
+// still missing, so every digest compared a short month and leaned towards
+// "declining".
 export const maxDuration = 60;
 
 // Same bearer-secret check as /api/cron/sync — see that route's comment.

@@ -302,7 +302,9 @@ export interface SyncNowResult {
 // by the existing session middleware rather than needing its own auth.
 export async function runSyncNow(): Promise<SyncNowResult> {
   await requireSession();
-  const summary = await runSync();
+  // Same scope as the daily cron: ahrefs is metered and has its own monthly
+  // cadence, so a manual "Update data now" click mustn't spend Ahrefs units.
+  const summary = await runSync(new Date(), { excludePlatforms: ["ahrefs"] });
   revalidatePath("/settings/clients");
   revalidatePath("/");
   return { status: summary.status, attempted: summary.attempted, errorCount: summary.errors.length };

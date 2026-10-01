@@ -215,9 +215,9 @@ describe("googleAdsConnector.listAccounts", () => {
       delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
     });
 
-    // The module rate limiter (1 call / 30s) has already recorded a call
+    // The module rate limiter (1 call / s) has already recorded a call
     // from an earlier test, so a real `listAccounts()` here would block on a
-    // ~30s sleep — drive it under fake timers, same as the 500-retry test.
+    // short sleep — drive it under fake timers, same as the 500-retry test.
     async function runListAccounts() {
       vi.useFakeTimers();
       try {

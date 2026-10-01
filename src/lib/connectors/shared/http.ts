@@ -52,21 +52,24 @@ export interface RateLimiterConfig {
 }
 
 // Simple fixed-interval limiter: configurable per connector, spaces
-// consecutive calls at least 1000/requestsPerSecond ms apart.
+// consecutive calls at least 1000/requestsPerSecond ms apart. Each caller
+// reserves its slot before sleeping, so concurrent callers (the sync runs
+// several accounts at once) queue up one interval apart instead of all
+// reading the same "last call" time and firing together.
 export class RateLimiter {
   private readonly minIntervalMs: number;
-  private lastCallAt = 0;
+  private nextSlotAt = 0;
 
   constructor(config: RateLimiterConfig) {
     this.minIntervalMs = 1000 / config.requestsPerSecond;
   }
 
   async wait(): Promise<void> {
-    const elapsed = Date.now() - this.lastCallAt;
-    const remaining = this.minIntervalMs - elapsed;
-    if (remaining > 0) {
-      await sleep(remaining);
+    const now = Date.now();
+    const slot = Math.max(now, this.nextSlotAt);
+    this.nextSlotAt = slot + this.minIntervalMs;
+    if (slot > now) {
+      await sleep(slot - now);
     }
-    this.lastCallAt = Date.now();
   }
 }
