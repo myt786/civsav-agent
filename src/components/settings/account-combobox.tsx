@@ -200,26 +200,40 @@ export function AccountCombobox({
                 </CommandGroup>
               </CommandList>
             </Command>
+            {/* Typing an ID by hand is the exception, so it lives in the
+                dropdown rather than as a permanent link under every row. */}
+            <button
+              type="button"
+              onClick={() => {
+                setManual(true);
+                setOpen(false);
+              }}
+              className="w-full border-t border-border px-3 py-2 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              Not listed? Type the ID in instead
+            </button>
           </PopoverContent>
         </Popover>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        {discovery.status === "error" ? (
-          <p className="text-xs text-warning">{friendlyError(discovery.error).summary}</p>
-        ) : (
-          <span />
-        )}
-        {canBrowse && (
-          <button
-            type="button"
-            onClick={() => setManual((m) => !m)}
-            className="text-xs whitespace-nowrap text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
-          >
-            {manual ? "Pick from the list instead" : "Not listed? Type it in"}
-          </button>
-        )}
-      </div>
+      {(discovery.status === "error" || (manual && canBrowse)) && (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          {discovery.status === "error" ? (
+            <p className="text-xs text-warning">{friendlyError(discovery.error).summary}</p>
+          ) : (
+            <span />
+          )}
+          {manual && canBrowse && (
+            <button
+              type="button"
+              onClick={() => setManual(false)}
+              className="text-xs whitespace-nowrap text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground"
+            >
+              Pick from the list instead
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
