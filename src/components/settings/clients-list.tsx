@@ -201,33 +201,54 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
       <div className="flex flex-col gap-3">
         {clients.length > 0 && (
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Filter by status">
-              {STATUS_FILTERS.map((f) => (
-                <button
-                  key={f.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={status === f.value}
-                  onClick={() => setStatus(f.value)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
-                    status === f.value
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
-                    f.value === "attention" && status !== f.value && counts.attention > 0 && "text-destructive",
-                  )}
-                >
-                  {f.label}
-                  <span className={cn("tabular-nums", status === f.value ? "opacity-80" : "opacity-60")}>
-                    {counts[f.value]}
-                  </span>
-                </button>
-              ))}
+            {/* One segmented control instead of a row of outlined pills —
+                lighter, and it reads as "pick one". Scrolls sideways on
+                narrow screens rather than wrapping onto two lines. */}
+            <div
+              className="flex h-9 max-w-full items-center gap-0.5 self-start overflow-x-auto rounded-lg bg-muted p-0.5"
+              role="radiogroup"
+              aria-label="Filter by status"
+            >
+              {STATUS_FILTERS.filter((f) => f.value !== "archived" || counts.archived > 0 || status === "archived").map(
+                (f) => {
+                  const selected = status === f.value;
+                  const alert = f.value === "attention" && counts.attention > 0;
+                  return (
+                    <button
+                      key={f.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setStatus(f.value)}
+                      className={cn(
+                        "flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm whitespace-nowrap transition-colors",
+                        selected
+                          ? "bg-background font-medium text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {f.label}
+                      <span
+                        className={cn(
+                          "min-w-5 rounded-full px-1.5 text-center text-xs leading-5 tabular-nums",
+                          alert
+                            ? "bg-destructive/10 font-medium text-destructive"
+                            : selected
+                              ? "bg-muted text-muted-foreground"
+                              : "text-muted-foreground/80",
+                        )}
+                      >
+                        {counts[f.value]}
+                      </span>
+                    </button>
+                  );
+                },
+              )}
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Select value={platform} onValueChange={setPlatform}>
-                <SelectTrigger className="w-full sm:w-56" aria-label="Filter by platform">
+                <SelectTrigger className="w-full bg-card data-[size=default]:h-9 sm:w-48" aria-label="Filter by platform">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -244,7 +265,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-60">
                 <SearchIcon
                   className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
                   aria-hidden
@@ -253,7 +274,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search clients…"
-                  className="pl-8"
+                  className="h-9 bg-card pl-8"
                   aria-label="Search clients"
                 />
               </div>

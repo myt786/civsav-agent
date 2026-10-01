@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PlusIcon } from "lucide-react";
 import { listClientsWithAccounts } from "@/lib/settings/queries";
 import { getSyncStatus } from "@/lib/dashboard/queries";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ export default async function ClientsListPage() {
   return (
     <div className="flex animate-in flex-col gap-10 fade-in-0 duration-300">
       <section className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
             <h2 className="font-heading text-lg font-medium text-foreground">Clients</h2>
             <p className="text-sm text-muted-foreground">
@@ -28,7 +29,10 @@ export default async function ClientsListPage() {
             </p>
           </div>
           <Button asChild>
-            <Link href="/settings/clients/new">Add client</Link>
+            <Link href="/settings/clients/new">
+              <PlusIcon className="size-4" />
+              Add client
+            </Link>
           </Button>
         </div>
 
