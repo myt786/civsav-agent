@@ -37,7 +37,7 @@ export default async function SeoDashboardPage() {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Each client's Google search performance (from Search Console and Ahrefs), {data.months[0]} to {data.months[data.months.length - 1]}.
+          Each client&apos;s Google search performance (from Search Console and Ahrefs), {data.months[0]} to {data.months[data.months.length - 1]}.
         </p>
       </header>
 

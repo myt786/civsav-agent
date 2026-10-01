@@ -86,7 +86,7 @@ export function ClientsTable({
             full breakdown
           </span>
           <span className="flex items-center gap-1.5">
-            <UnverifiedMark /> not checked yet — probably right, but the account hasn't been confirmed in Settings
+            <UnverifiedMark /> not checked yet — probably right, but the account hasn&apos;t been confirmed in Settings
           </span>
         </div>
         <div className="overflow-hidden rounded-lg border border-border shadow-sm">

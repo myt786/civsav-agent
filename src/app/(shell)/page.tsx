@@ -37,7 +37,7 @@ export default async function DashboardPage() {
       <header className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Client performance</h1>
         <p className="text-sm text-muted-foreground">
-          Your clients' numbers from every platform, updated daily.{" "}
+          Your clients&apos; numbers from every platform, updated daily.{" "}
           <Link href="/docs#numbers" className="text-primary hover:underline">
             How to read this page
           </Link>
