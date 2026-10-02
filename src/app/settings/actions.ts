@@ -139,6 +139,107 @@ export async function unarchiveClient(clientId: string): Promise<void> {
   revalidatePath("/insights");
 }
 
+export type BulkClientAction =
+  | { kind: "showOnDashboard"; value: boolean }
+  | { kind: "showOnSeo"; value: boolean }
+  | { kind: "pause" }
+  | { kind: "resume" }
+  | { kind: "archive" }
+  | { kind: "restore" }
+  | { kind: "timezone"; value: string };
+
+// The bulk action bar on the clients list. Same rules as the one-client
+// actions above (pause keeps data, archive also pauses, restore resumes),
+// one audit entry per client and field, and clients a change doesn't apply
+// to (already paused, already archived…) are skipped and not counted.
+export async function bulkUpdateClients(
+  clientIds: string[],
+  action: BulkClientAction,
+): Promise<{ changed: number; error?: string }> {
+  const session = await requireSession();
+  if (!Array.isArray(clientIds) || clientIds.length === 0 || clientIds.length > 500 || !clientIds.every(isUuid)) {
+    return { changed: 0, error: BAD_TARGET };
+  }
+  if (action.kind === "timezone" && (typeof action.value !== "string" || !isValidTimezone(action.value))) {
+    return { changed: 0, error: "That timezone isn't recognised." };
+  }
+  if ((action.kind === "showOnDashboard" || action.kind === "showOnSeo") && typeof action.value !== "boolean") {
+    return { changed: 0, error: BAD_TARGET };
+  }
+
+  const db = await getDb();
+  const rows = await db.select().from(clients).where(inArray(clients.id, clientIds));
+  const now = new Date();
+  let changed = 0;
+
+  for (const c of rows) {
+    const archived = c.archivedAt !== null;
+    let patch: Partial<typeof clients.$inferInsert> | null = null;
+    const log: { field: string; oldValue: string; newValue: string }[] = [];
+
+    switch (action.kind) {
+      case "showOnDashboard":
+        if (c.showOnDashboard !== action.value) {
+          patch = { showOnDashboard: action.value };
+          log.push({ field: "show_on_dashboard", oldValue: String(c.showOnDashboard), newValue: String(action.value) });
+        }
+        break;
+      case "showOnSeo":
+        if (c.showOnSeo !== action.value) {
+          patch = { showOnSeo: action.value };
+          log.push({ field: "show_on_seo", oldValue: String(c.showOnSeo), newValue: String(action.value) });
+        }
+        break;
+      case "pause":
+        if (c.active && !archived) {
+          patch = { active: false };
+          log.push({ field: "active", oldValue: "true", newValue: "false" });
+        }
+        break;
+      case "resume":
+        if (!c.active && !archived) {
+          patch = { active: true };
+          log.push({ field: "active", oldValue: "false", newValue: "true" });
+        }
+        break;
+      case "archive":
+        if (!archived) {
+          patch = { active: false, archivedAt: now };
+          log.push({ field: "archived", oldValue: "false", newValue: "true" });
+          if (c.active) log.push({ field: "active", oldValue: "true", newValue: "false" });
+        }
+        break;
+      case "restore":
+        if (archived) {
+          patch = { active: true, archivedAt: null };
+          log.push({ field: "archived", oldValue: "true", newValue: "false" });
+          if (!c.active) log.push({ field: "active", oldValue: "false", newValue: "true" });
+        }
+        break;
+      case "timezone":
+        if (c.timezone !== action.value) {
+          patch = { timezone: action.value };
+          log.push({ field: "timezone", oldValue: c.timezone, newValue: action.value });
+        }
+        break;
+    }
+
+    if (!patch) continue;
+    await db.update(clients).set(patch).where(eq(clients.id, c.id));
+    await logChanges(
+      db,
+      log.map((entry) => ({ userEmail: session.email, clientId: c.id, ...entry })),
+    );
+    changed++;
+  }
+
+  revalidatePath("/settings/clients");
+  revalidatePath("/");
+  revalidatePath("/seo");
+  revalidatePath("/insights");
+  return { changed };
+}
+
 // "Resume" in the Settings client list — the counterpart of Pause.
 export async function reactivateClient(clientId: string): Promise<void> {
   const session = await requireSession();

@@ -26,6 +26,7 @@ import type { Platform } from "@/lib/connectors/types";
 import { friendlyError } from "@/lib/friendly-error";
 import { cn } from "@/lib/utils";
 import { ClientVisibilityChips } from "@/components/settings/client-visibility";
+import { ClientsBulkBar } from "@/components/settings/clients-bulk-bar";
 
 interface ClientAccount {
   platform: Platform;
@@ -176,6 +177,9 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
   const [platform, setPlatform] = useState("any");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
   const now = useMemo(() => new Date(), []);
+  // Ticked rows for the bulk action bar. Kept by id so it survives
+  // re-sorting, filtering and a refresh after an action.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   function toggleSort(key: SortKey) {
     setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
@@ -220,6 +224,26 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
 
   const filtersActive = query.trim() !== "" || status !== "all" || platform !== "any";
 
+  const selectedClients = clients.filter((c) => selectedIds.has(c.id));
+  const allShownSelected = filtered.length > 0 && filtered.every((c) => selectedIds.has(c.id));
+  const someShownSelected = filtered.some((c) => selectedIds.has(c.id));
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function toggleAllShown() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allShownSelected) for (const c of filtered) next.delete(c.id);
+      else for (const c of filtered) next.add(c.id);
+      return next;
+    });
+  }
+
   // SEO-only clients still listed on the health dashboard, where they only
   // ever show dots — offered as one click instead of one per client.
   const seoOnlyOnDashboard = clients.filter((c) => !c.archived && c.showOnDashboard && isSeoOnly(c.accounts));
@@ -242,7 +266,8 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-3">
+      {/* Room at the bottom so the floating bulk bar never covers the last rows. */}
+      <div className={cn("flex flex-col gap-3", selectedIds.size > 0 && "pb-20")}>
         {seoOnlyOnDashboard.length > 0 && (
           <div className="flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-foreground">
@@ -314,6 +339,19 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-10 pr-0">
+                  <input
+                    type="checkbox"
+                    className="size-4 cursor-pointer accent-primary align-middle"
+                    checked={allShownSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someShownSelected && !allShownSelected;
+                    }}
+                    onChange={toggleAllShown}
+                    aria-label="Select all clients shown"
+                    disabled={filtered.length === 0}
+                  />
+                </TableHead>
                 <SortHead label="Client" sortKey="name" sort={sort} onSort={toggleSort} className="w-[24%]" />
                 <TableHead>Connected accounts</TableHead>
                 <TableHead className="w-40">Shows on</TableHead>
@@ -330,18 +368,20 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
                   now={now}
                   onOpen={() => router.push(`/settings/clients/${client.id}`)}
                   onEditAccounts={() => setEditing({ id: client.id, name: client.name })}
+                  selected={selectedIds.has(client.id)}
+                  onToggleSelected={() => toggleSelected(client.id)}
                 />
               ))}
               {clients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                     No clients yet — click &ldquo;Add client&rdquo; to add your first one.
                   </TableCell>
                 </TableRow>
               )}
               {clients.length > 0 && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                     No clients match these filters.{" "}
                     <button
                       type="button"
@@ -376,6 +416,12 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
         </div>
       </div>
       <QuickAccountsSheet client={editing} onClose={() => setEditing(null)} />
+      <ClientsBulkBar
+        selected={selectedClients}
+        totalShown={filtered.length}
+        onSelectAllShown={() => setSelectedIds((prev) => new Set([...prev, ...filtered.map((c) => c.id)]))}
+        onClear={() => setSelectedIds(new Set())}
+      />
     </TooltipProvider>
   );
 }
@@ -444,11 +490,15 @@ function ClientRow({
   now,
   onOpen,
   onEditAccounts,
+  selected,
+  onToggleSelected,
 }: {
   client: ClientListItem;
   now: Date;
   onOpen: () => void;
   onEditAccounts: () => void;
+  selected: boolean;
+  onToggleSelected: () => void;
 }) {
   const router = useRouter();
   const [checking, startChecking] = useTransition();
@@ -498,7 +548,19 @@ function ClientRow({
   }
 
   return (
-    <TableRow className={cn("cursor-pointer", !client.active && "opacity-60")} onClick={onOpen}>
+    <TableRow
+      className={cn("cursor-pointer", !client.active && "opacity-60", selected && "bg-primary/5 hover:bg-primary/10")}
+      onClick={onOpen}
+    >
+      <TableCell className="w-10 py-3 pr-0" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          className="size-4 cursor-pointer accent-primary align-middle"
+          checked={selected}
+          onChange={onToggleSelected}
+          aria-label={`Select ${client.name}`}
+        />
+      </TableCell>
       <TableCell className="py-3">
         <Link
           href={`/settings/clients/${client.id}`}
