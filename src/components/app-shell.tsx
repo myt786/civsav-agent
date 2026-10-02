@@ -6,17 +6,18 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BookOpenIcon,
-  ChevronsLeftIcon,
-  ChevronsRightIcon,
   KeyRoundIcon,
   LayoutDashboardIcon,
   LogOutIcon,
   MailIcon,
   MenuIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
   SearchIcon,
   SparklesIcon,
   TrendingUpIcon,
   UsersIcon,
+  ZapIcon,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -80,15 +81,14 @@ const BADGE_STYLE: Record<BadgeKey, { pill: string; solid: string; title: (n: nu
 
 const COLLAPSE_KEY = "civsav:sidebar-collapsed";
 
-// One size for every clickable row, so the expanded list and the collapsed
-// icon rail line up exactly.
+// One height for every clickable row, so the expanded list and the collapsed
+// icon rail line up exactly. Collapsed, every row is the same 40px square.
 const ROW =
-  "flex h-9 items-center gap-2.5 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/60";
-const ROW_IDLE = "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground";
-// The current page reads as a raised chip with a coloured icon, so it's
-// obvious at a glance in both themes and in the collapsed rail.
-const ROW_ACTIVE =
-  "bg-card font-medium text-foreground shadow-sm ring-1 ring-sidebar-border [&>svg:first-child]:text-sidebar-primary";
+  "relative flex h-9 items-center gap-2.5 rounded-lg text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring";
+const ROW_IDLE = "text-sidebar-foreground/65 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground";
+// The current page: tinted row, coloured icon and (expanded) a bar on the left.
+const ROW_ACTIVE = "bg-sidebar-accent font-medium text-sidebar-accent-foreground [&>svg]:text-sidebar-primary";
+const SQUARE = "mx-auto w-10 justify-center px-0";
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -102,19 +102,24 @@ function RailTip({ show, label, children }: { show: boolean; label: string; chil
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="right" sideOffset={8}>
+      <TooltipContent side="right" sideOffset={10}>
         {label}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-function Brand({ size = 26, showName = true }: { size?: number; showName?: boolean }) {
+function Brand({ size = 28, showName = true }: { size?: number; showName?: boolean }) {
   return (
     <>
-      <Image src="/civsav-icon.png" alt="" width={size} height={size} className="shrink-0 rounded-md" priority />
+      <Image src="/civsav-icon.png" alt="" width={size} height={size} className="shrink-0 rounded-lg shadow-sm" priority />
       {showName && (
-        <span className="truncate font-heading text-[15px] font-semibold tracking-tight text-sidebar-foreground">Civilized Savage</span>
+        <span className="flex min-w-0 flex-col leading-tight">
+          <span className="truncate font-heading text-[15px] font-semibold tracking-tight text-sidebar-foreground">
+            Civilized Savage
+          </span>
+          <span className="truncate text-[11px] text-sidebar-foreground/45">Client dashboard</span>
+        </span>
       )}
     </>
   );
@@ -132,11 +137,13 @@ function NavLinks({
   onNavigate?: () => void;
 }) {
   return (
-    <nav className="flex flex-col gap-5">
-      {NAV_GROUPS.map((group) => (
+    <nav className="flex flex-col gap-4">
+      {NAV_GROUPS.map((group, i) => (
         <div key={group.label} className="flex flex-col gap-0.5">
-          {!collapsed && (
-            <span className="mb-1 px-3 text-[11px] font-semibold tracking-wider text-sidebar-foreground/40 uppercase">
+          {collapsed ? (
+            i > 0 && <span className="mx-auto mb-2 h-px w-6 bg-sidebar-border" aria-hidden />
+          ) : (
+            <span className="mb-1 px-3 text-[11px] font-medium tracking-wider text-sidebar-foreground/40 uppercase">
               {group.label}
             </span>
           )}
@@ -154,13 +161,11 @@ function NavLinks({
                   aria-current={active ? "page" : undefined}
                   aria-label={collapsed ? tip : undefined}
                   title={!collapsed && badge ? badge.title(count) : undefined}
-                  className={cn(
-                    ROW,
-                    "relative",
-                    collapsed ? "mx-auto w-10 justify-center" : "px-3",
-                    active ? ROW_ACTIVE : ROW_IDLE,
-                  )}
+                  className={cn(ROW, collapsed ? SQUARE : "px-3", active ? ROW_ACTIVE : ROW_IDLE)}
                 >
+                  {active && !collapsed && (
+                    <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded-r-full bg-sidebar-primary" aria-hidden />
+                  )}
                   <Icon className="size-[18px] shrink-0" aria-hidden />
                   {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
                   {badge &&
@@ -194,41 +199,53 @@ function dataStatusOf(summary: NavSummary | null) {
   const hoursAgo = (Date.now() - at.getTime()) / 3_600_000;
   const tone =
     summary.lastRunStatus === "running"
-      ? { dot: "bg-primary animate-pulse", text: "Updating now…" }
+      ? { dot: "bg-primary", ping: true, text: "Updating now…" }
       : hoursAgo > STALE_HOURS
-        ? { dot: "bg-warning", text: "Not updated recently" }
+        ? { dot: "bg-warning", ping: false, text: "Not updated recently" }
         : summary.lastRunStatus === "failed"
-          ? { dot: "bg-destructive", text: "Last update failed" }
+          ? { dot: "bg-destructive", ping: false, text: "Last update failed" }
           : summary.lastRunStatus === "completed_with_errors"
-            ? { dot: "bg-warning", text: "Updated with some errors" }
-            : { dot: "bg-success", text: "Data up to date" };
+            ? { dot: "bg-warning", ping: false, text: "Updated with some errors" }
+            : { dot: "bg-success", ping: false, text: "Data up to date" };
   return { ...tone, when: formatRelativeTime(at, new Date()) };
 }
 
-// "Data up to date · 3 hours ago": green clean, amber with errors or stale,
-// red failed. Links to Insights, where any problems are listed.
+function StatusDot({ dot, ping }: { dot: string; ping: boolean }) {
+  return (
+    <span className="relative flex size-2 shrink-0">
+      {ping && <span className={cn("absolute inset-0 animate-ping rounded-full opacity-60", dot)} aria-hidden />}
+      <span className={cn("relative size-2 rounded-full", dot)} aria-hidden />
+    </span>
+  );
+}
+
+// Status on top, when underneath — two short lines, so nothing gets cut off.
+// Green clean, amber with errors or stale, red failed. Links to Insights,
+// where any problems are listed.
 function DataStatus({ summary, collapsed }: { summary: NavSummary | null; collapsed: boolean }) {
   const status = dataStatusOf(summary);
   if (!status) return null;
   const label = `${status.text} · ${status.when}`;
+  if (collapsed) {
+    return (
+      <RailTip show label={label}>
+        <Link href="/insights" aria-label={label} className={cn(ROW, ROW_IDLE, SQUARE)}>
+          <StatusDot dot={status.dot} ping={status.ping} />
+        </Link>
+      </RailTip>
+    );
+  }
   return (
-    <RailTip show={collapsed} label={label}>
-      <Link
-        href="/insights"
-        aria-label={collapsed ? label : undefined}
-        className={cn(ROW, ROW_IDLE, "text-xs", collapsed ? "mx-auto w-10 justify-center" : "px-3")}
-      >
-        <span className="relative flex size-[18px] shrink-0 items-center justify-center">
-          <span className={cn("size-2 rounded-full", status.dot)} aria-hidden />
-        </span>
-        {!collapsed && (
-          <span className="min-w-0 truncate">
-            <span className="text-sidebar-foreground/85">{status.text}</span>
-            <span className="text-sidebar-foreground/50"> · {status.when}</span>
-          </span>
-        )}
-      </Link>
-    </RailTip>
+    <Link
+      href="/insights"
+      className="flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors outline-none hover:bg-sidebar-accent/50 focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+    >
+      <StatusDot dot={status.dot} ping={status.ping} />
+      <span className="flex min-w-0 flex-col leading-tight">
+        <span className="truncate text-xs font-medium text-sidebar-foreground/85">{status.text}</span>
+        <span className="truncate text-[11px] text-sidebar-foreground/50">{status.when}</span>
+      </span>
+    </Link>
   );
 }
 
@@ -239,25 +256,31 @@ function initialsOf(email: string | null) {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || name.slice(0, 2).toUpperCase();
 }
 
-function SidebarFooter({
-  summary,
-  collapsed,
-  onToggleCollapsed,
-}: {
-  summary: NavSummary | null;
-  collapsed: boolean;
-  onToggleCollapsed?: () => void;
-}) {
+function Avatar({ email, className }: { email: string | null; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sidebar-primary to-sidebar-primary/60 text-[11px] font-semibold text-sidebar-primary-foreground",
+        className,
+      )}
+      aria-hidden
+    >
+      {initialsOf(email)}
+    </span>
+  );
+}
+
+function SidebarFooter({ summary, collapsed }: { summary: NavSummary | null; collapsed: boolean }) {
   const email = summary?.email ?? null;
   return (
-    <div className="flex flex-col gap-1 border-t border-sidebar-border pt-3">
+    <div className="flex flex-col gap-2 pt-3">
       <DataStatus summary={summary} collapsed={collapsed} />
 
       {collapsed ? (
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1 border-t border-sidebar-border pt-3">
           <RailTip show label={email ? `Signed in as ${email}` : "Signed in"}>
-            <span className="flex size-9 items-center justify-center rounded-full bg-sidebar-primary/15 text-[11px] font-semibold text-sidebar-primary">
-              {initialsOf(email)}
+            <span tabIndex={0} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+              <Avatar email={email} className="size-8" />
             </span>
           </RailTip>
           <RailTip show label="Switch theme">
@@ -274,15 +297,10 @@ function SidebarFooter({
           </form>
         </div>
       ) : (
-        <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/15 text-[11px] font-semibold text-sidebar-primary">
-            {initialsOf(email)}
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col leading-tight">
-            <span className="truncate text-xs font-medium text-sidebar-foreground" title={email ?? undefined}>
-              {email ? email.split("@")[0] : "Civilized Savage"}
-            </span>
-            <span className="truncate text-[11px] text-sidebar-foreground/50">{email ? `@${email.split("@")[1]}` : ""}</span>
+        <div className="flex items-center gap-2 rounded-xl border border-sidebar-border bg-sidebar-accent/20 p-1.5 pl-2">
+          <Avatar email={email} className="size-7" />
+          <span className="min-w-0 flex-1 truncate text-xs text-sidebar-foreground/80" title={email ?? undefined}>
+            {email ?? "Signed in"}
           </span>
           <ThemeToggle />
           <form action={logout}>
@@ -291,20 +309,6 @@ function SidebarFooter({
             </Button>
           </form>
         </div>
-      )}
-
-      {onToggleCollapsed && (
-        <RailTip show={collapsed} label="Expand sidebar">
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={cn(ROW, ROW_IDLE, "text-xs", collapsed ? "mx-auto w-10 justify-center" : "px-3")}
-          >
-            {collapsed ? <ChevronsRightIcon className="size-[18px]" /> : <ChevronsLeftIcon className="size-[18px]" />}
-            {!collapsed && "Collapse"}
-          </button>
-        </RailTip>
       )}
     </div>
   );
@@ -375,63 +379,82 @@ export function AppShell({ children }: { children: ReactNode }) {
         <aside
           className={cn(
             "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-4 transition-[width] duration-200 md:flex",
-            collapsed ? "w-[68px] px-2" : "w-60 px-3",
+            collapsed ? "w-[68px] px-2" : "w-64 px-3",
           )}
         >
-          <Link
-            href="/"
-            className={cn("mb-4 flex h-9 items-center gap-2.5", collapsed ? "justify-center" : "px-2")}
-            aria-label="Civilized Savage home"
-          >
-            <Brand showName={!collapsed} />
-          </Link>
+          {/* Logo with the collapse toggle beside it (stacked when collapsed). */}
+          <div className={cn("mb-4 flex items-center", collapsed ? "flex-col gap-2" : "justify-between gap-2 pl-1.5")}>
+            <Link href="/" className="flex min-w-0 items-center gap-2.5 rounded-lg" aria-label="Civilized Savage home">
+              <Brand showName={!collapsed} />
+            </Link>
+            <RailTip show={collapsed} label="Expand sidebar">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={toggleCollapsed}
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                title={collapsed ? undefined : "Collapse sidebar"}
+                className="shrink-0 text-sidebar-foreground/45 hover:text-sidebar-foreground"
+              >
+                {collapsed ? <PanelLeftOpenIcon className="size-4" /> : <PanelLeftCloseIcon className="size-4" />}
+              </Button>
+            </RailTip>
+          </div>
 
-          {/* Search and the assistant share one row: search fills it, the
-              assistant is a single icon so it never reads as a selected page. */}
-          <div className={cn("mb-5 flex gap-1.5", collapsed && "flex-col items-center")}>
-            <RailTip show={collapsed} label="Quick jump (⌘K)">
+          {/* Search, then the assistant as its own labelled row. The assistant
+              is outlined, never filled, so it can't be mistaken for the
+              selected page. */}
+          <div className={cn("mb-5 flex flex-col gap-1.5", collapsed && "items-center")}>
+            <RailTip show={collapsed} label="Search (⌘K)">
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
-                aria-label="Quick jump"
+                aria-label="Search clients and pages"
                 className={cn(
-                  "group flex h-9 items-center gap-2 rounded-lg border border-sidebar-border bg-card text-sm text-muted-foreground shadow-xs transition-all outline-none hover:border-sidebar-ring/50 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-sidebar-ring/60",
-                  collapsed ? "w-10 justify-center" : "min-w-0 flex-1 pr-1.5 pl-2.5",
+                  "group flex h-9 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/25 text-sm text-sidebar-foreground/55 transition-colors outline-none hover:border-sidebar-ring hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  collapsed ? "w-10 justify-center" : "w-full pr-1.5 pl-3",
                 )}
               >
-                <SearchIcon className="size-4 shrink-0 transition-colors group-hover:text-foreground" aria-hidden />
+                <SearchIcon className="size-4 shrink-0" aria-hidden />
                 {!collapsed && (
                   <>
-                    <span className="flex-1 truncate text-left text-[13px]">Search clients…</span>
-                    <kbd className="flex h-5 items-center rounded-md border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                    <span className="flex-1 truncate text-left text-[13px]">Search…</span>
+                    <kbd className="flex h-5 items-center rounded-md border border-sidebar-border bg-sidebar px-1.5 font-mono text-[10px] font-medium text-sidebar-foreground/55">
                       ⌘K
                     </kbd>
                   </>
                 )}
               </button>
             </RailTip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => setAssistantOpen(true)}
-                  aria-label="Ask AI"
-                  className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-sidebar-border bg-card text-sidebar-primary shadow-xs transition-all outline-none hover:border-sidebar-primary/40 hover:bg-sidebar-primary/10 focus-visible:ring-2 focus-visible:ring-sidebar-ring/60"
-                >
-                  <SparklesIcon className="size-4" aria-hidden />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side={collapsed ? "right" : "bottom"} sideOffset={8}>
-                Ask AI about your clients
-              </TooltipContent>
-            </Tooltip>
+            <RailTip show={collapsed} label="Ask AI about your clients">
+              <button
+                type="button"
+                onClick={() => setAssistantOpen(true)}
+                aria-label="Ask AI"
+                className={cn(
+                  "group flex h-9 items-center gap-2 rounded-lg border border-sidebar-primary/30 text-sm font-medium text-sidebar-primary transition-colors outline-none hover:border-sidebar-primary/60 hover:bg-sidebar-primary/10 focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  collapsed ? "w-10 justify-center" : "w-full px-3",
+                )}
+              >
+                <ZapIcon className="size-4 shrink-0" aria-hidden />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 truncate text-left text-[13px]">Ask AI</span>
+                    <span className="text-[11px] font-normal text-sidebar-primary/60 transition-colors group-hover:text-sidebar-primary">
+                      about your clients
+                    </span>
+                  </>
+                )}
+              </button>
+            </RailTip>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             <NavLinks pathname={pathname} summary={summary} collapsed={collapsed} />
           </div>
 
-          <SidebarFooter summary={summary} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+          <SidebarFooter summary={summary} collapsed={collapsed} />
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -444,7 +467,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <SearchIcon className="size-4" />
               </Button>
               <Button type="button" variant="ghost" size="icon-sm" onClick={() => setAssistantOpen(true)} aria-label="Ask AI">
-                <SparklesIcon className="size-4" />
+                <ZapIcon className="size-4" />
               </Button>
               <Button type="button" variant="ghost" size="icon-sm" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
                 <MenuIcon className="size-4" />
