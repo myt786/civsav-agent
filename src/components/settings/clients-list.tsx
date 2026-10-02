@@ -381,7 +381,8 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
 }
 
 function AccountBadges({ accounts, excluded }: { accounts: ClientAccount[]; excluded: Platform[] }) {
-  const byPlatform = new Map(accounts.map((a) => [a.platform, a]));
+  const byPlatform = new Map<Platform, ClientAccount>();
+  for (const account of accounts) byPlatform.set(account.platform, account);
   return (
     <div className="flex flex-wrap gap-1">
       {/* A platform marked "Not used" (and with nothing connected) isn't
