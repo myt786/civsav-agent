@@ -154,6 +154,9 @@ async function main() {
         // agency's own, editable later at /settings/clients/[id].
         timezone: "America/New_York",
         active: legacy.status === "active",
+        // Only SEO accounts are linked here, so the client starts on the
+        // SEO page only — the health dashboard would just show dots.
+        showOnDashboard: false,
       })
       .returning();
 

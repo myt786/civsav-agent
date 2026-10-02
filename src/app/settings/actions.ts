@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth/require-session";
@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { clients, clientPlatformAccounts } from "@/lib/db/schema";
 import { logChange, logChanges } from "@/lib/settings/audit";
 import { externalIdSchemas, isPlatform, isUuid, isValidCredentialLabel } from "@/lib/settings/validation";
+import { isSeoOnly } from "@/lib/settings/seo-only";
 import { connectorRegistry } from "@/lib/connectors/registry";
 import { getAllDiscoveredAccounts, type DiscoveredAccounts } from "@/lib/connectors/discovery-cache";
 import { getAccessInfo, type AccessInfo } from "@/lib/connectors/access-info";
@@ -310,6 +311,45 @@ export async function setClientVisibility(
   revalidatePath("/seo");
   revalidatePath("/insights");
   return {};
+}
+
+// One click from the clients list: turns the health dashboard off for every
+// live client whose only accounts are SEO ones (Search Console / Ahrefs).
+// They stay on the SEO page; switching one back on is a single click.
+export async function hideSeoOnlyFromDashboard(): Promise<{ count: number; names: string[] }> {
+  const session = await requireSession();
+  const db = await getDb();
+  const [clientRows, mappingRows] = await Promise.all([
+    db
+      .select({ id: clients.id, name: clients.name, archivedAt: clients.archivedAt, showOnDashboard: clients.showOnDashboard })
+      .from(clients),
+    db.select({ clientId: clientPlatformAccounts.clientId, platform: clientPlatformAccounts.platform }).from(clientPlatformAccounts),
+  ]);
+  const byClient = new Map<string, { platform: Platform }[]>();
+  for (const m of mappingRows) byClient.set(m.clientId, [...(byClient.get(m.clientId) ?? []), { platform: m.platform }]);
+
+  const targets = clientRows.filter((c) => c.archivedAt === null && c.showOnDashboard && isSeoOnly(byClient.get(c.id) ?? []));
+  if (targets.length === 0) return { count: 0, names: [] };
+
+  await db
+    .update(clients)
+    .set({ showOnDashboard: false })
+    .where(inArray(clients.id, targets.map((c) => c.id)));
+  await logChanges(
+    db,
+    targets.map((c) => ({
+      userEmail: session.email,
+      clientId: c.id,
+      field: "show_on_dashboard",
+      oldValue: "true",
+      newValue: "false",
+    })),
+  );
+
+  revalidatePath("/settings/clients");
+  revalidatePath("/");
+  revalidatePath("/insights");
+  return { count: targets.length, names: targets.map((c) => c.name) };
 }
 
 // "Not used" on a platform the client simply doesn't have (no GA4, no
