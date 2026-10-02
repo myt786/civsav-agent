@@ -107,3 +107,24 @@ export const externalIdHints: Record<Platform, string> = {
   openphone: "Phone number with country code, e.g. +14155551234",
   lead_dashboard: "Client ID from the lead dashboard",
 };
+
+// Server actions are plain POST endpoints: the ids a page binds into them
+// can arrive as anything. A malformed uuid reaching Postgres throws
+// ("invalid input syntax for type uuid") and shows up as a crashed page,
+// so actions check these first and answer with a normal message.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
+export function isPlatform(value: unknown): value is Platform {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(externalIdSchemas, value);
+}
+
+// Which API key a mapping uses: null (the platform's default), a stored
+// key ("db:<uuid>"), or an env-var suffix like "ACME".
+export function isValidCredentialLabel(value: string | null): boolean {
+  if (value === null) return true;
+  if (value.startsWith("db:")) return isUuid(value.slice(3));
+  return /^[A-Za-z0-9_]{1,64}$/.test(value);
+}

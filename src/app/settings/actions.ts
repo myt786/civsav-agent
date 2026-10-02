@@ -8,7 +8,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { getDb } from "@/lib/db";
 import { clients, clientPlatformAccounts } from "@/lib/db/schema";
 import { logChange, logChanges } from "@/lib/settings/audit";
-import { externalIdSchemas } from "@/lib/settings/validation";
+import { externalIdSchemas, isPlatform, isUuid, isValidCredentialLabel } from "@/lib/settings/validation";
 import { connectorRegistry } from "@/lib/connectors/registry";
 import { getAllDiscoveredAccounts, type DiscoveredAccounts } from "@/lib/connectors/discovery-cache";
 import type { Platform, PlatformAccount, DateRange, ConnectorResult } from "@/lib/connectors/types";
@@ -44,12 +44,15 @@ export interface ClientFormState {
   error?: string;
 }
 
+const BAD_TARGET = "Something went wrong — please reload the page and try again.";
+
 export async function updateClient(
   clientId: string,
   _prevState: ClientFormState,
   formData: FormData,
 ): Promise<ClientFormState> {
   const session = await requireSession();
+  if (!isUuid(clientId)) return { error: BAD_TARGET };
   const parsed = readClientFormData(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Something in the form isn't right — please check it." };
 
@@ -94,6 +97,7 @@ export async function updateClient(
 // unarchiveClient brings the client straight back.
 export async function archiveClient(clientId: string): Promise<void> {
   const session = await requireSession();
+  if (!isUuid(clientId)) return;
   const db = await getDb();
   const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!existing || existing.archivedAt) return;
@@ -115,6 +119,7 @@ export async function archiveClient(clientId: string): Promise<void> {
 // the next daily update.
 export async function unarchiveClient(clientId: string): Promise<void> {
   const session = await requireSession();
+  if (!isUuid(clientId)) return;
   const db = await getDb();
   const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!existing || !existing.archivedAt) return;
@@ -135,6 +140,7 @@ export async function unarchiveClient(clientId: string): Promise<void> {
 // "Resume" in the Settings client list — the counterpart of Pause.
 export async function reactivateClient(clientId: string): Promise<void> {
   const session = await requireSession();
+  if (!isUuid(clientId)) return;
   const db = await getDb();
   const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!existing || existing.active) return;
@@ -154,6 +160,7 @@ export async function reactivateClient(clientId: string): Promise<void> {
 
 export async function deactivateClient(clientId: string): Promise<void> {
   const session = await requireSession();
+  if (!isUuid(clientId)) return;
   const db = await getDb();
   const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!existing || !existing.active) return;
@@ -194,6 +201,7 @@ export async function upsertMapping(
   formData: FormData,
 ): Promise<MappingFormState> {
   const session = await requireSession();
+  if (!isUuid(clientId) || !isPlatform(platform)) return { error: BAD_TARGET };
 
   const rawExternalId = formData.get("externalId");
   const active = formData.get("active") === "true";
@@ -207,6 +215,7 @@ export async function upsertMapping(
   if (!idParsed.success) {
     return { error: idParsed.error.issues[0]?.message ?? "That doesn't look right — please check it." };
   }
+  if (!isValidCredentialLabel(credentialLabel)) return { error: BAD_TARGET };
 
   const db = await getDb();
   const [existing] = await db
@@ -252,6 +261,8 @@ export async function upsertMapping(
 
   const verify = await runVerification(clientId, platform);
   revalidatePath(`/settings/clients/${clientId}`);
+  // The clients list shows each account's status, which this just changed.
+  revalidatePath("/settings/clients");
   return { verify };
 }
 
@@ -286,8 +297,10 @@ function last7DayWindow(timezone: string, now: Date): DateRange {
 
 export async function verifyMapping(clientId: string, platform: Platform): Promise<VerifyResult> {
   await requireSession();
+  if (!isUuid(clientId) || !isPlatform(platform)) return { status: "error", message: BAD_TARGET };
   const result = await runVerification(clientId, platform);
   revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath("/settings/clients");
   return result;
 }
 
@@ -296,6 +309,7 @@ export async function verifyMapping(clientId: string, platform: Platform): Promi
 // others from being checked.
 export async function verifyAllMappings(clientId: string): Promise<{ platform: Platform; result: VerifyResult }[]> {
   await requireSession();
+  if (!isUuid(clientId)) return [];
   const db = await getDb();
   const mappings = await db
     .select({ platform: clientPlatformAccounts.platform })
@@ -305,6 +319,7 @@ export async function verifyAllMappings(clientId: string): Promise<{ platform: P
     mappings.map(async ({ platform }) => ({ platform, result: await runVerification(clientId, platform) })),
   );
   revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath("/settings/clients");
   return results;
 }
 
@@ -496,8 +511,17 @@ export async function createClientWithMappings(
 
   const parsedMappings: { platform: Platform; externalId: string; active: boolean; credentialLabel: string | null }[] =
     [];
-  for (const mapping of mappings) {
+  const seenPlatforms = new Set<Platform>();
+  for (const mapping of Array.isArray(mappings) ? mappings : []) {
+    if (!isPlatform(mapping?.platform) || typeof mapping.externalId !== "string") return { error: BAD_TARGET };
     if (mapping.externalId.trim().length === 0) continue;
+    // One account per platform (the table has a unique index on it): a
+    // second row for the same platform would fail after the client was
+    // already created, leaving a client with none of its accounts saved.
+    if (seenPlatforms.has(mapping.platform)) continue;
+    seenPlatforms.add(mapping.platform);
+    const label = mapping.credentialLabel ?? null;
+    if (!isValidCredentialLabel(label)) return { error: BAD_TARGET };
     const idParsed = externalIdSchemas[mapping.platform].safeParse(mapping.externalId);
     if (!idParsed.success) {
       return { error: `${PLATFORM_LABELS[mapping.platform]}: ${idParsed.error.issues[0]?.message ?? "That doesn't look right."}` };

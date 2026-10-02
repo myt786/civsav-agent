@@ -58,12 +58,15 @@ export async function verifySessionCookieValue(value: string | undefined | null)
   if (!payloadB64 || !signatureB64) return null;
 
   const key = await getKey();
-  const valid = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    fromBase64Url(signatureB64),
-    new TextEncoder().encode(payloadB64),
-  );
+  // A tampered or truncated cookie can fail base64 decoding (atob throws);
+  // that's "not signed in", not a crash — this runs in the middleware on
+  // every request, where a throw would 500 the whole site for that browser.
+  let valid = false;
+  try {
+    valid = await crypto.subtle.verify("HMAC", key, fromBase64Url(signatureB64), new TextEncoder().encode(payloadB64));
+  } catch {
+    return null;
+  }
   if (!valid) return null;
 
   try {

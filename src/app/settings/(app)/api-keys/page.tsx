@@ -1,13 +1,12 @@
 import { asc, like } from "drizzle-orm";
 import { clientPlatformAccounts, platformCredentials } from "@/lib/db/schema";
 import { getClient } from "@/lib/settings/queries";
+import { isUuid } from "@/lib/settings/validation";
 import { credentialsDb, storedIdFromLabel } from "@/lib/connectors/stored-credentials";
 import { AddApiKeyForm } from "@/components/settings/add-api-key-form";
 import { ApiKeysList, type ApiKeyRow } from "@/components/settings/api-keys-list";
 
 export const dynamic = "force-dynamic";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Names only — never values. Lists keys still configured the old way so
 // it's clear what's in use while they're moved over.
@@ -42,7 +41,7 @@ export default async function ApiKeysPage({
       .select({ credentialLabel: clientPlatformAccounts.credentialLabel })
       .from(clientPlatformAccounts)
       .where(like(clientPlatformAccounts.credentialLabel, "db:%")),
-    params.clientId && UUID_RE.test(params.clientId) ? getClient(params.clientId) : Promise.resolve(null),
+    isUuid(params.clientId) ? getClient(params.clientId) : Promise.resolve(null),
   ]);
 
   const usage = new Map<string, number>();

@@ -5,6 +5,7 @@ import { ArchiveIcon, ArrowLeftIcon, ClockIcon, GlobeIcon, PauseIcon } from "luc
 import { getDb } from "@/lib/db";
 import { metricSnapshots } from "@/lib/db/schema";
 import { getClient, getClientMappings } from "@/lib/settings/queries";
+import { isUuid } from "@/lib/settings/validation";
 import { getRecentChanges } from "@/lib/settings/audit";
 import { getAllDiscoveredAccounts } from "@/lib/connectors/discovery-cache";
 import { ClientForm } from "@/components/settings/client-form";
@@ -100,6 +101,8 @@ function ChangeItem({ change }: { change: Parameters<typeof describeChange>[0] &
 
 export default async function EditClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // A mistyped or truncated link: a 404, not a database error page.
+  if (!isUuid(id)) notFound();
   const [client, mappings, changes, discovery, lastUpdatedAt] = await Promise.all([
     getClient(id),
     getClientMappings(id),
