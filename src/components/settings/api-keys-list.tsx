@@ -7,6 +7,7 @@ import {
   deletePlatformCredential,
   moveEnvKeysToSaved,
   replacePlatformCredential,
+  setGhlKeyLocation,
   type CredentialFormState,
 } from "@/app/settings/credentials-actions";
 import { ConfirmSubmitButton } from "@/components/settings/confirm-submit-button";
@@ -125,6 +126,44 @@ export function ApiKeysList({
   );
 }
 
+// A GoHighLevel sub-account key works for one location only. Keys moved in
+// from the old setup without one ask for it here.
+function GhlLocationForm({ row }: { row: ApiKeyRow }) {
+  const [state, action, pending] = useActionState(setGhlKeyLocation.bind(null, row.id), initialState);
+  const [locationId, setLocationId] = useState("");
+  const wasPending = useRef(pending);
+  useEffect(() => {
+    if (wasPending.current && !pending) {
+      if (state.error) toast({ variant: "error", title: "Sub-account ID not saved", description: state.error });
+      else if (state.success) toast({ variant: "success", title: `${row.name}: ${state.success}` });
+    }
+    wasPending.current = pending;
+  }, [pending, state.error, state.success, row.name]);
+
+  return (
+    <form action={action} className="flex flex-col gap-1.5 rounded-lg bg-warning/10 px-3 py-2.5">
+      <label htmlFor={`loc-${row.id}`} className="text-xs text-foreground">
+        <span className="font-medium">Sub-account ID needed.</span> This key belongs to one GoHighLevel sub-account —
+        open it in GoHighLevel and copy the ID from the address bar (the part after <code>/location/</code>).
+      </label>
+      <div className="flex flex-col gap-1.5 sm:flex-row">
+        <Input
+          id={`loc-${row.id}`}
+          name="locationId"
+          value={locationId}
+          onChange={(e) => setLocationId(e.target.value)}
+          placeholder="e.g. WomOiaP51oX0hmVSsLYv"
+          required
+          className="h-8 flex-1 bg-card font-mono"
+        />
+        <Button type="submit" size="sm" disabled={pending || locationId.trim().length === 0}>
+          {pending ? "Testing…" : "Test & save"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function KeyRow({ row }: { row: ApiKeyRow }) {
   const [replacing, setReplacing] = useState(false);
   const [newKey, setNewKey] = useState("");
@@ -186,6 +225,15 @@ function KeyRow({ row }: { row: ApiKeyRow }) {
           </form>
         </div>
       </div>
+
+      {row.platform === "ghl" &&
+        (row.locationId ? (
+          <p className="text-xs text-muted-foreground">
+            Sub-account ID: <code className="text-foreground">{row.locationId}</code>
+          </p>
+        ) : (
+          <GhlLocationForm row={row} />
+        ))}
 
       {replacing && (
         <form action={replaceAction} className="flex flex-col gap-1.5 sm:flex-row">

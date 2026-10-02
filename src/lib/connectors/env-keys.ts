@@ -65,9 +65,9 @@ export async function countUnsavedEnvKeys(): Promise<{ ghl: number; openphone: n
 export interface MigrationResult {
   moved: number;
   alreadySaved: number;
-  // GHL env keys no client uses: their location is unknown (env vars never
-  // recorded it), so they're left where they are.
-  skippedUnused: number;
+  // GHL keys moved without a sub-account (location) ID: no client used
+  // them, and env vars never recorded it. Their saved key asks for it.
+  needLocation: number;
   clientsRepointed: number;
   repointed: { clientId: string; platform: "ghl" | "openphone"; from: string | null; to: string }[];
 }
@@ -79,7 +79,7 @@ export interface MigrationResult {
 // here — once this has run, they can be deleted in Vercel.
 export async function migrateEnvKeys(userEmail: string): Promise<MigrationResult> {
   const db = await credentialsDb();
-  const result: MigrationResult = { moved: 0, alreadySaved: 0, skippedUnused: 0, clientsRepointed: 0, repointed: [] };
+  const result: MigrationResult = { moved: 0, alreadySaved: 0, needLocation: 0, clientsRepointed: 0, repointed: [] };
   const secrets = { ghl: await storedSecrets("ghl"), openphone: await storedSecrets("openphone") };
 
   for (const key of listEnvKeys()) {
@@ -103,10 +103,10 @@ export async function migrateEnvKeys(userEmail: string): Promise<MigrationResult
     if (label) {
       result.alreadySaved++;
     } else {
-      if (key.platform === "ghl" && users.length === 0) {
-        result.skippedUnused++;
-        continue;
-      }
+      // A GHL key is a sub-account key, tied to one location: take it from
+      // the client that uses it. With no client, it's moved without one and
+      // the saved key asks for it.
+      if (key.platform === "ghl" && users.length === 0) result.needLocation++;
       const baseName =
         key.platform === "ghl"
           ? (users[0]?.clientName ?? humanizeLabel(key.label ?? "GoHighLevel"))
