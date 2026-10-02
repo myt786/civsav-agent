@@ -33,6 +33,7 @@ export function MappingsSection({
   initialDiscovery,
   mappingByPlatform,
   accessInfo,
+  excludedPlatforms = [],
   onChanged,
 }: {
   clientId: string;
@@ -40,6 +41,8 @@ export function MappingsSection({
   initialDiscovery: DiscoveredAccounts[];
   mappingByPlatform: Map<Platform, MappingRowData>;
   accessInfo: AccessInfo;
+  // Platforms marked "Not used" for this client.
+  excludedPlatforms?: Platform[];
   onChanged?: () => void;
 }) {
   const [discovery, setDiscovery] = useState<Record<Platform, DiscoveryState>>(() =>
@@ -109,6 +112,7 @@ export function MappingsSection({
                 discovery={state}
                 suggestedId={suggestion?.account.id}
                 accessInfo={accessInfo}
+                excluded={excludedPlatforms.includes(platform)}
                 onChanged={onChanged}
                 addKeyHref={
                   platform === "ghl" || platform === "openphone"

@@ -9,19 +9,39 @@ import { fetchSitemapUrls } from "./sitemap";
 import { getSeoClientSnapshot, getSeoNotesHistory } from "./queries";
 import { formatInteger, formatPercent, formatPosition } from "../dashboard/format";
 import type { SeoClientRow } from "./types";
+import type {
+  RecommendationHistoryEntry,
+  RecommendationItem,
+  RecommendationSources,
+} from "./recommendation-items";
 
 const NARRATIVE_MODEL = "google/gemini-2.5-flash-lite";
 
 const recommendationsOutputSchema = z.object({
   recommendations: z
-    .array(z.string().describe("One concrete, specific SEO recommendation — reference an actual page or query from the data given where relevant, not a generic tip."))
+    .array(
+      z.object({
+        title: z
+          .string()
+          .describe("The action in one short imperative sentence, under 15 words — e.g. 'Add an FAQ section to /services/roof-repair'."),
+        detail: z
+          .string()
+          .describe("Two or three sentences: why, citing the actual numbers given (clicks, impressions, position), and exactly what to change."),
+        priority: z.enum(["high", "medium", "low"]).describe("high = biggest expected traffic gain for the effort"),
+        category: z.enum(["content", "on_page", "technical", "links", "local", "other"]),
+        effort: z.enum(["quick", "medium", "big"]).describe("quick = under an hour, medium = a few hours, big = a project"),
+        target: z
+          .string()
+          .describe("The single page URL or search query this is about, copied exactly from the data given. Empty string if it's site-wide."),
+      }),
+    )
     .min(4)
     .max(8),
 });
 
 export interface ClientRecommendationResult {
-  recommendations: string[];
-  sitemapUrlCount: number | null;
+  items: RecommendationItem[];
+  sources: RecommendationSources;
 }
 
 function summarizeRow(row: SeoClientRow): string {
@@ -51,7 +71,10 @@ function summarizeRow(row: SeoClientRow): string {
 // Gathers everything, best-effort — a missing piece (no sitemap, no GSC
 // access yet, no history) degrades to "less context for the model," never
 // blocks the others or throws. This feeds a prompt, not a sync pipeline.
-export async function generateClientRecommendation(clientId: string): Promise<ClientRecommendationResult> {
+export async function generateClientRecommendation(
+  clientId: string,
+  history: RecommendationHistoryEntry[] = [],
+): Promise<ClientRecommendationResult> {
   const db = await getDb();
 
   const row = await getSeoClientSnapshot(clientId);
@@ -83,20 +106,42 @@ export async function generateClientRecommendation(clientId: string): Promise<Cl
     promptParts.push("No sitemap could be found for this domain.");
   }
 
+  const ctr = (r: { clicks: number; impressions: number }) => (r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0);
   if (gscBreakdown.status === "ok") {
     if (gscBreakdown.topQueries.length > 0) {
       const top = gscBreakdown.topQueries
         .slice(0, 20)
-        .map((q) => `"${q.key}" (${q.clicks} clicks, position ${q.position.toFixed(1)})`)
+        .map((q) => `"${q.key}" (${q.clicks} clicks, ${q.impressions} impressions, CTR ${ctr(q).toFixed(1)}%, position ${q.position.toFixed(1)})`)
         .join("; ");
       promptParts.push(`Top queries over the last ~28 days: ${top}.`);
+      // Positions 4-20 with real impressions: "almost there" queries where
+      // a small improvement moves clicks the most.
+      const striking = gscBreakdown.topQueries
+        .filter((q) => q.position >= 4 && q.position <= 20 && q.impressions >= 20)
+        .sort((a, b) => b.impressions - a.impressions)
+        .slice(0, 8);
+      if (striking.length > 0) {
+        promptParts.push(
+          `Queries ranking just off the top spots (positions 4-20) with real impressions — usually the quickest wins: ${striking
+            .map((q) => `"${q.key}" (position ${q.position.toFixed(1)}, ${q.impressions} impressions)`)
+            .join("; ")}.`,
+        );
+      }
     }
     if (gscBreakdown.topPages.length > 0) {
       const top = gscBreakdown.topPages
         .slice(0, 20)
-        .map((p) => `${p.key} (${p.clicks} clicks, position ${p.position.toFixed(1)})`)
+        .map((p) => `${p.key} (${p.clicks} clicks, ${p.impressions} impressions, CTR ${ctr(p).toFixed(1)}%, position ${p.position.toFixed(1)})`)
         .join("; ");
       promptParts.push(`Top pages over the last ~28 days: ${top}.`);
+      const lowCtr = gscBreakdown.topPages.filter((p) => p.impressions >= 100 && ctr(p) < 2 && p.position <= 15).slice(0, 6);
+      if (lowCtr.length > 0) {
+        promptParts.push(
+          `Pages seen often but rarely clicked (title and description worth rewriting): ${lowCtr
+            .map((p) => `${p.key} (${p.impressions} impressions, CTR ${ctr(p).toFixed(1)}%)`)
+            .join("; ")}.`,
+        );
+      }
     }
   } else {
     promptParts.push("No deeper Search Console query/page breakdown is available yet.");
@@ -108,6 +153,15 @@ export async function generateClientRecommendation(clientId: string): Promise<Cl
     );
   }
 
+  const done = history.filter((h) => h.status === "done").slice(0, 20);
+  const dismissed = history.filter((h) => h.status === "dismissed").slice(0, 20);
+  if (done.length > 0) {
+    promptParts.push(`Already done by the team from earlier lists — don't suggest these again: ${done.map((h) => `"${h.title}"`).join("; ")}.`);
+  }
+  if (dismissed.length > 0) {
+    promptParts.push(`The team turned these down before — don't suggest them or close variations: ${dismissed.map((h) => `"${h.title}"`).join("; ")}.`);
+  }
+
   const { output } = await generateText({
     model: NARRATIVE_MODEL,
     instructions:
@@ -115,13 +169,35 @@ export async function generateClientRecommendation(clientId: string): Promise<Cl
       "top queries/pages, the current tier/trend numbers, and the team's own notes history together — a good " +
       "recommendation references an actual page from the sitemap or a real query from the data, not a generic " +
       "'improve your content' tip. Never invent a page, query, or competitor that wasn't given to you. If the " +
-      "team's notes already mention doing something, don't recommend it again unless the data shows it didn't work.",
+      "team's notes already mention doing something, don't recommend it again unless the data shows it didn't work. " +
+      "Order the list by expected impact. Mark at most two items as high priority. Write for a busy account " +
+      "manager: plain words, no jargon, no filler.",
     prompt: promptParts.join("\n"),
     output: Output.object({ schema: recommendationsOutputSchema }),
   });
 
+  const batch = Date.now().toString(36);
+  const items: RecommendationItem[] = output.recommendations
+    .filter((rec) => rec.title.trim() !== "")
+    .map<RecommendationItem>((rec, i) => ({
+      id: `${batch}-${i}`,
+      title: rec.title.trim(),
+      detail: rec.detail.trim(),
+      priority: rec.priority,
+      category: rec.category,
+      effort: rec.effort,
+      target: rec.target.trim() || null,
+      status: "open",
+      statusAt: null,
+    }));
+
   return {
-    recommendations: output.recommendations,
-    sitemapUrlCount: sitemapResult.status === "ok" ? sitemapResult.urls.length : null,
+    items,
+    sources: {
+      sitemapUrls: sitemapResult.status === "ok" ? sitemapResult.urls.length : null,
+      gscQueries: gscBreakdown.status === "ok" ? gscBreakdown.topQueries.length : 0,
+      gscPages: gscBreakdown.status === "ok" ? gscBreakdown.topPages.length : 0,
+      notesMonths: notesHistory.length,
+    },
   };
 }

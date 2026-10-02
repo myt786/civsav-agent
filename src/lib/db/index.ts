@@ -23,6 +23,7 @@ const SELF_HEALING_DDL = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "report_recipients_email_idx" ON "report_recipients" USING btree ("email")`,
   `ALTER TABLE "report_recipients" ADD COLUMN IF NOT EXISTS "access_report" boolean DEFAULT false NOT NULL`,
+  `ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "excluded_platforms" jsonb DEFAULT '[]'::jsonb NOT NULL`,
 ];
 
 async function createDb() {
