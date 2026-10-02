@@ -5,6 +5,7 @@ import { isUuid } from "@/lib/settings/validation";
 import { credentialsDb, storedIdFromLabel } from "@/lib/connectors/stored-credentials";
 import { AddApiKeyForm } from "@/components/settings/add-api-key-form";
 import { ApiKeysList, type ApiKeyRow } from "@/components/settings/api-keys-list";
+import { countUnsavedEnvKeys } from "@/lib/connectors/env-keys";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +84,7 @@ export default async function ApiKeysPage({
           clientId={client?.id}
           clientName={client?.name}
         />
-        <ApiKeysList keys={keys} envKeyNames={envKeyNames()} />
+        <ApiKeysList keys={keys} envKeyNames={envKeyNames()} unsavedEnvKeys={await countUnsavedEnvKeys()} />
       </div>
     </div>
   );

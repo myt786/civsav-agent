@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { KeyRoundIcon, ShieldCheckIcon } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowDownToLineIcon, KeyRoundIcon, ShieldCheckIcon } from "lucide-react";
 import {
   deletePlatformCredential,
+  moveEnvKeysToSaved,
   replacePlatformCredential,
   type CredentialFormState,
 } from "@/app/settings/credentials-actions";
@@ -29,16 +31,49 @@ const SECTIONS: { platform: "ghl" | "openphone"; title: string }[] = [
 
 const initialState: CredentialFormState = {};
 
+function MoveEnvKeysButton({ count }: { count: number }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  return (
+    <Button
+      type="button"
+      size="sm"
+      disabled={pending}
+      onClick={() =>
+        startTransition(async () => {
+          const result = await moveEnvKeysToSaved();
+          toast(
+            result.ok
+              ? { variant: "success", title: "Keys moved", description: result.message }
+              : { variant: "error", title: "Keys not moved", description: result.message },
+          );
+          router.refresh();
+        })
+      }
+    >
+      <ArrowDownToLineIcon className="size-3.5" />
+      {pending ? "Moving…" : `Move ${count} older key${count === 1 ? "" : "s"} in`}
+    </Button>
+  );
+}
+
 export function ApiKeysList({
   keys,
   envKeyNames,
+  unsavedEnvKeys,
 }: {
   keys: ApiKeyRow[];
   envKeyNames: { ghl: string[]; openphone: string[] };
+  // Env-var keys not yet copied into saved keys, per platform.
+  unsavedEnvKeys: { ghl: number; openphone: number };
 }) {
+  const unsavedTotal = unsavedEnvKeys.ghl + unsavedEnvKeys.openphone;
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm">
-      <h3 className="text-sm font-medium text-foreground">Saved keys</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-medium text-foreground">Saved keys</h3>
+        {unsavedTotal > 0 && <MoveEnvKeysButton count={unsavedTotal} />}
+      </div>
       {SECTIONS.map(({ platform, title }) => {
         const rows = keys.filter((key) => key.platform === platform);
         const envNames = envKeyNames[platform];
@@ -63,14 +98,25 @@ export function ApiKeysList({
                 No {title} keys yet — add one on the left.
               </p>
             )}
-            {envNames.length > 0 && (
-              <p className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2.5 text-xs text-muted-foreground">
-                <ShieldCheckIcon className="mt-px size-3.5 shrink-0 text-success" aria-hidden />
+            {unsavedEnvKeys[platform] > 0 ? (
+              <p className="flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2.5 text-xs text-muted-foreground">
+                <ArrowDownToLineIcon className="mt-px size-3.5 shrink-0 text-warning" aria-hidden />
                 <span>
-                  {envNames.length} {envNames.length === 1 ? "key was" : "keys were"} set up earlier by a developer.
-                  {" "}They still work — nothing to do.
+                  {unsavedEnvKeys[platform]} {unsavedEnvKeys[platform] === 1 ? "key is" : "keys are"} still set up the old
+                  way, by a developer in Vercel. They work, but can&apos;t be seen or replaced here — use{" "}
+                  <span className="font-medium text-foreground">Move older keys in</span> above.
                 </span>
               </p>
+            ) : (
+              envNames.length > 0 && (
+                <p className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2.5 text-xs text-muted-foreground">
+                  <ShieldCheckIcon className="mt-px size-3.5 shrink-0 text-success" aria-hidden />
+                  <span>
+                    The {envNames.length} older {envNames.length === 1 ? "key has" : "keys have"} been moved in. A developer
+                    can now remove {envNames.length === 1 ? "it" : "them"} from Vercel — optional, nothing breaks either way.
+                  </span>
+                </p>
+              )
             )}
           </section>
         );

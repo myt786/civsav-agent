@@ -153,8 +153,12 @@ export async function listGhlLocations(): Promise<DiscoveryResult> {
   // other platform's.
   const accounts: DiscoveredAccount[] = [];
   let storedError: string | null = null;
+  // An env-var key that's also been saved (moved in Settings → API keys)
+  // is the same key — list it once, as the saved one.
+  const savedSecrets = new Set<string>();
   try {
     for (const cred of await listStoredCredentials("ghl")) {
+      savedSecrets.add(cred.secret);
       if (!cred.externalId) continue;
       accounts.push({ id: cred.externalId, name: cred.name, credentialLabel: cred.label, credentialName: cred.name });
     }
@@ -166,6 +170,7 @@ export async function listGhlLocations(): Promise<DiscoveryResult> {
   // placeholders: selecting one sets the credentialLabel, and the location
   // ID is typed via "Enter ID manually".
   for (const cred of getConfiguredCredentials()) {
+    if (savedSecrets.has(cred.apiKey)) continue;
     accounts.push({
       id: "",
       name: `Enter the ${humanizeLabel(cred.label)} location ID manually`,

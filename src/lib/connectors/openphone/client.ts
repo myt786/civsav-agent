@@ -223,7 +223,9 @@ export async function listOpenPhoneNumbers(): Promise<DiscoveryResult> {
   } catch (err) {
     storedError = err instanceof Error ? err.message : String(err);
   }
-  workspaces.push(...getEnvWorkspaces());
+  // An env-var key that's also been saved is the same workspace — list its
+  // numbers once, under the saved key.
+  workspaces.push(...getEnvWorkspaces().filter((env) => !workspaces.some((saved) => saved.apiKey === env.apiKey)));
 
   // Listing numbers is a single cheap call, not the rate-limited/metered
   // fetch path — so real credentials take discovery live on their own,

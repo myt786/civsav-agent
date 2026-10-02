@@ -11,6 +11,7 @@ import { logChanges } from "@/lib/settings/audit";
 import { externalIdSchemas, isUuid } from "@/lib/settings/validation";
 import { credentialsDb, encryptSecret, storedLabel } from "@/lib/connectors/stored-credentials";
 import { invalidateDiscovery } from "@/lib/connectors/discovery-cache";
+import { migrateEnvKeys } from "@/lib/connectors/env-keys";
 import { testGhlKey } from "@/lib/connectors/ghl/client";
 import { testOpenPhoneKey } from "@/lib/connectors/openphone/client";
 import { verifyMapping } from "./actions";
@@ -217,4 +218,49 @@ export async function deletePlatformCredential(
   if (row.platform === "ghl" || row.platform === "openphone") invalidateDiscovery(row.platform);
   revalidatePath("/settings/api-keys");
   return {};
+}
+
+export interface MoveEnvKeysResult {
+  ok: boolean;
+  message: string;
+}
+
+// "Move them into saved keys" on Settings → API keys: copies the keys a
+// developer set up as Vercel env vars into the app (encrypted, like a
+// pasted key) and points their clients at the saved copies. Nothing to
+// paste — the values are read on the server and never sent to the browser.
+export async function moveEnvKeysToSaved(): Promise<MoveEnvKeysResult> {
+  const session = await requireSession();
+  try {
+    const result = await migrateEnvKeys(session.email);
+    if (result.repointed.length > 0) {
+      const db = await getDb();
+      await logChanges(
+        db,
+        result.repointed.map((r) => ({
+          userEmail: session.email,
+          clientId: r.clientId,
+          platform: r.platform,
+          field: "credential_label",
+          oldValue: r.from,
+          newValue: r.to,
+        })),
+      );
+    }
+    invalidateDiscovery("ghl");
+    invalidateDiscovery("openphone");
+    revalidatePath("/settings/api-keys");
+    revalidatePath("/settings/clients");
+
+    const parts = [
+      result.moved > 0 ? `Moved ${result.moved} key${result.moved === 1 ? "" : "s"}` : "No new keys to move",
+      result.clientsRepointed > 0 ? `${result.clientsRepointed} client account${result.clientsRepointed === 1 ? "" : "s"} now use the saved copies` : null,
+      result.skippedUnused > 0
+        ? `${result.skippedUnused} GoHighLevel key${result.skippedUnused === 1 ? " isn't" : "s aren't"} used by any client, so ${result.skippedUnused === 1 ? "it was" : "they were"} left as is`
+        : null,
+    ].filter(Boolean);
+    return { ok: true, message: `${parts.join(". ")}.` };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Couldn't move the keys." };
+  }
 }
