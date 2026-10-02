@@ -64,7 +64,9 @@ async function getLastUpdatedAt(clientId: string): Promise<Date | null> {
     .select({ last: sql<string | null>`max(${metricSnapshots.createdAt})` })
     .from(metricSnapshots)
     .where(eq(metricSnapshots.clientId, clientId));
-  return row?.last ? new Date(row.last) : null;
+  if (!row?.last) return null;
+  const date = new Date(row.last);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 const RECENT_CHANGES_SHOWN = 6;
@@ -104,12 +106,20 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   // A mistyped or truncated link: a 404, not a database error page.
   if (!isUuid(id)) notFound();
+  // The change history and "last updated" line are nice to have — a
+  // failure in either shouldn't take the whole page down with it.
   const [client, mappings, changes, discovery, lastUpdatedAt] = await Promise.all([
     getClient(id),
     getClientMappings(id),
-    getRecentChanges(id),
+    getRecentChanges(id).catch((err) => {
+      console.error("client page: recent changes failed", err);
+      return [];
+    }),
     getAllDiscoveredAccounts(),
-    getLastUpdatedAt(id),
+    getLastUpdatedAt(id).catch((err) => {
+      console.error("client page: last updated failed", err);
+      return null;
+    }),
   ]);
   if (!client) notFound();
 

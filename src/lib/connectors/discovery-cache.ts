@@ -22,6 +22,31 @@ export function invalidateDiscovery(platform: Platform): void {
   cache.delete(platform);
 }
 
+// Platform APIs don't always fill every field (an unnamed Google Ads
+// account, a GHL location without a name), and the Settings pages call
+// string methods on these while rendering — one missing name took down a
+// whole client page. Everything leaving here has a string id and name.
+function cleanResult(result: DiscoveryResult): DiscoveryResult {
+  if (result.status !== "ok" || !Array.isArray(result.accounts)) {
+    return result.status === "ok" ? { status: "ok", accounts: [] } : result;
+  }
+  return {
+    status: "ok",
+    accounts: result.accounts
+      .filter((account) => account && typeof account === "object")
+      .map((account) => {
+        const id = account.id === null || account.id === undefined ? "" : String(account.id);
+        const name = typeof account.name === "string" && account.name.trim() !== "" ? account.name : id;
+        return {
+          ...account,
+          id,
+          name,
+          extra: typeof account.extra === "string" ? account.extra : undefined,
+        };
+      }),
+  };
+}
+
 export interface DiscoveredAccounts {
   platform: Platform;
   result: DiscoveryResult;
@@ -40,7 +65,7 @@ export async function getDiscoveredAccounts(
 
   const connector = connectorRegistry[platform];
   const result: DiscoveryResult = connector?.listAccounts
-    ? await connector.listAccounts()
+    ? cleanResult(await connector.listAccounts())
     : { status: "error", error: `Account discovery isn't available for this platform yet.` };
 
   const fetchedAt = new Date();
