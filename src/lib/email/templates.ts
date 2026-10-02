@@ -49,7 +49,7 @@ function button(href: string, label: string): string {
 
 function footerText(appUrl: string | null): string {
   const settings = appUrl ? ` Change who gets this in <a href="${esc(`${appUrl}/settings/email-reports`)}" style="color:${MUTED};">Settings → Email reports</a>.` : "";
-  return `Sent by the civsav dashboard.${settings}`;
+  return `Sent by the Civilized Savage dashboard.${settings}`;
 }
 
 export function buildDailyDigestEmail(input: DailyDigestInput): Omit<EmailMessage, "to"> {

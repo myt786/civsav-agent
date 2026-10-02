@@ -6,21 +6,21 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BookOpenIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
   KeyRoundIcon,
   LayoutDashboardIcon,
   LogOutIcon,
   MailIcon,
   MenuIcon,
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
   SearchIcon,
   SparklesIcon,
   TrendingUpIcon,
   UsersIcon,
-  ZapIcon,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette } from "@/components/command-palette";
 import { AssistantChat } from "@/components/assistant-chat";
@@ -65,29 +65,57 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 // Kept for anything that wants the flat list (e.g. the command palette).
 export const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
-const BADGE_STYLE: Record<BadgeKey, { className: string; title: (n: number) => string }> = {
+const BADGE_STYLE: Record<BadgeKey, { pill: string; solid: string; title: (n: number) => string }> = {
   attention: {
-    className: "bg-warning/15 text-warning",
+    pill: "bg-warning/15 text-warning",
+    solid: "bg-warning text-white",
     title: (n) => `${n} ${n === 1 ? "client needs" : "clients need"} a look`,
   },
   brokenAccounts: {
-    className: "bg-destructive/15 text-destructive",
+    pill: "bg-destructive/15 text-destructive",
+    solid: "bg-destructive text-white",
     title: (n) => `${n} ${n === 1 ? "account isn't" : "accounts aren't"} working`,
   },
 };
 
 const COLLAPSE_KEY = "civsav:sidebar-collapsed";
 
+// One size for every clickable row, so the expanded list and the collapsed
+// icon rail line up exactly.
+const ROW =
+  "flex h-9 items-center gap-2.5 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/60";
+const ROW_IDLE = "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground";
+// The current page reads as a raised chip with a coloured icon, so it's
+// obvious at a glance in both themes and in the collapsed rail.
+const ROW_ACTIVE =
+  "bg-card font-medium text-foreground shadow-sm ring-1 ring-sidebar-border [&>svg:first-child]:text-sidebar-primary";
+
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function Brand({ size = 24, showName = true }: { size?: number; showName?: boolean }) {
+// A tooltip to the right of an icon, only when the sidebar is collapsed and
+// the label isn't visible.
+function RailTip({ show, label, children }: { show: boolean; label: string; children: ReactNode }) {
+  if (!show) return <>{children}</>;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function Brand({ size = 26, showName = true }: { size?: number; showName?: boolean }) {
   return (
     <>
       <Image src="/civsav-icon.png" alt="" width={size} height={size} className="shrink-0 rounded-md" priority />
-      {showName && <span className="font-heading text-sm font-semibold text-sidebar-foreground">civsav</span>}
+      {showName && (
+        <span className="truncate font-heading text-[15px] font-semibold tracking-tight text-sidebar-foreground">Civilized Savage</span>
+      )}
     </>
   );
 }
@@ -104,13 +132,11 @@ function NavLinks({
   onNavigate?: () => void;
 }) {
   return (
-    <nav className="flex flex-col gap-4">
+    <nav className="flex flex-col gap-5">
       {NAV_GROUPS.map((group) => (
         <div key={group.label} className="flex flex-col gap-0.5">
-          {collapsed ? (
-            <span className="mx-auto mb-1 h-px w-6 bg-sidebar-border" aria-hidden />
-          ) : (
-            <span className="mb-1 px-2.5 text-[11px] font-medium tracking-wide text-sidebar-foreground/45 uppercase">
+          {!collapsed && (
+            <span className="mb-1 px-3 text-[11px] font-semibold tracking-wider text-sidebar-foreground/40 uppercase">
               {group.label}
             </span>
           )}
@@ -119,38 +145,41 @@ function NavLinks({
             const Icon = item.icon;
             const count = item.badge && summary ? summary[item.badge] : 0;
             const badge = item.badge && count > 0 ? BADGE_STYLE[item.badge] : null;
+            const tip = badge ? `${item.label} · ${badge.title(count)}` : item.label;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onNavigate}
-                aria-current={active ? "page" : undefined}
-                title={collapsed ? (badge ? `${item.label} — ${badge.title(count)}` : item.label) : badge?.title(count)}
-                className={cn(
-                  "group relative flex items-center gap-2.5 rounded-lg py-2 text-sm font-medium transition-colors",
-                  collapsed ? "justify-center px-0" : "px-2.5",
-                  active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                    : "text-sidebar-foreground/65 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                )}
-              >
-                {active && !collapsed && (
-                  <span className="absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full bg-sidebar-primary" aria-hidden />
-                )}
-                <Icon className="size-4 shrink-0" aria-hidden />
-                {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-                {badge &&
-                  (collapsed ? (
-                    <span
-                      className={cn("absolute top-1 right-2 size-2 rounded-full", item.badge === "attention" ? "bg-warning" : "bg-destructive")}
-                      aria-label={badge.title(count)}
-                    />
-                  ) : (
-                    <span className={cn("min-w-5 rounded-full px-1.5 text-center text-[11px] leading-5 font-semibold tabular-nums", badge.className)}>
-                      {count}
-                    </span>
-                  ))}
-              </Link>
+              <RailTip key={item.href} show={collapsed} label={tip}>
+                <Link
+                  href={item.href}
+                  onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
+                  aria-label={collapsed ? tip : undefined}
+                  title={!collapsed && badge ? badge.title(count) : undefined}
+                  className={cn(
+                    ROW,
+                    "relative",
+                    collapsed ? "mx-auto w-10 justify-center" : "px-3",
+                    active ? ROW_ACTIVE : ROW_IDLE,
+                  )}
+                >
+                  <Icon className="size-[18px] shrink-0" aria-hidden />
+                  {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                  {badge &&
+                    (collapsed ? (
+                      <span
+                        className={cn(
+                          "absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-semibold tabular-nums ring-2 ring-sidebar",
+                          badge.solid,
+                        )}
+                      >
+                        {count > 99 ? "99+" : count}
+                      </span>
+                    ) : (
+                      <span className={cn("min-w-5 rounded-full px-1.5 text-center text-[11px] leading-5 font-semibold tabular-nums", badge.pill)}>
+                        {count}
+                      </span>
+                    ))}
+                </Link>
+              </RailTip>
             );
           })}
         </div>
@@ -159,40 +188,47 @@ function NavLinks({
   );
 }
 
-// "Data updated 3h ago" with a dot: green when the last daily update went
-// through cleanly, amber when some accounts failed, red when it failed.
-function DataStatus({ summary, collapsed }: { summary: NavSummary | null; collapsed: boolean }) {
+function dataStatusOf(summary: NavSummary | null) {
   if (!summary?.lastRunAt) return null;
   const at = new Date(summary.lastRunAt);
   const hoursAgo = (Date.now() - at.getTime()) / 3_600_000;
   const tone =
-    hoursAgo > STALE_HOURS && summary.lastRunStatus !== "running"
-      ? { dot: "bg-warning", text: "Not updated recently" }
-      : summary.lastRunStatus === "failed"
-      ? { dot: "bg-destructive", text: "Last update failed" }
-      : summary.lastRunStatus === "completed_with_errors"
-        ? { dot: "bg-warning", text: "Updated with some errors" }
-        : summary.lastRunStatus === "running"
-          ? { dot: "bg-primary animate-pulse", text: "Updating now…" }
-          : { dot: "bg-success", text: "Data up to date" };
-  const when = formatRelativeTime(at, new Date());
+    summary.lastRunStatus === "running"
+      ? { dot: "bg-primary animate-pulse", text: "Updating now…" }
+      : hoursAgo > STALE_HOURS
+        ? { dot: "bg-warning", text: "Not updated recently" }
+        : summary.lastRunStatus === "failed"
+          ? { dot: "bg-destructive", text: "Last update failed" }
+          : summary.lastRunStatus === "completed_with_errors"
+            ? { dot: "bg-warning", text: "Updated with some errors" }
+            : { dot: "bg-success", text: "Data up to date" };
+  return { ...tone, when: formatRelativeTime(at, new Date()) };
+}
+
+// "Data up to date · 3 hours ago": green clean, amber with errors or stale,
+// red failed. Links to Insights, where any problems are listed.
+function DataStatus({ summary, collapsed }: { summary: NavSummary | null; collapsed: boolean }) {
+  const status = dataStatusOf(summary);
+  if (!status) return null;
+  const label = `${status.text} · ${status.when}`;
   return (
-    <Link
-      href="/insights"
-      title={`${tone.text} · ${when}`}
-      className={cn(
-        "flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-        collapsed && "justify-center px-0",
-      )}
-    >
-      <span className={cn("size-2 shrink-0 rounded-full", tone.dot)} aria-hidden />
-      {!collapsed && (
-        <span className="flex min-w-0 flex-col leading-tight">
-          <span className="truncate text-sidebar-foreground/80">{tone.text}</span>
-          <span className="truncate">{when}</span>
+    <RailTip show={collapsed} label={label}>
+      <Link
+        href="/insights"
+        aria-label={collapsed ? label : undefined}
+        className={cn(ROW, ROW_IDLE, "text-xs", collapsed ? "mx-auto w-10 justify-center" : "px-3")}
+      >
+        <span className="relative flex size-[18px] shrink-0 items-center justify-center">
+          <span className={cn("size-2 rounded-full", status.dot)} aria-hidden />
         </span>
-      )}
-    </Link>
+        {!collapsed && (
+          <span className="min-w-0 truncate">
+            <span className="text-sidebar-foreground/85">{status.text}</span>
+            <span className="text-sidebar-foreground/50"> · {status.when}</span>
+          </span>
+        )}
+      </Link>
+    </RailTip>
   );
 }
 
@@ -203,41 +239,80 @@ function initialsOf(email: string | null) {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || name.slice(0, 2).toUpperCase();
 }
 
-function UserFooter({ summary, collapsed }: { summary: NavSummary | null; collapsed: boolean }) {
+function SidebarFooter({
+  summary,
+  collapsed,
+  onToggleCollapsed,
+}: {
+  summary: NavSummary | null;
+  collapsed: boolean;
+  onToggleCollapsed?: () => void;
+}) {
   const email = summary?.email ?? null;
-  if (collapsed) {
-    return (
-      <div className="flex flex-col items-center gap-1">
-        <ThemeToggle />
-        <form action={logout}>
-          <Button type="submit" variant="ghost" size="icon-sm" aria-label="Sign out" title={email ? `Sign out ${email}` : "Sign out"}>
-            <LogOutIcon className="size-4" />
-          </Button>
-        </form>
-      </div>
-    );
-  }
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-sidebar-border px-2 py-1.5">
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/15 text-[11px] font-semibold text-sidebar-primary">
-        {initialsOf(email)}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-xs text-sidebar-foreground/75" title={email ?? undefined}>
-        {email ?? "civsav ops"}
-      </span>
-      <ThemeToggle />
-      <form action={logout}>
-        <Button type="submit" variant="ghost" size="icon-sm" aria-label="Sign out" title="Sign out">
-          <LogOutIcon className="size-4" />
-        </Button>
-      </form>
+    <div className="flex flex-col gap-1 border-t border-sidebar-border pt-3">
+      <DataStatus summary={summary} collapsed={collapsed} />
+
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-1">
+          <RailTip show label={email ? `Signed in as ${email}` : "Signed in"}>
+            <span className="flex size-9 items-center justify-center rounded-full bg-sidebar-primary/15 text-[11px] font-semibold text-sidebar-primary">
+              {initialsOf(email)}
+            </span>
+          </RailTip>
+          <RailTip show label="Switch theme">
+            <span>
+              <ThemeToggle />
+            </span>
+          </RailTip>
+          <form action={logout}>
+            <RailTip show label="Sign out">
+              <Button type="submit" variant="ghost" size="icon-sm" aria-label="Sign out">
+                <LogOutIcon className="size-4" />
+              </Button>
+            </RailTip>
+          </form>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/15 text-[11px] font-semibold text-sidebar-primary">
+            {initialsOf(email)}
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col leading-tight">
+            <span className="truncate text-xs font-medium text-sidebar-foreground" title={email ?? undefined}>
+              {email ? email.split("@")[0] : "Civilized Savage"}
+            </span>
+            <span className="truncate text-[11px] text-sidebar-foreground/50">{email ? `@${email.split("@")[1]}` : ""}</span>
+          </span>
+          <ThemeToggle />
+          <form action={logout}>
+            <Button type="submit" variant="ghost" size="icon-sm" aria-label="Sign out" title="Sign out">
+              <LogOutIcon className="size-4" />
+            </Button>
+          </form>
+        </div>
+      )}
+
+      {onToggleCollapsed && (
+        <RailTip show={collapsed} label="Expand sidebar">
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={cn(ROW, ROW_IDLE, "text-xs", collapsed ? "mx-auto w-10 justify-center" : "px-3")}
+          >
+            {collapsed ? <ChevronsRightIcon className="size-[18px]" /> : <ChevronsLeftIcon className="size-[18px]" />}
+            {!collapsed && "Collapse"}
+          </button>
+        </RailTip>
+      )}
     </div>
   );
 }
 
-// Persistent left sidebar on desktop, a slide-out sheet from a top bar on
-// mobile — one shared shell so every top-level page (dashboard, insights,
-// settings, docs) gets the same nav instead of re-declaring its own strip.
+// Persistent left sidebar on desktop (collapsible to an icon rail), a
+// slide-out sheet from a top bar on mobile — one shared shell so every
+// top-level page gets the same navigation.
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -295,139 +370,118 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="flex min-h-screen w-full">
-      <aside
-        className={cn(
-          "sticky top-0 hidden h-screen shrink-0 flex-col justify-between border-r border-sidebar-border bg-sidebar py-4 transition-[width] duration-200 md:flex",
-          collapsed ? "w-16 px-2" : "w-60 px-3",
-        )}
-      >
-        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
-          <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "justify-between gap-2")}>
-            <Link href="/" className={cn("flex items-center gap-2", !collapsed && "px-1.5")} title="civsav">
-              <Brand showName={!collapsed} />
-            </Link>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={toggleCollapsed}
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="text-sidebar-foreground/50 hover:text-sidebar-foreground"
-            >
-              {collapsed ? <PanelLeftOpenIcon className="size-4" /> : <PanelLeftCloseIcon className="size-4" />}
-            </Button>
-          </div>
-
-          <div className={cn("flex gap-1.5", collapsed ? "flex-col items-center" : "flex-col")}>
-            <button
-              type="button"
-              onClick={() => setPaletteOpen(true)}
-              title="Quick jump (⌘K)"
-              className={cn(
-                "flex items-center justify-between gap-2 rounded-lg border border-sidebar-border text-left text-xs text-sidebar-foreground/50 transition-colors hover:border-sidebar-ring/40 hover:text-sidebar-foreground/80",
-                collapsed ? "size-9 justify-center" : "px-2.5 py-1.5",
-              )}
-            >
-              <span className="flex items-center gap-1.5">
-                <SearchIcon className="size-3.5" aria-hidden />
-                {!collapsed && "Quick jump"}
-              </span>
-              {!collapsed && <kbd className="rounded border border-sidebar-border px-1 font-mono text-[10px]">⌘K</kbd>}
-            </button>
-            <button
-              type="button"
-              onClick={() => setAssistantOpen(true)}
-              title="Ask a question about your clients"
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg bg-sidebar-primary/10 text-xs font-medium text-sidebar-primary transition-colors hover:bg-sidebar-primary/15",
-                collapsed ? "size-9 justify-center" : "px-2.5 py-1.5",
-              )}
-            >
-              <ZapIcon className="size-3.5" aria-hidden />
-              {!collapsed && "Ask AI"}
-            </button>
-          </div>
-
-          <NavLinks pathname={pathname} summary={summary} collapsed={collapsed} />
-        </div>
-
-        <div className="flex flex-col gap-2 pt-3">
-          <DataStatus summary={summary} collapsed={collapsed} />
-          <UserFooter summary={summary} collapsed={collapsed} />
-        </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3 md:hidden">
-          <Link href="/" className="flex items-center gap-2">
-            <Brand size={22} />
+    <TooltipProvider delayDuration={150}>
+      <div className="flex min-h-screen w-full">
+        <aside
+          className={cn(
+            "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-4 transition-[width] duration-200 md:flex",
+            collapsed ? "w-[68px] px-2" : "w-60 px-3",
+          )}
+        >
+          <Link
+            href="/"
+            className={cn("mb-4 flex h-9 items-center gap-2.5", collapsed ? "justify-center" : "px-2")}
+            aria-label="Civilized Savage home"
+          >
+            <Brand showName={!collapsed} />
           </Link>
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setAssistantOpen(true)}
-              aria-label="Ask the assistant"
-            >
-              <SparklesIcon className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
-            >
-              <MenuIcon className="size-4" />
-            </Button>
+
+          {/* Search and the assistant share one row: search fills it, the
+              assistant is a single icon so it never reads as a selected page. */}
+          <div className={cn("mb-5 flex gap-1.5", collapsed && "flex-col items-center")}>
+            <RailTip show={collapsed} label="Quick jump (⌘K)">
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                aria-label="Quick jump"
+                className={cn(
+                  "group flex h-9 items-center gap-2 rounded-lg border border-sidebar-border bg-card text-sm text-muted-foreground shadow-xs transition-all outline-none hover:border-sidebar-ring/50 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-sidebar-ring/60",
+                  collapsed ? "w-10 justify-center" : "min-w-0 flex-1 pr-1.5 pl-2.5",
+                )}
+              >
+                <SearchIcon className="size-4 shrink-0 transition-colors group-hover:text-foreground" aria-hidden />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 truncate text-left text-[13px]">Search clients…</span>
+                    <kbd className="flex h-5 items-center rounded-md border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                      ⌘K
+                    </kbd>
+                  </>
+                )}
+              </button>
+            </RailTip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setAssistantOpen(true)}
+                  aria-label="Ask AI"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-sidebar-border bg-card text-sidebar-primary shadow-xs transition-all outline-none hover:border-sidebar-primary/40 hover:bg-sidebar-primary/10 focus-visible:ring-2 focus-visible:ring-sidebar-ring/60"
+                >
+                  <SparklesIcon className="size-4" aria-hidden />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side={collapsed ? "right" : "bottom"} sideOffset={8}>
+                Ask AI about your clients
+              </TooltipContent>
+            </Tooltip>
           </div>
-        </div>
 
-        <main className="relative flex flex-1 flex-col">
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72"
-            style={{
-              background: "radial-gradient(60% 100% at 50% 0%, color-mix(in oklch, var(--primary), transparent 92%), transparent)",
-            }}
-            aria-hidden
-          />
-          {children}
-        </main>
-      </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <NavLinks pathname={pathname} summary={summary} collapsed={collapsed} />
+          </div>
 
-      <button
-        type="button"
-        onClick={() => setAssistantOpen(true)}
-        aria-label="Ask the assistant"
-        className="fixed top-4 right-4 z-40 hidden size-10 items-center justify-center rounded-full border border-border bg-card text-primary shadow-md transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg md:flex"
-      >
-        <SparklesIcon className="size-4" aria-hidden />
-      </button>
+          <SidebarFooter summary={summary} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+        </aside>
 
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="flex w-72 flex-col gap-0 p-0">
-          <SheetHeader className="border-b border-border">
-            <SheetTitle className="flex items-center gap-2">
-              <Brand size={20} />
-            </SheetTitle>
-            <SheetDescription className="sr-only">Navigation</SheetDescription>
-          </SheetHeader>
-          <div className="flex flex-1 flex-col justify-between gap-4 p-3">
-            <NavLinks pathname={pathname} summary={summary} onNavigate={() => setMobileOpen(false)} />
-            <div className="flex flex-col gap-2">
-              <DataStatus summary={summary} collapsed={false} />
-              <UserFooter summary={summary} collapsed={false} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3 md:hidden">
+            <Link href="/" className="flex items-center gap-2">
+              <Brand size={22} />
+            </Link>
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setPaletteOpen(true)} aria-label="Search">
+                <SearchIcon className="size-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setAssistantOpen(true)} aria-label="Ask AI">
+                <SparklesIcon className="size-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
+                <MenuIcon className="size-4" />
+              </Button>
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
 
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} onAskAi={() => setAssistantOpen(true)} />
-      <AssistantChat open={assistantOpen} onOpenChange={setAssistantOpen} />
-    </div>
+          <main className="relative flex flex-1 flex-col">
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72"
+              style={{
+                background: "radial-gradient(60% 100% at 50% 0%, color-mix(in oklch, var(--primary), transparent 92%), transparent)",
+              }}
+              aria-hidden
+            />
+            {children}
+          </main>
+        </div>
+
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="flex w-72 flex-col gap-0 bg-sidebar p-0">
+            <SheetHeader className="border-b border-sidebar-border">
+              <SheetTitle className="flex items-center gap-2">
+                <Brand size={22} />
+              </SheetTitle>
+              <SheetDescription className="sr-only">Navigation</SheetDescription>
+            </SheetHeader>
+            <div className="flex flex-1 flex-col justify-between gap-4 overflow-y-auto p-3">
+              <NavLinks pathname={pathname} summary={summary} onNavigate={() => setMobileOpen(false)} />
+              <SidebarFooter summary={summary} collapsed={false} />
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} onAskAi={() => setAssistantOpen(true)} />
+        <AssistantChat open={assistantOpen} onOpenChange={setAssistantOpen} />
+      </div>
+    </TooltipProvider>
   );
 }
