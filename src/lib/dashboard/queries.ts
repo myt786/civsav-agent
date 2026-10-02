@@ -121,7 +121,13 @@ function safeExtract<TData>(schema: { safeParse: (v: unknown) => { success: bool
 export async function getDashboardData(now: Date = new Date()): Promise<DashboardData> {
   const db = await getDb();
 
-  const activeClients = await db.select().from(clients).where(eq(clients.active, true)).orderBy(clients.name);
+  // Clients switched off for the health dashboard in Settings are left out
+  // here, which also keeps them out of Insights and the daily summary.
+  const activeClients = await db
+    .select()
+    .from(clients)
+    .where(and(eq(clients.active, true), eq(clients.showOnDashboard, true)))
+    .orderBy(clients.name);
   const clientIds = activeClients.map((c) => c.id);
 
   // A generous buffer beyond SPARKLINE_DAYS covers timezone drift at the

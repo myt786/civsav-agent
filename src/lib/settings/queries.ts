@@ -23,6 +23,8 @@ export interface ClientWithAccounts {
   timezone: string;
   active: boolean;
   archived: boolean;
+  showOnDashboard: boolean;
+  showOnSeo: boolean;
   accounts: ClientAccountSummary[];
   // When this client's numbers last arrived from any platform (null if
   // never).
@@ -68,6 +70,8 @@ export async function listClientsWithAccounts(): Promise<ClientWithAccounts[]> {
     timezone: client.timezone,
     active: client.active,
     archived: client.archivedAt !== null,
+    showOnDashboard: client.showOnDashboard,
+    showOnSeo: client.showOnSeo,
     accounts: byClient.get(client.id) ?? [],
     lastUpdatedAt: lastUpdateByClient.get(client.id) ? new Date(lastUpdateByClient.get(client.id)!) : null,
   }));

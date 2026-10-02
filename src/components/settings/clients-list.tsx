@@ -18,6 +18,7 @@ import { PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/connectors/platform-label
 import type { Platform } from "@/lib/connectors/types";
 import { friendlyError } from "@/lib/friendly-error";
 import { cn } from "@/lib/utils";
+import { ClientVisibilityChips } from "@/components/settings/client-visibility";
 
 interface ClientAccount {
   platform: Platform;
@@ -33,6 +34,8 @@ interface ClientListItem {
   timezone: string;
   active: boolean;
   archived: boolean;
+  showOnDashboard: boolean;
+  showOnSeo: boolean;
   accounts: ClientAccount[];
   lastUpdatedAt: Date | null;
 }
@@ -84,13 +87,15 @@ const SHORT_LABEL: Record<Platform, string> = {
   openphone: "OpenPhone",
 };
 
-type StatusFilter = "all" | "attention" | "unchecked" | "none" | "paused" | "archived";
+type StatusFilter = "all" | "attention" | "unchecked" | "none" | "seo_only" | "health_only" | "paused" | "archived";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "attention", label: "Needs attention" },
   { value: "unchecked", label: "Not checked" },
   { value: "none", label: "No accounts" },
+  { value: "seo_only", label: "SEO only" },
+  { value: "health_only", label: "Health only" },
   { value: "paused", label: "Paused" },
   { value: "archived", label: "Archived" },
 ];
@@ -109,6 +114,8 @@ function matchesStatus(client: ClientListItem, filter: StatusFilter) {
   if (filter === "attention") return needsAttention(client);
   if (filter === "unchecked") return hasUnchecked(client);
   if (filter === "none") return client.accounts.length === 0;
+  if (filter === "seo_only") return client.showOnSeo && !client.showOnDashboard;
+  if (filter === "health_only") return client.showOnDashboard && !client.showOnSeo;
   if (filter === "paused") return !client.active;
   return true;
 }
@@ -170,6 +177,8 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
         attention: live.filter(needsAttention).length,
         unchecked: live.filter(hasUnchecked).length,
         none: live.filter((c) => c.accounts.length === 0).length,
+        seo_only: live.filter((c) => c.showOnSeo && !c.showOnDashboard).length,
+        health_only: live.filter((c) => c.showOnDashboard && !c.showOnSeo).length,
         paused: live.filter((c) => !c.active).length,
         archived: clients.length - live.length,
       };
@@ -209,7 +218,11 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
               value={status}
               onChange={setStatus}
               options={STATUS_FILTERS.filter(
-                (f) => f.value !== "archived" || counts.archived > 0 || status === "archived",
+                // Only shown once something is in them, so the bar stays short.
+                (f) =>
+                  !["archived", "seo_only", "health_only"].includes(f.value) ||
+                  counts[f.value] > 0 ||
+                  status === f.value,
               ).map((f) => ({ ...f, count: counts[f.value], alert: f.value === "attention" }))}
             />
 
@@ -255,6 +268,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
               <TableRow className="hover:bg-transparent">
                 <SortHead label="Client" sortKey="name" sort={sort} onSort={toggleSort} className="w-[24%]" />
                 <TableHead>Connected accounts</TableHead>
+                <TableHead className="w-40">Shows on</TableHead>
                 <SortHead label="Health" sortKey="health" sort={sort} onSort={toggleSort} className="w-36" />
                 <SortHead label="Last updated" sortKey="updated" sort={sort} onSort={toggleSort} className="w-32" />
                 <TableHead className="w-1 text-right">Actions</TableHead>
@@ -272,14 +286,14 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
               ))}
               {clients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No clients yet — click &ldquo;Add client&rdquo; to add your first one.
                   </TableCell>
                 </TableRow>
               )}
               {clients.length > 0 && filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No clients match these filters.{" "}
                     <button
                       type="button"
@@ -455,6 +469,15 @@ function ClientRow({
         title="Edit accounts"
       >
         <AccountBadges accounts={client.accounts} />
+      </TableCell>
+      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+        <ClientVisibilityChips
+          clientId={client.id}
+          clientName={client.name}
+          showOnDashboard={client.showOnDashboard}
+          showOnSeo={client.showOnSeo}
+          disabled={client.archived}
+        />
       </TableCell>
       <TableCell className={cn("py-3 text-sm", HEALTH_TONE[health.tone])}>{health.label}</TableCell>
       <TableCell className="py-3 text-sm text-muted-foreground">

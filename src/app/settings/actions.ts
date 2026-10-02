@@ -276,6 +276,42 @@ export async function upsertMapping(
   return { verify };
 }
 
+// The "Health dashboard" / "SEO" switches: which pages a client is listed
+// on. Numbers keep being collected either way.
+export async function setClientVisibility(
+  clientId: string,
+  field: "showOnDashboard" | "showOnSeo",
+  value: boolean,
+): Promise<{ error?: string }> {
+  const session = await requireSession();
+  if (!isUuid(clientId) || (field !== "showOnDashboard" && field !== "showOnSeo") || typeof value !== "boolean") {
+    return { error: BAD_TARGET };
+  }
+  const db = await getDb();
+  const [existing] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (!existing) return { error: BAD_TARGET };
+  if (existing[field] === value) return {};
+
+  await db
+    .update(clients)
+    .set(field === "showOnDashboard" ? { showOnDashboard: value } : { showOnSeo: value })
+    .where(eq(clients.id, clientId));
+  await logChange(db, {
+    userEmail: session.email,
+    clientId,
+    field: field === "showOnDashboard" ? "show_on_dashboard" : "show_on_seo",
+    oldValue: String(existing[field]),
+    newValue: String(value),
+  });
+
+  revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath("/settings/clients");
+  revalidatePath("/");
+  revalidatePath("/seo");
+  revalidatePath("/insights");
+  return {};
+}
+
 // "Not used" on a platform the client simply doesn't have (no GA4, no
 // OpenPhone): it stops being listed as missing access in Settings and the
 // weekly access report. Only for platforms with no account connected.
