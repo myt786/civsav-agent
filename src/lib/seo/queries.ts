@@ -1,10 +1,10 @@
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
-import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
+import { endOfMonth, format, parseISO, subDays, subMonths } from "date-fns";
 import { getDb } from "../db";
 import { clientPlatformAccounts, clientSeoMonthly, clientSeoRecommendations, clients, metricSnapshots } from "../db/schema";
 import { searchConsoleDataSchema } from "../connectors/search-console/schema";
 import { seoDataSchema } from "../connectors/ahrefs/schema";
-import { average, buildNumericCell, downgradeIfUnverifiedMapping } from "../dashboard/metrics";
+import { buildNumericCell, buildWeightedAverageCell, downgradeIfUnverifiedMapping } from "../dashboard/metrics";
 import type { SnapshotRow } from "../dashboard/metrics";
 import type { CellState } from "../dashboard/types";
 import { computePortfolioAggregates, computeRowMetrics } from "./compute";
@@ -23,6 +23,26 @@ function trailingCompleteMonths(now: Date, count: number): string[] {
     months.push(format(subMonths(now, i), "yyyy-MM"));
   }
   return months;
+}
+
+// Date-only strings throughout: new Date("2026-09-01") is UTC midnight,
+// which on a server west of UTC is still August 31 — endOfMonth() of that
+// cut the newest month out of the window entirely.
+function monthWindow(months: string[]): { windowStart: string; windowEnd: string } {
+  const newest = months[months.length - 1];
+  return {
+    windowStart: `${months[0]}-01`,
+    windowEnd: format(endOfMonth(parseISO(`${newest}-01`)), "yyyy-MM-dd"),
+  };
+}
+
+// Ahrefs is a "latest snapshot" figure, not a per-month one, so it isn't
+// limited to the Search Console months: the monthly sync on the 1st dates
+// its snapshot in the new month, which a window ending last month missed.
+// Two months back is enough to always include the most recent monthly run.
+const AHREFS_LOOKBACK_DAYS = 62;
+function ahrefsWindow(now: Date): { from: string; to: string } {
+  return { from: format(subDays(now, AHREFS_LOOKBACK_DAYS), "yyyy-MM-dd"), to: format(now, "yyyy-MM-dd") };
 }
 
 function monthOf(dateKey: string): string {
@@ -60,7 +80,13 @@ function buildClientRow(
         searchConsoleVerified,
       ),
       avgPosition: downgradeIfUnverifiedMapping(
-        buildNumericCell(monthRows, searchConsoleDataSchema, (d) => d.averagePosition, null, average),
+        buildWeightedAverageCell(
+          monthRows,
+          searchConsoleDataSchema,
+          (d) => d.averagePosition,
+          (d) => d.totalImpressions,
+          null,
+        ),
         searchConsoleVerified,
       ),
     };
@@ -107,11 +133,10 @@ function buildClientRow(
 export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDashboardData> {
   const db = await getDb();
   const months = trailingCompleteMonths(now, MONTHS_SHOWN);
-  const [oldestMonth, , newestMonth] = months;
+  const newestMonth = months[months.length - 1];
   const prevMonth = months[months.length - 2];
-
-  const windowStart = format(startOfMonth(new Date(`${oldestMonth}-01`)), "yyyy-MM-dd");
-  const windowEnd = format(endOfMonth(new Date(`${newestMonth}-01`)), "yyyy-MM-dd");
+  const { windowStart, windowEnd } = monthWindow(months);
+  const ahrefsRange = ahrefsWindow(now);
 
   const activeClients = await db.select().from(clients).where(eq(clients.active, true)).orderBy(clients.name);
   const clientIds = activeClients.map((c) => c.id);
@@ -144,8 +169,8 @@ export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDa
         and(
           inArray(metricSnapshots.clientId, clientIds),
           eq(metricSnapshots.platform, "ahrefs"),
-          gte(metricSnapshots.date, windowStart),
-          lte(metricSnapshots.date, windowEnd),
+          gte(metricSnapshots.date, ahrefsRange.from),
+          lte(metricSnapshots.date, ahrefsRange.to),
         ),
       )
       .orderBy(desc(metricSnapshots.date)),
@@ -222,11 +247,10 @@ export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDa
 export async function getSeoClientSnapshot(clientId: string, now: Date = new Date()): Promise<SeoClientRow | null> {
   const db = await getDb();
   const months = trailingCompleteMonths(now, MONTHS_SHOWN);
-  const [oldestMonth, , newestMonth] = months;
+  const newestMonth = months[months.length - 1];
   const prevMonth = months[months.length - 2];
-
-  const windowStart = format(startOfMonth(new Date(`${oldestMonth}-01`)), "yyyy-MM-dd");
-  const windowEnd = format(endOfMonth(new Date(`${newestMonth}-01`)), "yyyy-MM-dd");
+  const { windowStart, windowEnd } = monthWindow(months);
+  const ahrefsRange = ahrefsWindow(now);
 
   const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
   if (!client) return null;
@@ -250,8 +274,8 @@ export async function getSeoClientSnapshot(clientId: string, now: Date = new Dat
         and(
           eq(metricSnapshots.clientId, clientId),
           eq(metricSnapshots.platform, "ahrefs"),
-          gte(metricSnapshots.date, windowStart),
-          lte(metricSnapshots.date, windowEnd),
+          gte(metricSnapshots.date, ahrefsRange.from),
+          lte(metricSnapshots.date, ahrefsRange.to),
         ),
       )
       .orderBy(desc(metricSnapshots.date)),

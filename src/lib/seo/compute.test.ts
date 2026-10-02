@@ -4,7 +4,8 @@ import { computePortfolioAggregates, computeRowMetrics, tierFor, trendFor } from
 describe("tierFor", () => {
   it("buckets at the exact boundaries", () => {
     expect(tierFor(null)).toBe("no_data");
-    expect(tierFor(0)).toBe("no_data");
+    // A real zero is a reporting site with no clicks, not missing data.
+    expect(tierFor(0)).toBe("minimal");
     expect(tierFor(49)).toBe("minimal");
     expect(tierFor(50)).toBe("small");
     expect(tierFor(299)).toBe("small");
@@ -87,6 +88,15 @@ describe("computePortfolioAggregates", () => {
 
     expect(agg.portfolioMomPct).toBeNull();
     expect(agg.portfolio3moPct).toBeNull();
+  });
+
+  it("only compares clients that have numbers in both months", () => {
+    // Client B's newest month hasn't synced: it must not read as a drop.
+    const rows = [computeRowMetrics([100, 200, 220]), computeRowMetrics([300, 300, null])];
+    const agg = computePortfolioAggregates(rows, []);
+
+    expect(agg.portfolioMomPct).toBeCloseTo((220 - 200) / 200, 5);
+    expect(agg.portfolio3moPct).toBeCloseTo((220 - 100) / 100, 5);
   });
 
   it("counts every row into exactly one tier bucket", () => {

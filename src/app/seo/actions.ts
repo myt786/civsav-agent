@@ -27,6 +27,14 @@ function readFormData(formData: FormData) {
   });
 }
 
+// The client and month come from the page (bound into the form), but a
+// server action can be called with anything — check them before writing,
+// so a stray value can't create a row for a made-up month or client.
+const targetSchema = z.object({
+  clientId: z.string().uuid(),
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+});
+
 export interface SeoMonthlyFormState {
   error?: string;
 }
@@ -41,6 +49,9 @@ export async function updateSeoMonthly(
   formData: FormData,
 ): Promise<SeoMonthlyFormState> {
   const session = await requireSession();
+  if (!targetSchema.safeParse({ clientId, month }).success) {
+    return { error: "Something went wrong — please reload the page and try again." };
+  }
   const parsed = readFormData(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
