@@ -9,8 +9,9 @@ import { getDb } from "@/lib/db";
 import { clientPlatformAccounts, clients, platformCredentials } from "@/lib/db/schema";
 import { logChanges } from "@/lib/settings/audit";
 import { externalIdSchemas, isUuid } from "@/lib/settings/validation";
-import { credentialsDb, encryptSecret, storedLabel } from "@/lib/connectors/stored-credentials";
+import { credentialsDb, encryptSecret, listStoredCredentials, storedLabel } from "@/lib/connectors/stored-credentials";
 import { invalidateDiscovery } from "@/lib/connectors/discovery-cache";
+import { migrateEnvKeys } from "@/lib/connectors/env-keys";
 import { testGhlKey } from "@/lib/connectors/ghl/client";
 import { testOpenPhoneKey } from "@/lib/connectors/openphone/client";
 import { verifyMapping } from "./actions";
@@ -217,4 +218,80 @@ export async function deletePlatformCredential(
   if (row.platform === "ghl" || row.platform === "openphone") invalidateDiscovery(row.platform);
   revalidatePath("/settings/api-keys");
   return {};
+}
+
+export interface MoveEnvKeysResult {
+  ok: boolean;
+  message: string;
+}
+
+// "Move them into saved keys" on Settings → API keys: copies the keys a
+// developer set up as Vercel env vars into the app (encrypted, like a
+// pasted key) and points their clients at the saved copies. Nothing to
+// paste — the values are read on the server and never sent to the browser.
+export async function moveEnvKeysToSaved(): Promise<MoveEnvKeysResult> {
+  const session = await requireSession();
+  try {
+    const result = await migrateEnvKeys(session.email);
+    if (result.repointed.length > 0) {
+      const db = await getDb();
+      await logChanges(
+        db,
+        result.repointed.map((r) => ({
+          userEmail: session.email,
+          clientId: r.clientId,
+          platform: r.platform,
+          field: "credential_label",
+          oldValue: r.from,
+          newValue: r.to,
+        })),
+      );
+    }
+    invalidateDiscovery("ghl");
+    invalidateDiscovery("openphone");
+    revalidatePath("/settings/api-keys");
+    revalidatePath("/settings/clients");
+
+    const parts = [
+      result.moved > 0 ? `Moved ${result.moved} key${result.moved === 1 ? "" : "s"}` : "No new keys to move",
+      result.clientsRepointed > 0 ? `${result.clientsRepointed} client account${result.clientsRepointed === 1 ? "" : "s"} now use the saved copies` : null,
+      result.needLocation > 0
+        ? `${result.needLocation} GoHighLevel key${result.needLocation === 1 ? " needs its" : "s need their"} sub-account ID — add it on the key below`
+        : null,
+    ].filter(Boolean);
+    return { ok: true, message: `${parts.join(". ")}.` };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Couldn't move the keys." };
+  }
+}
+
+// Sets the sub-account (location) ID on a saved GoHighLevel key — a
+// sub-account key only works for its own location, so a key moved in
+// without one can't be used until it's added. Tested before saving.
+export async function setGhlKeyLocation(
+  credentialId: string,
+  _prevState: CredentialFormState,
+  formData: FormData,
+): Promise<CredentialFormState> {
+  await requireSession();
+  if (!isUuid(credentialId)) return { error: "That key no longer exists." };
+  const idParsed = externalIdSchemas.ghl.safeParse(formData.get("locationId") ?? "");
+  if (!idParsed.success) return { error: idParsed.error.issues[0]?.message ?? "Enter the sub-account ID." };
+
+  const db = await credentialsDb();
+  const [row] = await db.select().from(platformCredentials).where(eq(platformCredentials.id, credentialId)).limit(1);
+  if (!row || row.platform !== "ghl") return { error: "That key no longer exists." };
+
+  const secret = (await listStoredCredentials("ghl")).find((c) => c.id === row.id)?.secret;
+  if (!secret) return { error: "That key can't be read — replace it with a new key." };
+  const test = await testKey("ghl", secret, idParsed.data);
+  if (!test.ok) return { error: test.error };
+
+  await db
+    .update(platformCredentials)
+    .set({ externalId: idParsed.data, updatedAt: new Date() })
+    .where(eq(platformCredentials.id, credentialId));
+  invalidateDiscovery("ghl");
+  revalidatePath("/settings/api-keys");
+  return { success: "Sub-account ID saved — this key now shows up when connecting a client." };
 }

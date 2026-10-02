@@ -3,6 +3,7 @@ import { MailCheckIcon, MailWarningIcon } from "lucide-react";
 import { getDb } from "@/lib/db";
 import { reportRecipients } from "@/lib/db/schema";
 import { EmailReportsManager } from "@/components/settings/email-reports-manager";
+import { getEmailConfig } from "@/lib/email/resend";
 
 export const dynamic = "force-dynamic";
 // "Send now" builds the daily summary (an AI call) before emailing it.
@@ -11,9 +12,10 @@ export const maxDuration = 60;
 export default async function EmailReportsPage() {
   const db = await getDb();
   const recipients = await db.select().from(reportRecipients).orderBy(asc(reportRecipients.email));
-  // Only whether it's set up, and the sender address — never the key.
-  const from = process.env.REPORTS_FROM_EMAIL ?? null;
-  const configured = Boolean(process.env.RESEND_API_KEY && from);
+  // Only whether it's set up, the sender address, and the names of any
+  // missing settings — never the key.
+  const { from, missing } = getEmailConfig();
+  const configured = missing.length === 0;
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -36,9 +38,16 @@ export default async function EmailReportsPage() {
         <div className="flex max-w-3xl items-start gap-2.5 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm">
           <MailWarningIcon className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
           <span>
-            Email sending isn&apos;t switched on yet, so nothing will be sent. Ask whoever manages the app to add the
-            Resend settings (<code className="text-xs">RESEND_API_KEY</code> and{" "}
-            <code className="text-xs">REPORTS_FROM_EMAIL</code>) in Vercel. You can still set up the list now.
+            Email sending isn&apos;t switched on yet, so nothing will be sent. The app can&apos;t see{" "}
+            {missing.map((name, i) => (
+              <span key={name}>
+                {i > 0 && " or "}
+                <code className="text-xs">{name}</code>
+              </span>
+            ))}
+            . If {missing.length === 1 ? "it was" : "they were"} just added in Vercel, make sure{" "}
+            {missing.length === 1 ? "it's" : "they're"} set for <span className="font-medium">Production</span>, then
+            redeploy — Vercel only applies new settings to a fresh deployment. You can still set up the list now.
           </span>
         </div>
       )}

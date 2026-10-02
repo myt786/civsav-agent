@@ -180,7 +180,9 @@ export function EmailReportsManager({ recipients, configured }: { recipients: Re
 
         <div className="flex flex-col gap-2 border-t border-border pt-4">
           <p className="text-xs text-muted-foreground">
-            Send a report now to everyone ticked for it — handy to check it looks right.
+            {configured
+              ? "Send a report now to everyone ticked for it — handy to check it looks right."
+              : "These buttons switch on once email sending is set up (see the note at the top), and the app has been redeployed."}
           </p>
           <div className="flex flex-wrap gap-2">
             <SendNowButton kind="daily" label={`Send daily summary (${dailyCount})`} disabled={!configured || dailyCount === 0} />

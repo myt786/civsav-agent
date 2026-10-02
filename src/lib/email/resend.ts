@@ -10,16 +10,36 @@ export interface EmailSendResult {
   reason?: string;
 }
 
+// The sender can be under any of these names — whichever was used when it
+// was added in Vercel.
+const FROM_ENV_NAMES = ["REPORTS_FROM_EMAIL", "RESEND_FROM_EMAIL", "RESEND_FROM", "EMAIL_FROM"] as const;
+
+export interface EmailConfig {
+  apiKey: string | null;
+  from: string | null;
+  // Names (never values) of what's missing, for the Settings page.
+  missing: string[];
+}
+
+export function getEmailConfig(): EmailConfig {
+  const apiKey = process.env.RESEND_API_KEY?.trim() || null;
+  const fromName = FROM_ENV_NAMES.find((name) => process.env[name]?.trim());
+  const from = fromName ? process.env[fromName]!.trim() : null;
+  const missing = [!apiKey ? "RESEND_API_KEY" : null, !from ? "REPORTS_FROM_EMAIL" : null].filter(
+    (name): name is string => name !== null,
+  );
+  return { apiKey, from, missing };
+}
+
 // Resend's HTTP API (https://resend.com/docs/api-reference/emails/send-email)
 // rather than its SMTP relay: same service and the same API key, but no
 // SMTP client library to add, and a clear JSON error when something's off.
 // Needs RESEND_API_KEY and REPORTS_FROM_EMAIL (an address on a domain
 // verified in Resend, e.g. "civsav reports <reports@civsav.com>").
 export async function sendEmail(message: EmailMessage): Promise<EmailSendResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.REPORTS_FROM_EMAIL;
+  const { apiKey, from, missing } = getEmailConfig();
   if (!apiKey || !from) {
-    return { sent: false, reason: "RESEND_API_KEY / REPORTS_FROM_EMAIL not configured" };
+    return { sent: false, reason: `Email isn't set up: ${missing.join(" and ")} missing` };
   }
   if (message.to.length === 0) return { sent: false, reason: "No recipients" };
 
