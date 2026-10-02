@@ -14,6 +14,7 @@ import { PLATFORM_HELP, PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/connectors
 import { bestMatch } from "@/lib/settings/fuzzy-match";
 import type { Platform } from "@/lib/connectors/types";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import type { AccessInfo } from "@/lib/connectors/access-info";
 
 function toDiscoveryState(entries: DiscoveredAccounts[]): Record<Platform, DiscoveryState> {
   return Object.fromEntries(
@@ -31,11 +32,13 @@ export function MappingsSection({
   clientName,
   initialDiscovery,
   mappingByPlatform,
+  accessInfo,
 }: {
   clientId: string;
   clientName: string;
   initialDiscovery: DiscoveredAccounts[];
   mappingByPlatform: Map<Platform, MappingRowData>;
+  accessInfo: AccessInfo;
 }) {
   const [discovery, setDiscovery] = useState<Record<Platform, DiscoveryState>>(() =>
     toDiscoveryState(initialDiscovery),
@@ -81,7 +84,7 @@ export function MappingsSection({
             <RefreshDiscoveryButton onRefresh={refresh} />
           </div>
         </div>
-        <div className="overflow-hidden rounded-lg border border-border shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
           {PLATFORM_ORDER.map((platform) => {
             const mapping = mappingByPlatform.get(platform) ?? null;
             const state = discovery[platform];
@@ -102,6 +105,7 @@ export function MappingsSection({
                 mapping={mapping}
                 discovery={state}
                 suggestedId={suggestion?.account.id}
+                accessInfo={accessInfo}
                 addKeyHref={
                   platform === "ghl" || platform === "openphone"
                     ? `/settings/api-keys?platform=${platform}&clientId=${clientId}&name=${encodeURIComponent(clientName)}`

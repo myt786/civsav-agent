@@ -1,13 +1,12 @@
 import { asc, like } from "drizzle-orm";
 import { clientPlatformAccounts, platformCredentials } from "@/lib/db/schema";
 import { getClient } from "@/lib/settings/queries";
+import { isUuid } from "@/lib/settings/validation";
 import { credentialsDb, storedIdFromLabel } from "@/lib/connectors/stored-credentials";
 import { AddApiKeyForm } from "@/components/settings/add-api-key-form";
 import { ApiKeysList, type ApiKeyRow } from "@/components/settings/api-keys-list";
 
 export const dynamic = "force-dynamic";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Names only — never values. Lists keys still configured the old way so
 // it's clear what's in use while they're moved over.
@@ -42,7 +41,7 @@ export default async function ApiKeysPage({
       .select({ credentialLabel: clientPlatformAccounts.credentialLabel })
       .from(clientPlatformAccounts)
       .where(like(clientPlatformAccounts.credentialLabel, "db:%")),
-    params.clientId && UUID_RE.test(params.clientId) ? getClient(params.clientId) : Promise.resolve(null),
+    isUuid(params.clientId) ? getClient(params.clientId) : Promise.resolve(null),
   ]);
 
   const usage = new Map<string, number>();
@@ -65,8 +64,8 @@ export default async function ApiKeysPage({
   const initialPlatform = params.platform === "openphone" ? "openphone" : "ghl";
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-8">
-      <div className="flex flex-col gap-1">
+    <div className="flex w-full flex-col gap-6">
+      <div className="flex max-w-3xl flex-col gap-1">
         <h2 className="font-heading text-lg font-medium text-foreground">API keys</h2>
         <p className="text-sm text-muted-foreground">
           An API key is like a password that lets this app read a client&apos;s numbers. GoHighLevel and OpenPhone
@@ -75,14 +74,17 @@ export default async function ApiKeysPage({
         </p>
       </div>
 
-      <AddApiKeyForm
-        initialPlatform={initialPlatform}
-        initialName={params.name ?? client?.name ?? ""}
-        clientId={client?.id}
-        clientName={client?.name}
-      />
-
-      <ApiKeysList keys={keys} envKeyNames={envKeyNames()} />
+      {/* Add on the left, what's saved on the right — the page used to be a
+          single narrow column with most of the screen empty. */}
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        <AddApiKeyForm
+          initialPlatform={initialPlatform}
+          initialName={params.name ?? client?.name ?? ""}
+          clientId={client?.id}
+          clientName={client?.name}
+        />
+        <ApiKeysList keys={keys} envKeyNames={envKeyNames()} />
+      </div>
     </div>
   );
 }

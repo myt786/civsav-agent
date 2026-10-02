@@ -8,7 +8,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { getDb } from "@/lib/db";
 import { clientPlatformAccounts, clients, platformCredentials } from "@/lib/db/schema";
 import { logChanges } from "@/lib/settings/audit";
-import { externalIdSchemas } from "@/lib/settings/validation";
+import { externalIdSchemas, isUuid } from "@/lib/settings/validation";
 import { credentialsDb, encryptSecret, storedLabel } from "@/lib/connectors/stored-credentials";
 import { invalidateDiscovery } from "@/lib/connectors/discovery-cache";
 import { testGhlKey } from "@/lib/connectors/ghl/client";
@@ -164,6 +164,7 @@ export async function replacePlatformCredential(
   formData: FormData,
 ): Promise<CredentialFormState> {
   await requireSession();
+  if (!isUuid(credentialId)) return { error: "That key no longer exists." };
 
   const apiKey = z.string().trim().min(8, "Paste the full API key.").safeParse(formData.get("apiKey"));
   if (!apiKey.success) return { error: apiKey.error.issues[0]?.message ?? "Please paste the full key." };
@@ -195,6 +196,7 @@ export async function deletePlatformCredential(
   _prevState: CredentialFormState,
 ): Promise<CredentialFormState> {
   await requireSession();
+  if (!isUuid(credentialId)) return {};
 
   const db = await credentialsDb();
   const [row] = await db.select().from(platformCredentials).where(eq(platformCredentials.id, credentialId)).limit(1);

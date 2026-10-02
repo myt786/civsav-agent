@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { requireSession } from "@/lib/auth/require-session";
 import { logout } from "../login/actions";
-import { Button } from "@/components/ui/button";
 import { AppShell } from "@/components/app-shell";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
 
@@ -16,15 +15,19 @@ export default async function SettingsLayout({ children }: { children: ReactNode
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-6 py-8">
         <header className="flex flex-col gap-1">
           <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground">Signed in as {session.email}</p>
+          {/* Sign out sits with the signed-in line rather than at the right
+              end of the tabs, where the floating AI button covered it. */}
+          <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+            <span>Signed in as {session.email}</span>
+            <span aria-hidden>·</span>
+            <form action={logout}>
+              <button type="submit" className="text-primary underline-offset-2 hover:underline">
+                Sign out
+              </button>
+            </form>
+          </div>
         </header>
-        <SettingsTabs>
-          <form action={logout}>
-            <Button type="submit" variant="ghost" size="sm">
-              Sign out
-            </Button>
-          </form>
-        </SettingsTabs>
+        <SettingsTabs />
         {children}
       </div>
     </AppShell>

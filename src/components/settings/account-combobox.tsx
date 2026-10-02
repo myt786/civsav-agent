@@ -35,6 +35,44 @@ export type DiscoveryState =
   | { status: "ok"; accounts: DiscoveredAccount[] }
   | { status: "error"; error: string; accounts: DiscoveredAccount[] };
 
+// Search Console's site IDs are technical ("sc-domain:acme.com",
+// "https://www.acme.com/"); people know the site by its plain domain.
+function friendlySite(id: string): { name: string; note?: string } {
+  if (id.startsWith("sc-domain:")) return { name: id.slice("sc-domain:".length), note: "Whole domain" };
+  try {
+    const url = new URL(id);
+    const path = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
+    return { name: `${url.hostname}${path}`, note: url.protocol === "http:" ? "Website address (http)" : "Website address" };
+  } catch {
+    return { name: id };
+  }
+}
+
+const GSC_PERMISSION: Record<string, string> = {
+  siteOwner: "Owner",
+  siteFullUser: "Full access",
+  siteRestrictedUser: "Restricted access",
+  siteUnverifiedUser: "Not verified",
+};
+
+// What a person sees for an account: a plain name first, then one quiet
+// line of detail. The raw ID only shows when it adds something the name
+// doesn't already say.
+function displayFor(platform: Platform, account: { id: string; name: string; extra?: string }): {
+  primary: string;
+  secondary: string | null;
+} {
+  if (platform === "search_console") {
+    const site = friendlySite(account.id);
+    const permission = account.extra ? (GSC_PERMISSION[account.extra] ?? null) : null;
+    return { primary: site.name, secondary: [site.note, permission].filter(Boolean).join(" · ") || null };
+  }
+  const name = account.name.trim();
+  const idAddsInfo = name.length > 0 && name !== account.id && !name.includes(account.id);
+  const detail = [idAddsInfo ? `ID ${account.id.replace(/^act_/, "")}` : null, account.extra].filter(Boolean).join(" · ");
+  return { primary: name || account.id, secondary: detail || null };
+}
+
 export function AccountCombobox({
   platform,
   name,
@@ -138,8 +176,10 @@ export function AccountCombobox({
                 {discovery.status === "loading" && "Loading accounts…"}
                 {discovery.status !== "loading" && selected && (
                   <>
-                    <span className="truncate">
-                      {selected.name} <span className="text-muted-foreground">({selected.id})</span>
+                    {/* Just the plain name in the closed picker; the detail is in
+                        the list and on hover. */}
+                    <span className="truncate" title={selected.id}>
+                      {displayFor(platform, selected).primary}
                     </span>
                     {suggestedId === selected.id && (
                       <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
@@ -150,7 +190,9 @@ export function AccountCombobox({
                   </>
                 )}
                 {discovery.status !== "loading" && !selected && value && (
-                  <span className="truncate text-muted-foreground">{value}</span>
+                  <span className="truncate text-muted-foreground" title={value}>
+                    {platform === "search_console" ? friendlySite(value).name : value}
+                  </span>
                 )}
                 {discovery.status !== "loading" && !selected && !value && (
                   <span className="text-muted-foreground">Search accounts…</span>
@@ -173,7 +215,7 @@ export function AccountCombobox({
                       // workspace keys that turn out to point at the same
                       // underlying workspace.
                       key={`${account.id}::${account.credentialLabel ?? ""}`}
-                      value={`${account.name} ${account.id} ${account.credentialLabel ?? ""}`}
+                      value={`${displayFor(platform, account).primary} ${account.name} ${account.id} ${account.credentialLabel ?? ""}`}
                       onSelect={() => {
                         onChange(account.id);
                         onCredentialLabelChange?.(account.credentialLabel ?? null);
@@ -182,11 +224,11 @@ export function AccountCombobox({
                     >
                       <CheckIcon className={cn(account === selected ? "opacity-100" : "opacity-0")} />
                       <div className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate">
-                          {account.name} <span className="text-muted-foreground">({account.id})</span>
-                        </span>
-                        {account.extra && (
-                          <span className="text-xs text-muted-foreground">{account.extra}</span>
+                        <span className="truncate">{displayFor(platform, account).primary}</span>
+                        {displayFor(platform, account).secondary && (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {displayFor(platform, account).secondary}
+                          </span>
                         )}
                       </div>
                       {suggestedId === account.id && (

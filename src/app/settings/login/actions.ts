@@ -10,6 +10,17 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required."),
 });
 
+// Compare digests rather than the strings themselves, so the time taken
+// doesn't reveal how much of a guess was right.
+async function passwordMatches(given: string, expected: string): Promise<boolean> {
+  const digest = async (value: string) =>
+    new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
+  const [a, b] = await Promise.all([digest(given), digest(expected)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
 export interface LoginState {
   error?: string;
 }
@@ -27,7 +38,9 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   if (!expectedPassword) {
     return { error: "Sign-in isn't set up yet — ask your developer to set SETTINGS_PASSWORD." };
   }
-  if (parsed.data.password !== expectedPassword) {
+  if (!(await passwordMatches(parsed.data.password, expectedPassword))) {
+    // One shared password guards every client's data: slow down guessing.
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     return { error: "Incorrect password." };
   }
 

@@ -3,13 +3,14 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RefreshCwIcon } from "lucide-react";
+import { CopyIcon, ExternalLinkIcon, RefreshCwIcon } from "lucide-react";
 import { upsertMapping, verifyMapping, type MappingFormState, type VerifyResult } from "@/app/settings/actions";
 import type { Platform } from "@/lib/connectors/types";
 import { externalIdSchemas } from "@/lib/settings/validation";
 import { AccountCombobox, type DiscoveryState } from "@/components/settings/account-combobox";
 import { PlatformHelpPopover } from "@/components/settings/platform-help-popover";
-import type { PlatformHelp } from "@/lib/connectors/platform-labels";
+import { PLATFORM_ACCESS_LINKS, type PlatformHelp } from "@/lib/connectors/platform-labels";
+import type { AccessInfo } from "@/lib/connectors/access-info";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -97,6 +98,80 @@ export function toastVerify(title: string, result: VerifyResult) {
   }
 }
 
+function CopyChip({ value, what }: { value: string; what: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard
+          .writeText(value)
+          .then(() => toast({ variant: "success", title: `${what} copied` }))
+          .catch(() => toast({ variant: "error", title: "Couldn't copy — select it and copy by hand." }));
+      }}
+      className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] text-foreground hover:bg-muted"
+      title={`Copy ${what.toLowerCase()}`}
+    >
+      <span className="truncate">{value}</span>
+      <CopyIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+    </button>
+  );
+}
+
+// "How do I give you access?" right where the problem shows: a link to the
+// exact page on the platform, plus the email or ID to paste there.
+function AccessHelp({
+  platform,
+  label,
+  externalId,
+  accessInfo,
+  addKeyHref,
+}: {
+  platform: Platform;
+  label: string;
+  externalId: string | null;
+  accessInfo?: AccessInfo;
+  addKeyHref?: string;
+}) {
+  const link = PLATFORM_ACCESS_LINKS[platform];
+  const googleEmail =
+    (platform === "ga4" || platform === "search_console") && accessInfo?.googleReportingEmail
+      ? accessInfo.googleReportingEmail
+      : null;
+  const managerId = platform === "google_ads" ? (accessInfo?.googleAdsManagerId ?? null) : null;
+  if (!link && !addKeyHref) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+      {addKeyHref && (
+        <Link href={addKeyHref} className="font-medium text-primary underline-offset-2 hover:underline">
+          {platform === "ghl" ? "Add this client's GoHighLevel key" : "Add an OpenPhone workspace key"}
+        </Link>
+      )}
+      {link && (
+        <a
+          href={link.href(externalId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 font-medium text-primary underline-offset-2 hover:underline"
+        >
+          {addKeyHref ? link.label : `Give access in ${label}`}
+          <ExternalLinkIcon className="size-3" aria-hidden />
+        </a>
+      )}
+      {googleEmail && (
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          Add as {platform === "ga4" ? "Viewer" : "user"}: <CopyChip value={googleEmail} what="Email" />
+        </span>
+      )}
+      {managerId && (
+        <span className="inline-flex items-center gap-1.5">
+          Our manager ID: <CopyChip value={managerId} what="Manager ID" />
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function MappingRow({
   clientId,
   platform,
@@ -106,6 +181,7 @@ export function MappingRow({
   discovery,
   suggestedId,
   addKeyHref,
+  accessInfo,
 }: {
   clientId: string;
   platform: Platform;
@@ -116,6 +192,7 @@ export function MappingRow({
   suggestedId?: string;
   // GHL/OpenPhone only: where to paste this client's own API key.
   addKeyHref?: string;
+  accessInfo?: AccessInfo;
 }) {
   const boundUpsert = upsertMapping.bind(null, clientId, platform);
   const [state, formAction, savePending] = useActionState(boundUpsert, initialState);
@@ -150,6 +227,8 @@ export function MappingRow({
     });
   }
 
+  // Not connected and nothing picked yet — nothing to save or check.
+  const notStarted = !mapping && externalId.trim().length === 0;
   const dirty =
     !mapping ||
     externalId !== mapping.externalId ||
@@ -164,14 +243,24 @@ export function MappingRow({
     <form
       action={formAction}
       className={cn(
-        "grid gap-x-4 gap-y-2 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[11rem_minmax(0,1fr)_auto] md:items-start",
+        "grid gap-x-4 gap-y-2 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[11rem_minmax(0,1fr)_10.5rem] md:items-start",
         mapping?.verifiedStatus === "error" && mapping.verifiedAt && "bg-destructive/[0.03]",
       )}
     >
       <div className="flex flex-col gap-0.5 md:pt-1">
         <div className="flex items-center gap-1">
           <span className="text-sm font-medium text-foreground">{label}</span>
-          <PlatformHelpPopover help={help} />
+          <PlatformHelpPopover
+            help={help}
+            accessLink={
+              PLATFORM_ACCESS_LINKS[platform]
+                ? {
+                    label: PLATFORM_ACCESS_LINKS[platform]!.label,
+                    href: PLATFORM_ACCESS_LINKS[platform]!.href(mapping?.externalId ?? null),
+                  }
+                : undefined
+            }
+          />
         </div>
         <StatusLine mapping={mapping} />
       </div>
@@ -192,39 +281,53 @@ export function MappingRow({
         {liveError && <p className="text-xs text-destructive">{liveError}</p>}
         {state.error && <p className="text-xs text-destructive">{state.error}</p>}
         {verifyResult && <VerifyOutcome result={verifyResult} />}
-        {/* Only worth the space while there's something to fix. */}
-        {addKeyHref && (!mapping || mapping.verifiedStatus === "error") && (
-          <Link href={addKeyHref} className="self-start text-xs text-primary underline-offset-2 hover:underline">
-            {platform === "ghl" ? "Add this client's GoHighLevel key" : "Add an OpenPhone workspace key"}
-          </Link>
+        {/* Only worth the space while there's something to fix: not
+            connected, not working, or connected but silent. */}
+        {(!mapping || mapping.verifiedStatus === "error" || mapping.verifiedStatus === "no_data") && (
+          <AccessHelp
+            platform={platform}
+            label={label}
+            externalId={mapping?.externalId ?? null}
+            accessInfo={accessInfo}
+            addKeyHref={addKeyHref}
+          />
         )}
       </div>
 
+      {/* Fixed-width action column so the account pickers line up row to
+          row. A platform with nothing picked yet shows no controls at all —
+          a switch and a greyed-out button there only read as broken. */}
       <div className="flex items-center gap-2 md:h-8 md:justify-end md:self-start md:pt-0.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="flex items-center">
-              <Switch
-                name="active"
-                value="true"
-                checked={active}
-                onCheckedChange={setActive}
-                size="sm"
-                aria-label={`Include ${label} in daily updates`}
-              />
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{active ? "Included in daily updates" : "Left out of daily updates"}</TooltipContent>
-        </Tooltip>
-        {dirty ? (
-          <Button type="submit" size="sm" disabled={savePending || externalId.trim().length === 0}>
-            {savePending ? "Saving…" : mapping ? "Save" : "Connect"}
-          </Button>
+        {notStarted ? (
+          <input type="hidden" name="active" value="true" />
         ) : (
-          <Button type="button" size="sm" variant="ghost" disabled={verifying} onClick={handleVerify}>
-            <RefreshCwIcon className={cn("size-3.5", verifying && "animate-spin")} />
-            {verifying ? "Checking…" : "Re-check"}
-          </Button>
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center">
+                  <Switch
+                    name="active"
+                    value="true"
+                    checked={active}
+                    onCheckedChange={setActive}
+                    size="sm"
+                    aria-label={`Include ${label} in daily updates`}
+                  />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{active ? "Included in daily updates" : "Left out of daily updates"}</TooltipContent>
+            </Tooltip>
+            {dirty ? (
+              <Button type="submit" size="sm" disabled={savePending || externalId.trim().length === 0}>
+                {savePending ? "Saving…" : mapping ? "Save" : "Connect"}
+              </Button>
+            ) : (
+              <Button type="button" size="sm" variant="ghost" disabled={verifying} onClick={handleVerify}>
+                <RefreshCwIcon className={cn("size-3.5", verifying && "animate-spin")} />
+                {verifying ? "Checking…" : "Re-check"}
+              </Button>
+            )}
+          </>
         )}
       </div>
     </form>

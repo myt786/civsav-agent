@@ -54,7 +54,7 @@ export function AddApiKeyForm({
   }, [pending, state.error, state.success]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 rounded-lg border border-border p-4 shadow-sm">
+    <form action={formAction} className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-sm">
       <input type="hidden" name="platform" value={platform} />
       {clientId && <input type="hidden" name="clientId" value={clientId} />}
 
