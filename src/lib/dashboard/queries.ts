@@ -5,6 +5,7 @@ import { getDb } from "../db";
 import { clientPlatformAccounts, clients, metricSnapshots, rawResponses, syncRuns } from "../db/schema";
 import type { Platform } from "../connectors/types";
 import { leadDashboardDataSchema } from "../connectors/lead-dashboard/schema";
+import { ghlDataSchema } from "../connectors/ghl/schema";
 import { telephonyDataSchema } from "../connectors/openphone/schema";
 import { googleAdsDataSchema } from "../connectors/google-ads/schema";
 import { metaDataSchema } from "../connectors/meta/schema";
@@ -192,18 +193,35 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
     const prev7 = dateKeysBack(tz, now, WINDOW_DAYS, 1 + WINDOW_DAYS);
     const sparkline30 = dateKeysBack(tz, now, SPARKLINE_DAYS, 1);
 
-    const leadsVerified = isMappingVerified(client.id, "lead_dashboard");
-    const leadsRows = rowsFor(snapshotsByClient, client.id, "lead_dashboard", current7);
-    const leadsPrevRows = rowsFor(snapshotsByClient, client.id, "lead_dashboard", prev7);
-    const leadsErr = errorFor(client.id, "lead_dashboard");
-    const leads = downgradeIfUnverifiedMapping(
-      buildNumericCell(leadsRows, leadDashboardDataSchema, (d) => d.totalLeads, leadsErr),
-      leadsVerified,
+    // Leads come from the Lead Dashboard. A client without one but with
+    // GoHighLevel uses GHL's new opportunities instead. The two are never
+    // added together — the Lead Dashboard usually already includes the
+    // same enquiries — so when both are connected the Lead Dashboard wins
+    // and GHL's own count is still shown in the client's breakdown.
+    const ldVerified = isMappingVerified(client.id, "lead_dashboard");
+    const ldErr = errorFor(client.id, "lead_dashboard");
+    const ldLeads = downgradeIfUnverifiedMapping(
+      buildNumericCell(rowsFor(snapshotsByClient, client.id, "lead_dashboard", current7), leadDashboardDataSchema, (d) => d.totalLeads, ldErr),
+      ldVerified,
     );
-    const leadsPrev = downgradeIfUnverifiedMapping(
-      buildNumericCell(leadsPrevRows, leadDashboardDataSchema, (d) => d.totalLeads, leadsErr),
-      leadsVerified,
+    const ldLeadsPrev = downgradeIfUnverifiedMapping(
+      buildNumericCell(rowsFor(snapshotsByClient, client.id, "lead_dashboard", prev7), leadDashboardDataSchema, (d) => d.totalLeads, ldErr),
+      ldVerified,
     );
+    const ghlVerified = isMappingVerified(client.id, "ghl");
+    const ghlErr = errorFor(client.id, "ghl");
+    const ghlLeads = downgradeIfUnverifiedMapping(
+      buildNumericCell(rowsFor(snapshotsByClient, client.id, "ghl", current7), ghlDataSchema, (d) => d.leadCount, ghlErr),
+      ghlVerified,
+    );
+    const ghlLeadsPrev = downgradeIfUnverifiedMapping(
+      buildNumericCell(rowsFor(snapshotsByClient, client.id, "ghl", prev7), ghlDataSchema, (d) => d.leadCount, ghlErr),
+      ghlVerified,
+    );
+    const leadsSource: "lead_dashboard" | "ghl" =
+      !hasMapping(client.id, "lead_dashboard") && hasMapping(client.id, "ghl") ? "ghl" : "lead_dashboard";
+    const leads = leadsSource === "ghl" ? ghlLeads : ldLeads;
+    const leadsPrev = leadsSource === "ghl" ? ghlLeadsPrev : ldLeadsPrev;
     const leadsDelta = computeDelta(leads, leadsPrev);
 
     const callsVerified = isMappingVerified(client.id, "openphone");
@@ -285,8 +303,9 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
       avgPosition,
       lastSyncedAt,
       staleHours,
+      leadsSource,
       connected: (() => {
-        const leadsOn = hasMapping(client.id, "lead_dashboard");
+        const leadsOn = hasMapping(client.id, "lead_dashboard") || hasMapping(client.id, "ghl");
         const adsOn = hasMapping(client.id, "google_ads") || hasMapping(client.id, "meta");
         const ga4On = hasMapping(client.id, "ga4");
         return {
@@ -305,7 +324,12 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
       {
         key: "leads",
         label: "Leads",
-        points: toSeries(rowsFor(snapshotsByClient, client.id, "lead_dashboard", sparkline30), sparkline30, (m) =>
+        points:
+          leadsSource === "ghl"
+            ? toSeries(rowsFor(snapshotsByClient, client.id, "ghl", sparkline30), sparkline30, (m) =>
+                safeExtract(ghlDataSchema, m, (d) => d.leadCount),
+              )
+            : toSeries(rowsFor(snapshotsByClient, client.id, "lead_dashboard", sparkline30), sparkline30, (m) =>
           safeExtract(leadDashboardDataSchema, m, (d) => d.totalLeads),
         ),
       },
@@ -358,8 +382,22 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
       },
     ];
 
+    // Both lead sources are listed when connected, so the two counts can
+    // be compared side by side even though only one feeds the Leads column.
+    const leadItems: SourceBreakdownItem[] = [];
+    if (hasMapping(client.id, "lead_dashboard") || leadsSource === "lead_dashboard") {
+      leadItems.push({ platform: "lead_dashboard", label: "Leads", unit: "count", cell: ldLeads });
+    }
+    if (hasMapping(client.id, "ghl")) {
+      leadItems.push({
+        platform: "ghl",
+        label: leadsSource === "ghl" ? "Leads (GoHighLevel)" : "GoHighLevel opportunities",
+        unit: "count",
+        cell: ghlLeads,
+      });
+    }
     const breakdown: SourceBreakdownItem[] = [
-      { platform: "lead_dashboard", label: "Leads", unit: "count", cell: leads },
+      ...leadItems,
       { platform: "openphone", label: "Calls", unit: "count", cell: callsTotal },
       { platform: "google_ads", label: "Google Ads spend", unit: "currency", cell: googleAdsSpend },
       { platform: "meta", label: "Meta spend", unit: "currency", cell: metaSpend },

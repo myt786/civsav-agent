@@ -46,6 +46,9 @@ export interface ClientRow {
   // SEO-only client doesn't look like it's missing data. Optional so older
   // callers and test fixtures still build.
   connected?: Partial<Record<MetricColumn, boolean>>;
+  // Where the Leads number comes from: the Lead Dashboard, or GoHighLevel
+  // for a client without one. Never both added together.
+  leadsSource?: "lead_dashboard" | "ghl";
 }
 
 export type MetricColumn = "leads" | "calls" | "spend" | "cpl" | "sessions" | "conversions" | "avgPosition";
