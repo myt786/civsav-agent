@@ -1,4 +1,5 @@
-import { GaugeIcon, LinkIcon, TrendingUpIcon, UsersIcon } from "lucide-react";
+import { KeyRoundIcon, LayersIcon, LinkIcon, MousePointerClickIcon, TrendingUpIcon } from "lucide-react";
+import { formatInteger } from "@/lib/dashboard/format";
 import { getSeoDashboardData, getSeoRecommendations } from "@/lib/seo/queries";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { SeoPortfolioTable } from "@/components/seo/seo-portfolio-table";
@@ -16,7 +17,30 @@ export default async function SeoDashboardPage() {
   const data = await getSeoDashboardData();
   const recommendations = await getSeoRecommendations(data.rows);
   const { aggregates } = data;
-  const minZero = aggregates.tierCounts.minimal + aggregates.tierCounts.no_data;
+  const tc = aggregates.tierCounts;
+  const minZero = tc.minimal + tc.no_data;
+  const value = (cell: { kind: string; value?: number }) =>
+    (cell.kind === "ok" || cell.kind === "unverified") && typeof cell.value === "number" ? cell.value : null;
+
+  // Portfolio clicks per month (all clients), oldest -> newest, for the
+  // card's number and its small 3-month line.
+  const monthTotals = data.months.map((_, i) => {
+    const values = data.rows.map((r) => value(r.months[i].clicks)).filter((v): v is number => v !== null);
+    return values.length > 0 ? values.reduce((a, b) => a + b, 0) : null;
+  });
+  const newestTotal = monthTotals[monthTotals.length - 1];
+  const newestMonthLabel = new Date(`${data.months[data.months.length - 1]}-01T00:00:00`).toLocaleString("en-US", {
+    month: "long",
+  });
+
+  const growing = data.rows.filter((r) => r.trend === "growing" || r.trend === "growing_fast").length;
+  const falling = data.rows.filter((r) => r.trend === "declining" || r.trend === "falling_fast").length;
+  const stable = data.rows.filter((r) => r.trend === "stable").length;
+
+  const keywordTotal = data.rows.reduce((sum, r) => sum + (value(r.organicKeywords) ?? 0), 0);
+  const gained = data.rows.reduce((sum, r) => sum + (value(r.keywordsGained) ?? 0), 0);
+  const lost = data.rows.reduce((sum, r) => sum + (value(r.keywordsLost) ?? 0), 0);
+  const hasKeywords = data.rows.some((r) => value(r.organicKeywords) !== null);
   // Rows with genuinely nothing synced yet — a newly-onboarded client
   // whose search_console/ahrefs mappings haven't started reporting, not a
   // real "zero traffic" result. Surfaced as a banner rather than left to
@@ -46,29 +70,40 @@ export default async function SeoDashboardPage() {
       <StatCards
         stats={[
           {
-            label: "Strong tier",
-            value: aggregates.tierCounts.strong,
+            label: `Google clicks · ${newestMonthLabel}`,
+            value: newestTotal,
+            formatKind: "integer",
+            icon: <MousePointerClickIcon className="size-3.5" aria-hidden />,
+            changePct: aggregates.portfolioMomPct === null ? null : aggregates.portfolioMomPct * 100,
+            hint:
+              aggregates.portfolio3moPct === null
+                ? "all clients combined"
+                : `${aggregates.portfolio3moPct >= 0 ? "+" : ""}${Math.round(aggregates.portfolio3moPct * 100)}% over 3 months`,
+            trend: monthTotals,
+            trendColor: "var(--chart-1)",
+          },
+          {
+            label: "Clients growing",
+            value: growing,
             formatKind: "integer",
             icon: <TrendingUpIcon className="size-3.5" aria-hidden />,
+            hint: `${falling} falling · ${stable} steady (3-month trend)`,
+            tone: falling > growing ? "warning" : "default",
           },
           {
-            label: "Moderate tier",
-            value: aggregates.tierCounts.moderate,
+            label: "Ranking keywords",
+            value: hasKeywords ? keywordTotal : null,
             formatKind: "integer",
-            icon: <GaugeIcon className="size-3.5" aria-hidden />,
+            icon: <KeyRoundIcon className="size-3.5" aria-hidden />,
+            hint: hasKeywords ? `+${formatInteger(gained)} gained · −${formatInteger(lost)} lost this month (Ahrefs)` : "No Ahrefs data yet",
           },
           {
-            label: "Small tier",
-            value: aggregates.tierCounts.small,
+            label: "Strong or moderate",
+            value: tc.strong + tc.moderate,
             formatKind: "integer",
-            icon: <UsersIcon className="size-3.5" aria-hidden />,
-          },
-          {
-            label: "Minimal or no data",
-            value: minZero,
-            formatKind: "integer",
-            icon: <UsersIcon className="size-3.5" aria-hidden />,
-            tone: minZero > 0 ? "warning" : "default",
+            icon: <LayersIcon className="size-3.5" aria-hidden />,
+            hint: `${tc.small} small · ${minZero} minimal or no data`,
+            tone: minZero > data.rows.length / 2 ? "warning" : "default",
           },
         ]}
       />
