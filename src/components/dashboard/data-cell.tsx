@@ -15,12 +15,20 @@ export function DataCell<T>({
   state,
   format,
   align = "end",
+  notConnected = false,
 }: {
   state: CellState<T>;
   format: (value: T) => string;
   align?: "start" | "end";
+  // No account is set up behind this column for this client — shown as a
+  // faint dot, so "not set up" never reads as "no numbers this week".
+  notConnected?: boolean;
 }) {
   const alignClass = align === "end" ? "justify-end text-right" : "justify-start text-left";
+
+  if (state.kind === "no_data" && notConnected) {
+    return <NotConnectedCell alignClass={alignClass} />;
+  }
 
   if (state.kind === "no_data") {
     return (
@@ -79,7 +87,31 @@ export function DataCell<T>({
   return <span className={cn("flex items-center font-mono tabular-nums text-foreground", alignClass)}>{text}</span>;
 }
 
-export function DeltaCellView({ delta }: { delta: DeltaCell }) {
+function NotConnectedCell({ alignClass }: { alignClass: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className={cn("flex cursor-help items-center outline-none", alignClass)}>
+          <NotConnectedMark />
+          <span className="sr-only">Not connected</span>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64 text-pretty">
+        Not connected — no account is set up for this in Settings, so there&apos;s nothing to show.
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+// Shared with the table legend.
+export function NotConnectedMark({ className }: { className?: string }) {
+  return <span className={cn("inline-block size-1 shrink-0 rounded-full bg-muted-foreground/30", className)} aria-hidden />;
+}
+
+export function DeltaCellView({ delta, notConnected = false }: { delta: DeltaCell; notConnected?: boolean }) {
+  if (delta.pct === null && notConnected) {
+    return <NotConnectedCell alignClass="justify-end text-right" />;
+  }
   if (delta.pct === null) {
     return (
       <span className="flex items-center justify-end font-mono tabular-nums text-muted-foreground/50">—</span>

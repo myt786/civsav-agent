@@ -120,7 +120,7 @@ export function createClientColumns(
       return (
         <span className="flex items-center justify-end gap-2">
           {leadsSeries && <MiniSparkline points={leadsSeries.points} stroke="var(--chart-1)" />}
-          <DataCell state={info.getValue()} format={formatInteger} />
+          <DataCell state={info.getValue()} format={formatInteger} notConnected={info.row.original.connected?.leads === false} />
         </span>
       );
     },
@@ -134,7 +134,7 @@ export function createClientColumns(
         tooltip="How leads this week compare with the week before. Changes smaller than 5% show as — because they're usually just normal ups and downs."
       />
     ),
-    cell: (info) => <DeltaCellView delta={info.getValue()} />,
+    cell: (info) => <DeltaCellView delta={info.getValue()} notConnected={info.row.original.connected?.leads === false} />,
     sortFn: (rowA, rowB) => {
       const a = rowA.original.leadsDelta.pct ?? Number.NEGATIVE_INFINITY;
       const b = rowB.original.leadsDelta.pct ?? Number.NEGATIVE_INFINITY;
@@ -152,6 +152,7 @@ export function createClientColumns(
     cell: (info) => (
       <DataCell<CallsValue>
         state={info.getValue()}
+        notConnected={info.row.original.connected?.calls === false}
         format={(v) => `${formatInteger(v.total)} / ${formatInteger(v.missed)}`}
       />
     ),
@@ -171,7 +172,9 @@ export function createClientColumns(
         tooltip="Ad spend in the last 7 days, Google Ads and Meta combined."
       />
     ),
-    cell: (info) => <DataCell state={info.getValue()} format={formatCurrency} />,
+    cell: (info) => (
+      <DataCell state={info.getValue()} format={formatCurrency} notConnected={info.row.original.connected?.spend === false} />
+    ),
     sortFn: sortByCell("spend"),
   }),
   columnHelper.accessor("cpl", {
@@ -182,13 +185,17 @@ export function createClientColumns(
         tooltip="Ad spend divided by leads, for the last 7 days. Shows — when there were no leads."
       />
     ),
-    cell: (info) => <DataCell state={info.getValue()} format={formatCurrency} />,
+    cell: (info) => (
+      <DataCell state={info.getValue()} format={formatCurrency} notConnected={info.row.original.connected?.cpl === false} />
+    ),
     sortFn: sortByCell("cpl"),
   }),
   columnHelper.accessor("sessions", {
     id: "sessions",
     header: () => <ColumnHeader label="Website visits" tooltip="Visits to the client's website in the last 7 days (from Google Analytics)." />,
-    cell: (info) => <DataCell state={info.getValue()} format={formatInteger} />,
+    cell: (info) => (
+      <DataCell state={info.getValue()} format={formatInteger} notConnected={info.row.original.connected?.sessions === false} />
+    ),
     sortFn: sortByCell("sessions"),
   }),
   columnHelper.accessor("conversions", {
@@ -196,7 +203,9 @@ export function createClientColumns(
     header: () => (
       <ColumnHeader label="Enquiries" tooltip="Enquiries and other goals completed on the website in the last 7 days (from Google Analytics)." />
     ),
-    cell: (info) => <DataCell state={info.getValue()} format={formatInteger} />,
+    cell: (info) => (
+      <DataCell state={info.getValue()} format={formatInteger} notConnected={info.row.original.connected?.conversions === false} />
+    ),
     sortFn: sortByCell("conversions"),
   }),
   columnHelper.accessor("avgPosition", {
@@ -207,7 +216,9 @@ export function createClientColumns(
         tooltip="Average position in Google search results (from Search Console). Lower is better — 1 is the top result."
       />
     ),
-    cell: (info) => <DataCell state={info.getValue()} format={formatPosition} />,
+    cell: (info) => (
+      <DataCell state={info.getValue()} format={formatPosition} notConnected={info.row.original.connected?.avgPosition === false} />
+    ),
     sortFn: sortByCell("avgPosition"),
   }),
   columnHelper.accessor("lastSyncedAt", {

@@ -41,7 +41,14 @@ export interface ClientRow {
   avgPosition: CellState<number>;
   lastSyncedAt: Date | null;
   staleHours: number | null;
+  // Which columns have an account behind them (an active mapping). A
+  // column without one shows as "not connected" rather than a dash, so an
+  // SEO-only client doesn't look like it's missing data. Optional so older
+  // callers and test fixtures still build.
+  connected?: Partial<Record<MetricColumn, boolean>>;
 }
+
+export type MetricColumn = "leads" | "calls" | "spend" | "cpl" | "sessions" | "conversions" | "avgPosition";
 
 export interface ConnectorStatus {
   platform: Platform;

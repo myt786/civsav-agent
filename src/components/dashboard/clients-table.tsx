@@ -11,7 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { createClientColumns } from "./columns";
 import { dashboardTableFeatures } from "./table-config";
 import { RowDetailSheet } from "./row-detail-sheet";
-import { UnverifiedMark } from "./data-cell";
+import { NotConnectedMark, UnverifiedMark } from "./data-cell";
 import { cn } from "@/lib/utils";
 import { STALE_HOURS } from "@/lib/dashboard/constants";
 import type { CellState, ClientDetail, ClientRow } from "@/lib/dashboard/types";
@@ -37,7 +37,7 @@ function valueOf(cell: CellState<number>): number | null {
   return cell.kind === "ok" || cell.kind === "unverified" ? cell.value : null;
 }
 
-type QuickFilter = "all" | "attention" | "ads" | "calls" | "website";
+type QuickFilter = "all" | "attention" | "ads" | "calls" | "website" | "not_set_up";
 
 const QUICK_FILTERS: { value: QuickFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -45,13 +45,23 @@ const QUICK_FILTERS: { value: QuickFilter; label: string }[] = [
   { value: "ads", label: "Running ads" },
   { value: "calls", label: "Tracking calls" },
   { value: "website", label: "Website data" },
+  { value: "not_set_up", label: "Not set up" },
 ];
+
+// Nothing connected for leads, calls, ads or the website — usually a client
+// added from the SEO sheet with only Search Console and Ahrefs linked.
+function isNotSetUp(row: ClientRow): boolean {
+  const c = row.connected;
+  if (!c) return false;
+  return !c.leads && !c.calls && !c.spend && !c.sessions;
+}
 
 function matchesQuickFilter(row: ClientRow, filter: QuickFilter, flagged: Set<string>): boolean {
   if (filter === "attention") return flagged.has(row.clientId);
   if (filter === "ads") return (valueOf(row.spend) ?? 0) > 0;
   if (filter === "calls") return row.calls.kind === "ok" || row.calls.kind === "unverified";
   if (filter === "website") return valueOf(row.sessions) !== null;
+  if (filter === "not_set_up") return isNotSetUp(row);
   return true;
 }
 
@@ -195,8 +205,16 @@ export function ClientsTable({
               : `${withData.length} of ${rows.length} client${rows.length === 1 ? "" : "s"} with data`}{" "}
             · click a row for the full breakdown
           </span>
-          <span className="flex items-center gap-1.5">
-            <UnverifiedMark /> not checked yet — probably right, but the account hasn&apos;t been confirmed in Settings
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="flex items-center gap-1.5">
+              <NotConnectedMark className="size-1.5" /> not connected
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="font-mono text-muted-foreground/60">—</span> connected, nothing this week
+            </span>
+            <span className="flex items-center gap-1.5" title="Probably right, but the account hasn't been confirmed in Settings">
+              <UnverifiedMark /> not checked yet
+            </span>
           </span>
         </div>
         <div className="overflow-hidden rounded-lg border border-border shadow-sm">
