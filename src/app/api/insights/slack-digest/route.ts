@@ -7,7 +7,9 @@ export const maxDuration = 60;
 
 export async function POST() {
   try {
-    return NextResponse.json(await sendDailyDigest());
+    // Slack only: clicking this shouldn't email everyone on the list too —
+    // Settings → Email reports has its own "send now".
+    return NextResponse.json(await sendDailyDigest(new Date(), { slack: true, email: false }));
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Couldn't post to Slack" },

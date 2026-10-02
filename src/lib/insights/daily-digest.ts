@@ -39,8 +39,11 @@ function bullets(items: { name: string; note: string }[]): string {
   return items.map((item) => `•  *${slackEscape(item.name)}* — ${slackEscape(item.note)}`).join("\n");
 }
 
-export function buildDailyDigest(input: DailyDigestInput): { text: string; blocks: object[] } {
-  const { now, clientCount, flags, dataIssues, narrative, appUrl } = input;
+// What the daily summary says, independent of where it's sent — shared by
+// the Slack message below and the email (lib/email/templates.ts) so the two
+// never disagree.
+export function dailyDigestContent(input: DailyDigestInput) {
+  const { now, flags, dataIssues, narrative } = input;
   const date = format(now, "EEE d MMM");
   const performanceFlags = flags.filter((f) => !isDataFlag(f));
 
@@ -49,6 +52,20 @@ export function buildDailyDigest(input: DailyDigestInput): { text: string; block
     : performanceFlags.length === 0 && dataIssues.length === 0
       ? "Nothing needs attention today."
       : `${new Set(flags.map((f) => f.clientId)).size} clients have something worth a look.`;
+
+  const concerns = narrative
+    ? narrative.clientNotes.filter((n) => n.tone === "concern").map((n) => ({ name: n.clientName, note: n.note }))
+    : performanceFlags.map((f) => ({ name: f.clientName, note: f.message }));
+  const wins = narrative
+    ? narrative.clientNotes.filter((n) => n.tone === "good").map((n) => ({ name: n.clientName, note: n.note }))
+    : [];
+
+  return { date, summary, concerns: concerns.slice(0, 12), wins: wins.slice(0, 12), dataIssues, usedAi: narrative !== null };
+}
+
+export function buildDailyDigest(input: DailyDigestInput): { text: string; blocks: object[] } {
+  const { clientCount, appUrl } = input;
+  const { date, summary, concerns, wins, dataIssues, usedAi } = dailyDigestContent(input);
 
   const blocks: object[] = [
     { type: "header", text: { type: "plain_text", text: `📋 Daily client summary — ${date}`, emoji: true } },
@@ -59,16 +76,9 @@ export function buildDailyDigest(input: DailyDigestInput): { text: string; block
     section(slackEscape(summary)),
   ];
 
-  const concerns = narrative
-    ? narrative.clientNotes.filter((n) => n.tone === "concern").map((n) => ({ name: n.clientName, note: n.note }))
-    : performanceFlags.map((f) => ({ name: f.clientName, note: f.message }));
-  const wins = narrative
-    ? narrative.clientNotes.filter((n) => n.tone === "good").map((n) => ({ name: n.clientName, note: n.note }))
-    : [];
-
   if (concerns.length > 0 || wins.length > 0 || dataIssues.length > 0) blocks.push({ type: "divider" });
-  if (concerns.length > 0) blocks.push(section(`*🟠 Needs a look*\n${bullets(concerns.slice(0, 12))}`));
-  if (wins.length > 0) blocks.push(section(`*🟢 Going well*\n${bullets(wins.slice(0, 12))}`));
+  if (concerns.length > 0) blocks.push(section(`*🟠 Needs a look*\n${bullets(concerns)}`));
+  if (wins.length > 0) blocks.push(section(`*🟢 Going well*\n${bullets(wins)}`));
   if (dataIssues.length > 0) {
     const lines = dataIssues.map(
       (issue) =>
@@ -77,7 +87,7 @@ export function buildDailyDigest(input: DailyDigestInput): { text: string; block
     blocks.push(section(`*🔴 Not updating*\n${lines.join("\n")}`));
   }
 
-  const footer = [narrative ? "Summary written by AI from the dashboard's numbers." : "AI summary unavailable today — showing the raw flags."];
+  const footer = [usedAi ? "Summary written by AI from the dashboard's numbers." : "AI summary unavailable today — showing the raw flags."];
   if (appUrl) footer.push(`<${appUrl}/insights|Open Insights>`);
   blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: footer.join("  ·  ") }] });
 
