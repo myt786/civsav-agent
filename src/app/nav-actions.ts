@@ -71,3 +71,30 @@ export async function getNavSummary(): Promise<NavSummary> {
 
   return summary;
 }
+
+export interface PaletteClient {
+  id: string;
+  name: string;
+  status: "active" | "paused" | "archived";
+}
+
+// Client names for Quick jump (⌘K), loaded when it opens.
+export async function getPaletteClients(): Promise<PaletteClient[]> {
+  const jar = await cookies();
+  const session = await verifySessionCookieValue(jar.get(SETTINGS_SESSION_COOKIE)?.value);
+  if (!session) return [];
+  try {
+    const db = await getDb();
+    const rows = await db
+      .select({ id: clients.id, name: clients.name, active: clients.active, archivedAt: clients.archivedAt })
+      .from(clients)
+      .orderBy(clients.name);
+    return rows.map<PaletteClient>((c) => ({
+      id: c.id,
+      name: c.name,
+      status: c.archivedAt ? "archived" : c.active ? "active" : "paused",
+    }));
+  } catch {
+    return [];
+  }
+}

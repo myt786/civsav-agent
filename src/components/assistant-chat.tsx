@@ -11,7 +11,7 @@ import { ChatPanel } from "@/components/insights/chat-panel";
 export function AssistantChat({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 data-[side=right]:sm:max-w-lg">
         <SheetHeader className="sr-only">
           <SheetTitle>Ask about your clients</SheetTitle>
           <SheetDescription>Chat assistant grounded in the same live data as the dashboard.</SheetDescription>

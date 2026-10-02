@@ -426,7 +426,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SheetContent>
       </Sheet>
 
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} onAskAi={() => setAssistantOpen(true)} />
       <AssistantChat open={assistantOpen} onOpenChange={setAssistantOpen} />
     </div>
   );
