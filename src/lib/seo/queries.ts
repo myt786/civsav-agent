@@ -139,7 +139,13 @@ export async function getSeoDashboardData(now: Date = new Date()): Promise<SeoDa
   const { windowStart, windowEnd } = monthWindow(months);
   const ahrefsRange = ahrefsWindow(now);
 
-  const activeClients = await db.select().from(clients).where(eq(clients.active, true)).orderBy(clients.name);
+  // Clients switched off for SEO in Settings are left out of the SEO page,
+  // the monthly SEO summary and the recommendations list.
+  const activeClients = await db
+    .select()
+    .from(clients)
+    .where(and(eq(clients.active, true), eq(clients.showOnSeo, true)))
+    .orderBy(clients.name);
   const clientIds = activeClients.map((c) => c.id);
 
   if (clientIds.length === 0) {

@@ -12,6 +12,7 @@ import { getAccessInfo } from "@/lib/connectors/access-info";
 import { ClientForm } from "@/components/settings/client-form";
 import { MappingsSection } from "@/components/settings/mappings-section";
 import { ClientActions } from "@/components/settings/client-actions";
+import { ClientVisibilityCard } from "@/components/settings/client-visibility";
 import { formatRelativeTime } from "@/lib/dashboard/format";
 import { cn } from "@/lib/utils";
 import { updateClient } from "../../../actions";
@@ -38,6 +39,10 @@ function describeChange(change: {
   const platform = change.platform ? PLATFORM_LABELS[change.platform] : null;
   if (change.field === "credential_label") {
     return `changed which ${platform ?? ""} access key is used`.replace("  ", " ");
+  }
+  if (change.field === "show_on_dashboard" || change.field === "show_on_seo") {
+    const where = change.field === "show_on_dashboard" ? "the health dashboard" : "SEO";
+    return change.newValue === "false" ? `hid this client from ${where}` : `showed this client on ${where}`;
   }
   if (change.field === "used") {
     return change.newValue === "false" ? `marked ${platform ?? "a platform"} as not used` : `marked ${platform ?? "a platform"} as used again`;
@@ -379,6 +384,13 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
         />
 
         <aside className="flex flex-col gap-6">
+          <ClientVisibilityCard
+            clientId={client.id}
+            clientName={client.name}
+            showOnDashboard={client.showOnDashboard}
+            showOnSeo={client.showOnSeo}
+          />
+
           <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
             <div className="flex flex-col gap-0.5">
               <h3 className="text-sm font-medium text-foreground">Details</h3>

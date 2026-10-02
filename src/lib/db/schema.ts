@@ -50,6 +50,12 @@ export const clients = pgTable("clients", {
   // Platforms this client doesn't use at all (no GA4, no OpenPhone, ...),
   // marked "Not used" in Settings so they stop showing as missing access.
   excludedPlatforms: jsonb("excluded_platforms").$type<string[]>().notNull().default([]),
+  // Which pages the client appears on. Numbers are still collected either
+  // way; this only decides whether the client is listed on the health
+  // dashboard (and Insights, the daily summary) and on the SEO page (and
+  // the monthly SEO summary and recommendations).
+  showOnDashboard: boolean("show_on_dashboard").notNull().default(true),
+  showOnSeo: boolean("show_on_seo").notNull().default(true),
 });
 
 // Mapping table: one row per (client, platform). All data joins through
