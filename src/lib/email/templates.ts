@@ -1,0 +1,133 @@
+import { dailyDigestContent, type DailyDigestInput } from "../insights/daily-digest";
+import type { DigestSummary } from "../seo/digest";
+import { formatPercent } from "../dashboard/format";
+import type { EmailMessage } from "./resend";
+
+// Email clients ignore stylesheets and most modern CSS, so these are plain
+// tables with inline styles — the one layout that renders the same in
+// Gmail, Outlook and Apple Mail. Every email also has a plain-text part.
+
+function esc(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const FONT = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;";
+const MUTED = "#6b7280";
+
+function layout(title: string, subtitle: string, body: string, footer: string): string {
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f5f7;${FONT}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
+<tr><td style="padding:24px 28px 8px;">
+<div style="font-size:20px;font-weight:600;color:#111827;">${esc(title)}</div>
+<div style="font-size:13px;color:${MUTED};margin-top:4px;">${esc(subtitle)}</div>
+</td></tr>
+<tr><td style="padding:8px 28px 24px;font-size:14px;line-height:1.55;color:#111827;">${body}</td></tr>
+<tr><td style="padding:16px 28px;border-top:1px solid #e5e7eb;font-size:12px;color:${MUTED};">${footer}</td></tr>
+</table>
+</td></tr></table></body></html>`;
+}
+
+function heading(text: string, color: string): string {
+  return `<div style="margin:20px 0 6px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:${color};">${esc(text)}</div>`;
+}
+
+function list(items: string[]): string {
+  return `<ul style="margin:0;padding-left:18px;">${items.map((item) => `<li style="margin:4px 0;">${item}</li>`).join("")}</ul>`;
+}
+
+function button(href: string, label: string): string {
+  return `<p style="margin:22px 0 0;"><a href="${esc(href)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 16px;border-radius:8px;">${esc(label)}</a></p>`;
+}
+
+function footerText(appUrl: string | null): string {
+  const settings = appUrl ? ` Change who gets this in <a href="${esc(`${appUrl}/settings/email-reports`)}" style="color:${MUTED};">Settings → Email reports</a>.` : "";
+  return `Sent by the civsav dashboard.${settings}`;
+}
+
+export function buildDailyDigestEmail(input: DailyDigestInput): Omit<EmailMessage, "to"> {
+  const { date, summary, concerns, wins, dataIssues, usedAi } = dailyDigestContent(input);
+  const nameAndNote = (item: { name: string; note: string }) => `<strong>${esc(item.name)}</strong> — ${esc(item.note)}`;
+
+  let body = `<p style="margin:12px 0 0;font-size:15px;">${esc(summary)}</p>`;
+  if (concerns.length > 0) body += heading("Needs a look", "#b45309") + list(concerns.map(nameAndNote));
+  if (wins.length > 0) body += heading("Going well", "#15803d") + list(wins.map(nameAndNote));
+  if (dataIssues.length > 0) {
+    body +=
+      heading("Not updating", "#b91c1c") +
+      list(
+        dataIssues.map(
+          (issue) =>
+            `<strong>${esc(issue.what)}</strong> for ${issue.clients.length} ${issue.clients.length === 1 ? "client" : "clients"}: ${esc(issue.clients.slice(0, 8).join(", "))}${issue.clients.length > 8 ? ` +${issue.clients.length - 8} more` : ""}<br><span style="color:${MUTED};">${esc(issue.reason)}</span>`,
+        ),
+      );
+  }
+  if (input.appUrl) body += button(`${input.appUrl}/insights`, "Open Insights");
+  body += `<p style="margin:16px 0 0;font-size:12px;color:${MUTED};">${usedAi ? "Summary written by AI from the dashboard's numbers." : "The AI summary wasn't available today, so these are the raw flags."}</p>`;
+
+  const textLines = [`Daily client summary — ${date}`, "", summary];
+  if (concerns.length > 0) textLines.push("", "NEEDS A LOOK", ...concerns.map((c) => `- ${c.name}: ${c.note}`));
+  if (wins.length > 0) textLines.push("", "GOING WELL", ...wins.map((w) => `- ${w.name}: ${w.note}`));
+  if (dataIssues.length > 0)
+    textLines.push("", "NOT UPDATING", ...dataIssues.map((i) => `- ${i.what} (${i.clients.length}): ${i.reason}`));
+  if (input.appUrl) textLines.push("", `Open Insights: ${input.appUrl}/insights`);
+
+  return {
+    subject: `Daily client summary — ${date}`,
+    html: layout(
+      `Daily client summary — ${date}`,
+      `Last 7 days vs the week before · ${input.clientCount} active clients`,
+      body,
+      footerText(input.appUrl),
+    ),
+    text: textLines.join("\n"),
+  };
+}
+
+function pct(value: number | null): string {
+  return value === null ? "n/a" : formatPercent(value * 100);
+}
+
+export function buildSeoDigestEmail(s: DigestSummary, appUrl: string | null): Omit<EmailMessage, "to"> {
+  const tc = s.tierCounts;
+  const stat = (label: string, value: string) =>
+    `<td style="padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;width:50%;"><div style="font-size:12px;color:${MUTED};">${esc(label)}</div><div style="font-size:18px;font-weight:600;margin-top:2px;">${esc(value)}</div></td>`;
+
+  let body = `<table role="presentation" width="100%" cellpadding="0" cellspacing="6" style="margin-top:8px;">
+<tr>${stat("Google clicks this month", s.clicksNewest.toLocaleString())}${stat("vs last month", pct(s.momPct))}</tr>
+<tr>${stat("Keywords gained / lost", `+${s.keywordsGained} / -${s.keywordsLost}`)}${stat("New referring domains", s.newReferringDomainsSum.toLocaleString())}</tr>
+</table>`;
+  body += heading("Clients by size", MUTED);
+  body += `<p style="margin:0;">Strong ${tc.strong} · Moderate ${tc.moderate} · Small ${tc.small} · Minimal ${tc.minimal} · No data ${tc.no_data}</p>`;
+  if (s.fallingFast.length > 0) body += heading(`Falling fast (${s.fallingFast.length})`, "#b91c1c") + `<p style="margin:0;">${esc(s.fallingFast.join(", "))}</p>`;
+  if (s.growingFast.length > 0) body += heading(`Growing fast (${s.growingFast.length})`, "#15803d") + `<p style="margin:0;">${esc(s.growingFast.join(", "))}</p>`;
+  if (s.lowVolCount > 0)
+    body += `<p style="margin:14px 0 0;font-size:12px;color:${MUTED};">${s.lowVolCount} client(s) have too few clicks for a trend to mean anything, so they're left out of the above.</p>`;
+  if (appUrl) body += button(`${appUrl}/seo`, "Open the SEO page");
+
+  const text = [
+    `SEO monthly summary — ${s.newestMonth}`,
+    "",
+    `Google clicks this month: ${s.clicksNewest.toLocaleString()} (${pct(s.momPct)} vs last month)`,
+    `Keywords: +${s.keywordsGained} gained / -${s.keywordsLost} lost`,
+    `New referring domains: ${s.newReferringDomainsSum}`,
+    `Clients by size: Strong ${tc.strong}, Moderate ${tc.moderate}, Small ${tc.small}, Minimal ${tc.minimal}, No data ${tc.no_data}`,
+    s.fallingFast.length > 0 ? `Falling fast: ${s.fallingFast.join(", ")}` : "",
+    s.growingFast.length > 0 ? `Growing fast: ${s.growingFast.join(", ")}` : "",
+    appUrl ? `\nOpen the SEO page: ${appUrl}/seo` : "",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+
+  return {
+    subject: `SEO monthly summary — ${s.newestMonth}`,
+    html: layout(`SEO monthly summary — ${s.newestMonth}`, `${s.totalClients} active clients · ${s.oldestMonth} to ${s.newestMonth}`, body, footerText(appUrl)),
+    text,
+  };
+}

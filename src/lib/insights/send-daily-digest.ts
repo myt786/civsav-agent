@@ -5,13 +5,21 @@ import { generateFleetNarrative, type FleetNarrative } from "./narrative";
 import { groupDataIssues } from "./data-issues";
 import { buildDailyDigest } from "./daily-digest";
 import { postToSlack, type SlackPostResult } from "../slack";
+import { getAppUrl } from "../app-url";
+import { buildDailyDigestEmail } from "../email/templates";
+import { emailReport } from "../email/reports";
+import type { EmailSendResult } from "../email/resend";
 
 // Shared by the 08:30 cron and the "Send to Slack" button on Insights.
+// Goes to Slack and, through Resend, to everyone ticked for the daily
+// summary in Settings → Email reports. Either can be off without
+// affecting the other. `channels` limits a manual send to one of them.
 // Active clients only (getDashboardData) — archived and paused clients are
 // never included.
 export async function sendDailyDigest(
   now: Date = new Date(),
-): Promise<{ slack: SlackPostResult; narrativeError?: string; flags: number }> {
+  channels: { slack: boolean; email: boolean } = { slack: true, email: true },
+): Promise<{ slack: SlackPostResult; email: EmailSendResult; narrativeError?: string; flags: number }> {
   const data = await getDashboardData(now);
   const flags = computeAttentionFlags(data);
 
@@ -23,17 +31,25 @@ export async function sendDailyDigest(
     narrativeError = error instanceof Error ? error.message : String(error);
   }
 
-  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  const appUrl = process.env.APP_URL || (productionHost ? `https://${productionHost}` : null);
-
-  const message = buildDailyDigest({
+  const input = {
     now,
     clientCount: data.rows.length,
     flags,
     dataIssues: narrative?.dataIssues ?? groupDataIssues(flags),
     narrative,
-    appUrl,
-  });
-  const slack = await postToSlack(message, process.env.SLACK_DAILY_CHANNEL_ID);
-  return { slack, narrativeError, flags: flags.length };
+    appUrl: getAppUrl(),
+  };
+
+  // Slack and email are independent — one failing must not stop the other.
+  const [slack, email] = await Promise.all([
+    channels.slack
+      ? postToSlack(buildDailyDigest(input), process.env.SLACK_DAILY_CHANNEL_ID).catch(
+          (error: unknown): SlackPostResult => ({ posted: false, reason: error instanceof Error ? error.message : String(error) }),
+        )
+      : Promise.resolve<SlackPostResult>({ posted: false, reason: "Not requested" }),
+    channels.email
+      ? emailReport("daily", buildDailyDigestEmail(input))
+      : Promise.resolve<EmailSendResult>({ sent: false, reason: "Not requested" }),
+  ]);
+  return { slack, email, narrativeError, flags: flags.length };
 }

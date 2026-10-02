@@ -119,6 +119,21 @@ export const platformCredentials = pgTable(
   (table) => [uniqueIndex("platform_credentials_platform_name_idx").on(table.platform, table.name)],
 );
 
+// Who gets the emailed reports (Settings → Email reports), and which ones.
+// Sent through Resend — see src/lib/email.
+export const reportRecipients = pgTable(
+  "report_recipients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    dailySummary: boolean("daily_summary").notNull().default(true),
+    monthlySeo: boolean("monthly_seo").notNull().default(true),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("report_recipients_email_idx").on(table.email)],
+);
+
 export const syncRuns = pgTable("sync_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull(),

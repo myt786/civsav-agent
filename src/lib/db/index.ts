@@ -11,7 +11,18 @@ import * as schema from "./schema";
 // migration files exist in drizzle/ so drizzle-kit stays in step. Errors are
 // ignored: on a database without these tables yet, the migrations create
 // them.
-const SELF_HEALING_DDL = `ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "archived_at" timestamp with time zone`;
+const SELF_HEALING_DDL = [
+  `ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "archived_at" timestamp with time zone`,
+  `CREATE TABLE IF NOT EXISTS "report_recipients" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "email" text NOT NULL,
+    "daily_summary" boolean DEFAULT true NOT NULL,
+    "monthly_seo" boolean DEFAULT true NOT NULL,
+    "created_by" text NOT NULL,
+    "created_at" timestamp with time zone DEFAULT now() NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "report_recipients_email_idx" ON "report_recipients" USING btree ("email")`,
+];
 
 async function createDb() {
   if (process.env.DATABASE_URL) {
@@ -26,14 +37,15 @@ async function createDb() {
     // reserved for roles with the SUPERUSER attribute"). idle_timeout
     // releases a connection back once this instance goes quiet.
     const client = postgres(process.env.DATABASE_URL, { max: 3, idle_timeout: 20 });
-    await client.unsafe(SELF_HEALING_DDL).catch(() => {});
+    // One at a time, so one statement failing doesn't skip the rest.
+    for (const statement of SELF_HEALING_DDL) await client.unsafe(statement).catch(() => {});
     return drizzle(client, { schema });
   }
 
   const { drizzle } = await import("drizzle-orm/pglite");
   const { PGlite } = await import("@electric-sql/pglite");
   const client = new PGlite(process.env.PGLITE_DATA_DIR ?? ".pglite-data");
-  await client.exec(SELF_HEALING_DDL).catch(() => {});
+  for (const statement of SELF_HEALING_DDL) await client.exec(statement).catch(() => {});
   return drizzle(client, { schema });
 }
 
