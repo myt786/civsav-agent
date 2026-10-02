@@ -22,6 +22,7 @@ const SELF_HEALING_DDL = [
     "created_at" timestamp with time zone DEFAULT now() NOT NULL
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "report_recipients_email_idx" ON "report_recipients" USING btree ("email")`,
+  `ALTER TABLE "report_recipients" ADD COLUMN IF NOT EXISTS "access_report" boolean DEFAULT false NOT NULL`,
 ];
 
 async function createDb() {

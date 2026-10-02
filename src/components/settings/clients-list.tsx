@@ -3,7 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, SearchIcon } from "lucide-react";
+import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, PlugIcon, SearchIcon } from "lucide-react";
+import { QuickAccountsSheet } from "@/components/settings/quick-accounts-sheet";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import { deactivateClient, reactivateClient, unarchiveClient, verifyAllMappings } from "@/app/settings/actions";
@@ -152,6 +153,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
   const [platform, setPlatform] = useState("any");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
   const now = useMemo(() => new Date(), []);
@@ -260,7 +262,13 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
             </TableHeader>
             <TableBody>
               {filtered.map((client) => (
-                <ClientRow key={client.id} client={client} now={now} onOpen={() => router.push(`/settings/clients/${client.id}`)} />
+                <ClientRow
+                  key={client.id}
+                  client={client}
+                  now={now}
+                  onOpen={() => router.push(`/settings/clients/${client.id}`)}
+                  onEditAccounts={() => setEditing({ id: client.id, name: client.name })}
+                />
               ))}
               {clients.length === 0 && (
                 <TableRow>
@@ -294,7 +302,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>
             {filtersActive ? `Showing ${filtered.length} of ${counts.all} clients` : `${counts.all} clients`} ·
-            click a client to manage its accounts
+            click a client to open it, or Accounts to edit its accounts right here
           </span>
           <span className="flex flex-wrap items-center gap-3">
             {(["working", "quiet", "broken", "unchecked"] as const).map((state) => (
@@ -305,6 +313,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
           </span>
         </div>
       </div>
+      <QuickAccountsSheet client={editing} onClose={() => setEditing(null)} />
     </TooltipProvider>
   );
 }
@@ -366,7 +375,17 @@ function SortHead({
   );
 }
 
-function ClientRow({ client, now, onOpen }: { client: ClientListItem; now: Date; onOpen: () => void }) {
+function ClientRow({
+  client,
+  now,
+  onOpen,
+  onEditAccounts,
+}: {
+  client: ClientListItem;
+  now: Date;
+  onOpen: () => void;
+  onEditAccounts: () => void;
+}) {
   const router = useRouter();
   const [checking, startChecking] = useTransition();
   const [toggling, startToggling] = useTransition();
@@ -426,7 +445,15 @@ function ClientRow({ client, now, onOpen }: { client: ClientListItem; now: Date;
         </Link>
         <div className="text-xs text-muted-foreground">{client.timezone}</div>
       </TableCell>
-      <TableCell className="py-3">
+      <TableCell
+        className="py-3"
+        onClick={(e) => {
+          // The chips open the accounts panel rather than the full page.
+          e.stopPropagation();
+          onEditAccounts();
+        }}
+        title="Edit accounts"
+      >
         <AccountBadges accounts={client.accounts} />
       </TableCell>
       <TableCell className={cn("py-3 text-sm", HEALTH_TONE[health.tone])}>{health.label}</TableCell>
@@ -435,6 +462,12 @@ function ClientRow({ client, now, onOpen }: { client: ClientListItem; now: Date;
       </TableCell>
       <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
+          {!client.archived && (
+            <Button type="button" size="sm" variant="outline" onClick={onEditAccounts}>
+              <PlugIcon className="size-3.5" aria-hidden />
+              Accounts
+            </Button>
+          )}
           {client.active && client.accounts.length > 0 && (
             <Button type="button" size="sm" variant="outline" disabled={checking} onClick={check}>
               <CheckCheckIcon className="size-3.5" aria-hidden />

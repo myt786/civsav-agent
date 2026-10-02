@@ -28,3 +28,25 @@ describe("buildDailyDigestEmail", () => {
     expect(email.text).toContain("Smith & Sons <Roofing>: Leads are down 40%");
   });
 });
+
+describe("buildAccessReportEmail", () => {
+  it("lists broken accounts with reasons and groups unconnected platforms", async () => {
+    const { buildAccessReportEmail } = await import("./templates");
+    const email = buildAccessReportEmail(
+      {
+        generatedAt: new Date("2026-10-05T09:00:00Z"),
+        clientCount: 3,
+        notWorking: [{ clientName: "Acme", platform: "GA4", reason: "We don't have permission to see this account." }],
+        notChecked: [],
+        notConnected: [{ platform: "Meta Ads", clients: ["Acme", "Beta"] }],
+      },
+      "https://dash.example.com",
+    );
+    expect(email.subject).toBe("Account access report — 1 to fix");
+    expect(email.html).toContain("Acme");
+    expect(email.html).toContain("Meta Ads");
+    expect(email.text).toContain("- Acme · GA4: We don't have permission");
+    expect(email.text).toContain("- Meta Ads (2): Acme, Beta");
+    expect(email.html).toContain("https://dash.example.com/settings/clients");
+  });
+});

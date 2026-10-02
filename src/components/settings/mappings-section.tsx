@@ -33,12 +33,14 @@ export function MappingsSection({
   initialDiscovery,
   mappingByPlatform,
   accessInfo,
+  onChanged,
 }: {
   clientId: string;
   clientName: string;
   initialDiscovery: DiscoveredAccounts[];
   mappingByPlatform: Map<Platform, MappingRowData>;
   accessInfo: AccessInfo;
+  onChanged?: () => void;
 }) {
   const [discovery, setDiscovery] = useState<Record<Platform, DiscoveryState>>(() =>
     toDiscoveryState(initialDiscovery),
@@ -51,6 +53,7 @@ export function MappingsSection({
     startChecking(async () => {
       const results = await verifyAllMappings(clientId);
       router.refresh();
+      onChanged?.();
       const failed = results.filter((r) => r.result.status === "error");
       if (failed.length === 0) {
         toast({ variant: "success", title: `All ${results.length} accounts are working` });
@@ -106,6 +109,7 @@ export function MappingsSection({
                 discovery={state}
                 suggestedId={suggestion?.account.id}
                 accessInfo={accessInfo}
+                onChanged={onChanged}
                 addKeyHref={
                   platform === "ghl" || platform === "openphone"
                     ? `/settings/api-keys?platform=${platform}&clientId=${clientId}&name=${encodeURIComponent(clientName)}`

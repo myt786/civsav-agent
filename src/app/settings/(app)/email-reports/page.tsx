@@ -23,7 +23,8 @@ export default async function EmailReportsPage() {
         <h2 className="font-heading text-lg font-medium text-foreground">Email reports</h2>
         <p className="text-sm text-muted-foreground">
           Choose who gets the reports by email. The daily client summary goes out every morning (about 08:30 UTC),
-          and the SEO summary on the 4th of each month — the same reports that are posted to Slack.
+          the SEO summary on the 4th of each month, and the account access report — which clients&apos; accounts
+          need access given or fixing — every Monday.
         </p>
       </div>
 
@@ -59,6 +60,7 @@ export default async function EmailReportsPage() {
           email: r.email,
           dailySummary: r.dailySummary,
           monthlySeo: r.monthlySeo,
+          accessReport: r.accessReport,
         }))}
       />
     </div>
