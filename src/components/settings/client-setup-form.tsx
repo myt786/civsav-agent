@@ -11,7 +11,7 @@ import { AccountCombobox, type DiscoveryState } from "@/components/settings/acco
 import { PlatformHelpPopover } from "@/components/settings/platform-help-popover";
 import { RefreshDiscoveryButton } from "@/components/settings/refresh-discovery-button";
 import { createClientWithMappings, discoverAllAccounts } from "@/app/settings/actions";
-import { PLATFORM_HELP, PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/connectors/platform-labels";
+import { PLATFORM_HELP, PLATFORM_LABELS, PLATFORM_ORDER, PLATFORM_ACCESS_LINKS } from "@/lib/connectors/platform-labels";
 import { bestMatch } from "@/lib/settings/fuzzy-match";
 import type { Platform } from "@/lib/connectors/types";
 
@@ -240,7 +240,14 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
               >
                 <div className="flex items-center gap-1.5 sm:w-36 sm:shrink-0 sm:pt-2">
                   <span className="text-sm font-medium text-foreground">{PLATFORM_LABELS[platform]}</span>
-                  <PlatformHelpPopover help={PLATFORM_HELP[platform]} />
+                  <PlatformHelpPopover
+                    help={PLATFORM_HELP[platform]}
+                    accessLink={
+                      PLATFORM_ACCESS_LINKS[platform]
+                        ? { label: PLATFORM_ACCESS_LINKS[platform]!.label, href: PLATFORM_ACCESS_LINKS[platform]!.href(null) }
+                        : undefined
+                    }
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <AccountCombobox

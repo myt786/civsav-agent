@@ -8,6 +8,7 @@ import { getClient, getClientMappings } from "@/lib/settings/queries";
 import { isUuid } from "@/lib/settings/validation";
 import { getRecentChanges } from "@/lib/settings/audit";
 import { getAllDiscoveredAccounts } from "@/lib/connectors/discovery-cache";
+import { getAccessInfo } from "@/lib/connectors/access-info";
 import { ClientForm } from "@/components/settings/client-form";
 import { MappingsSection } from "@/components/settings/mappings-section";
 import { ClientActions } from "@/components/settings/client-actions";
@@ -225,6 +226,7 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
           clientName={client.name}
           initialDiscovery={discovery}
           mappingByPlatform={mappingByPlatform}
+          accessInfo={getAccessInfo()}
         />
 
         <aside className="flex flex-col gap-6">

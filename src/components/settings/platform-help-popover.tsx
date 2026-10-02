@@ -1,10 +1,16 @@
 "use client";
 
-import { HelpCircleIcon } from "lucide-react";
+import { ExternalLinkIcon, HelpCircleIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { PlatformHelp } from "@/lib/connectors/platform-labels";
 
-export function PlatformHelpPopover({ help }: { help: PlatformHelp }) {
+export function PlatformHelpPopover({
+  help,
+  accessLink,
+}: {
+  help: PlatformHelp;
+  accessLink?: { label: string; href: string };
+}) {
   return (
     <Popover>
       <PopoverTrigger
@@ -23,6 +29,17 @@ export function PlatformHelpPopover({ help }: { help: PlatformHelp }) {
           <span className="font-medium text-foreground">If you can&apos;t find it in the list: </span>
           {help.ifEmpty}
         </p>
+        {accessLink && (
+          <a
+            href={accessLink.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 font-medium text-primary underline-offset-2 hover:underline"
+          >
+            {accessLink.label}
+            <ExternalLinkIcon className="size-3.5" aria-hidden />
+          </a>
+        )}
       </PopoverContent>
     </Popover>
   );
