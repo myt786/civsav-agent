@@ -17,9 +17,12 @@ export const TREND_RANK: Record<Trend, number> = {
   unknown: 6,
 };
 
-// Direct port of _tier() in build_dashboard.py.
+// Port of _tier() in build_dashboard.py, with one deliberate difference:
+// a real 0 (Search Console connected and reporting, nobody clicked) is
+// "minimal", not "no_data". The spreadsheet couldn't tell the two apart;
+// here null already means "no numbers", so 0 shouldn't be lumped in with it.
 export function tierFor(newestClicks: number | null): Tier {
-  if (!newestClicks) return "no_data";
+  if (newestClicks === null) return "no_data";
   if (newestClicks >= TIER_THRESHOLDS.strong) return "strong";
   if (newestClicks >= TIER_THRESHOLDS.moderate) return "moderate";
   if (newestClicks >= TIER_THRESHOLDS.small) return "small";
@@ -89,12 +92,29 @@ export function computePortfolioAggregates(
   const tierCounts: Record<Tier, number> = { strong: 0, moderate: 0, small: 0, minimal: 0, no_data: 0 };
   for (const r of rowMetrics) tierCounts[r.tier]++;
 
+  // Changes compare like with like: only clients with numbers in both
+  // months count. Summing everyone instead made a client whose newest month
+  // hadn't synced look like a portfolio-wide drop (counted in the earlier
+  // month, missing from the later one) — and a newly connected client look
+  // like portfolio growth.
+  const changeBetween = (pick: (r: RowMetrics) => number | null) => {
+    let from = 0;
+    let to = 0;
+    for (const r of rowMetrics) {
+      const earlier = pick(r);
+      if (earlier === null || r.newest === null) continue;
+      from += earlier;
+      to += r.newest;
+    }
+    return from > 0 ? (to - from) / from : null;
+  };
+
   return {
     clicksNewest,
     clicksPrev,
     clicksOldest,
-    portfolioMomPct: clicksPrev > 0 ? (clicksNewest - clicksPrev) / clicksPrev : null,
-    portfolio3moPct: clicksOldest > 0 ? (clicksNewest - clicksOldest) / clicksOldest : null,
+    portfolioMomPct: changeBetween((r) => r.prev),
+    portfolio3moPct: changeBetween((r) => r.oldest),
     tierCounts,
     newReferringDomainsSum: newReferringDomains.filter((v): v is number => v !== null && v > 0).reduce((a, b) => a + b, 0),
   };

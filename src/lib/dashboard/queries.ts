@@ -12,9 +12,9 @@ import { ga4DataSchema } from "../connectors/ga4/schema";
 import { searchConsoleDataSchema } from "../connectors/search-console/schema";
 import { PLATFORM_ORDER, SPARKLINE_DAYS, WINDOW_DAYS } from "./constants";
 import {
-  average,
   buildCallsCell,
   buildNumericCell,
+  buildWeightedAverageCell,
   computeDelta,
   divideCells,
   downgradeIfUnverifiedMapping,
@@ -220,7 +220,13 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
     const searchConsoleRows = rowsFor(snapshotsByClient, client.id, "search_console", current7);
     const searchConsoleErr = attemptErrorFor(latestAttempt, client.id, "search_console");
     const avgPosition = downgradeIfUnverifiedMapping(
-      buildNumericCell(searchConsoleRows, searchConsoleDataSchema, (d) => d.averagePosition, searchConsoleErr, average),
+      buildWeightedAverageCell(
+        searchConsoleRows,
+        searchConsoleDataSchema,
+        (d) => d.averagePosition,
+        (d) => d.totalImpressions,
+        searchConsoleErr,
+      ),
       isMappingVerified(client.id, "search_console"),
     );
 

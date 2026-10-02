@@ -28,7 +28,7 @@ function summarizeRow(row: SeoClientRow): string {
   const parts: string[] = [];
   const newest = row.months[row.months.length - 1];
   if (newest?.clicks.kind === "ok" || newest?.clicks.kind === "unverified") {
-    parts.push(`clicks this month: ${formatInteger(newest.clicks.value)}`);
+    parts.push(`clicks in ${newest.month} (last full month): ${formatInteger(newest.clicks.value)}`);
   }
   if (newest?.avgPosition.kind === "ok" || newest?.avgPosition.kind === "unverified") {
     parts.push(`avg. search position: ${formatPosition(newest.avgPosition.value)}`);

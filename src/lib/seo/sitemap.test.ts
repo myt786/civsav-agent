@@ -86,4 +86,53 @@ describe("fetchSitemapUrls", () => {
 
     expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/sitemap.xml");
   });
+
+  it("reads CDATA-wrapped and XML-escaped locations", async () => {
+    fetchMock.mockResolvedValueOnce(
+      textResponse(
+        200,
+        `<urlset><url><loc><![CDATA[https://example.com/a]]></loc></url><url><loc>https://example.com/b?x=1&amp;y=2</loc></url></urlset>`,
+      ),
+    );
+
+    const result = await fetchSitemapUrls("example.com");
+
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.urls).toEqual(["https://example.com/a", "https://example.com/b?x=1&y=2"]);
+  });
+
+  it("never follows a robots.txt directive to a private address", async () => {
+    fetchMock
+      .mockResolvedValueOnce(textResponse(404, ""))
+      .mockResolvedValueOnce(textResponse(200, "Sitemap: http://169.254.169.254/latest/meta-data\n"))
+      .mockResolvedValueOnce(textResponse(404, ""));
+
+    const result = await fetchSitemapUrls("example.com");
+
+    expect(result.status).toBe("no_data");
+    expect(fetchMock.mock.calls.map((c) => c[0])).not.toContain("http://169.254.169.254/latest/meta-data");
+  });
+
+  it("reads page sitemaps before image or tag sitemaps in an index", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        textResponse(
+          200,
+          `<sitemapindex><sitemap><loc>https://example.com/image-sitemap.xml</loc></sitemap><sitemap><loc>https://example.com/page-sitemap.xml</loc></sitemap></sitemapindex>`,
+        ),
+      )
+      .mockResolvedValue(textResponse(200, `<urlset><url><loc>https://example.com/a</loc></url></urlset>`));
+
+    await fetchSitemapUrls("example.com");
+
+    expect(fetchMock.mock.calls[1][0]).toBe("https://example.com/page-sitemap.xml");
+  });
+
+  it("uses the host root for an Ahrefs target with a path or wildcard", async () => {
+    fetchMock.mockResolvedValueOnce(textResponse(200, `<urlset><url><loc>https://example.com/a</loc></url></urlset>`));
+
+    await fetchSitemapUrls("*.example.com/blog");
+
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.com/sitemap.xml");
+  });
 });

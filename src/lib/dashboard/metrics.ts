@@ -130,6 +130,44 @@ export function divideCells(numerator: CellState<number>, denominator: CellState
 // per-day reconciliation flag — a config typo caught late looks exactly
 // like real data otherwise, and there's been no check at all that this
 // external ID resolves to the right account.
+// Like buildNumericCell, but a weighted average — for Search Console's
+// average position, which has to be weighted by impressions the way
+// Google's own report does it. A plain average of daily positions let a
+// quiet day (3 impressions at position 40) count as much as a busy one
+// (3,000 at position 4). Falls back to a plain average if every day had
+// zero weight.
+export function buildWeightedAverageCell<TData>(
+  rows: SnapshotRow[],
+  schema: z.ZodType<TData>,
+  extract: (data: TData) => number,
+  weight: (data: TData) => number,
+  lastAttemptError: string | null,
+): CellState<number> {
+  if (rows.length === 0) {
+    return lastAttemptError ? { kind: "error", message: lastAttemptError } : { kind: "no_data" };
+  }
+
+  let weighted = 0;
+  let totalWeight = 0;
+  const values: number[] = [];
+  for (const row of rows) {
+    const parsed = schema.safeParse(row.metrics);
+    if (!parsed.success) {
+      return {
+        kind: "error",
+        message: `stored metrics for ${row.date} failed schema validation: ${parsed.error.message}`,
+      };
+    }
+    const value = extract(parsed.data);
+    const w = weight(parsed.data);
+    values.push(value);
+    weighted += value * w;
+    totalWeight += w;
+  }
+
+  return { kind: "ok", value: totalWeight > 0 ? weighted / totalWeight : average(values) };
+}
+
 export function downgradeIfUnverifiedMapping<T>(cell: CellState<T>, mappingVerified: boolean): CellState<T> {
   if (mappingVerified || cell.kind !== "ok") return cell;
   return { kind: "unverified", value: cell.value };
