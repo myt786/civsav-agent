@@ -48,7 +48,7 @@ interface ClientListItem {
   lastUpdatedAt: Date | null;
 }
 
-type AccountState = "working" | "quiet" | "broken" | "unchecked" | "paused" | "missing" | "unused";
+type AccountState = "working" | "quiet" | "broken" | "unchecked" | "paused" | "missing";
 
 function accountState(account: ClientAccount): AccountState {
   if (!account.active) return "paused";
@@ -68,7 +68,6 @@ const STATE_STYLE: Record<AccountState, { chip: string; label: string }> = {
   unchecked: { chip: "border border-dashed border-primary/40 bg-primary/5 text-primary", label: "Connected, not checked yet" },
   paused: { chip: "border border-border bg-muted text-muted-foreground line-through", label: "Connected, but turned off" },
   missing: { chip: "border border-border bg-transparent text-muted-foreground/60", label: "Not connected" },
-  unused: { chip: "border border-dashed border-border bg-transparent text-muted-foreground/40", label: "Not used by this client" },
 };
 
 // Order and wording of the legend above the table.
@@ -385,9 +384,11 @@ function AccountBadges({ accounts, excluded }: { accounts: ClientAccount[]; excl
   const byPlatform = new Map(accounts.map((a) => [a.platform, a]));
   return (
     <div className="flex flex-wrap gap-1">
-      {PLATFORM_ORDER.map((platform) => {
+      {/* A platform marked "Not used" (and with nothing connected) isn't
+          shown at all — grey is only for ones still to connect. */}
+      {PLATFORM_ORDER.filter((platform) => byPlatform.has(platform) || !excluded.includes(platform)).map((platform) => {
         const account = byPlatform.get(platform);
-        const state: AccountState = account ? accountState(account) : excluded.includes(platform) ? "unused" : "missing";
+        const state: AccountState = account ? accountState(account) : "missing";
         const style = STATE_STYLE[state];
         return (
           <Tooltip key={platform}>
