@@ -150,6 +150,8 @@ export function MappingRow({
     });
   }
 
+  // Not connected and nothing picked yet — nothing to save or check.
+  const notStarted = !mapping && externalId.trim().length === 0;
   const dirty =
     !mapping ||
     externalId !== mapping.externalId ||
@@ -164,7 +166,7 @@ export function MappingRow({
     <form
       action={formAction}
       className={cn(
-        "grid gap-x-4 gap-y-2 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[11rem_minmax(0,1fr)_auto] md:items-start",
+        "grid gap-x-4 gap-y-2 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[11rem_minmax(0,1fr)_10.5rem] md:items-start",
         mapping?.verifiedStatus === "error" && mapping.verifiedAt && "bg-destructive/[0.03]",
       )}
     >
@@ -200,31 +202,40 @@ export function MappingRow({
         )}
       </div>
 
+      {/* Fixed-width action column so the account pickers line up row to
+          row. A platform with nothing picked yet shows no controls at all —
+          a switch and a greyed-out button there only read as broken. */}
       <div className="flex items-center gap-2 md:h-8 md:justify-end md:self-start md:pt-0.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="flex items-center">
-              <Switch
-                name="active"
-                value="true"
-                checked={active}
-                onCheckedChange={setActive}
-                size="sm"
-                aria-label={`Include ${label} in daily updates`}
-              />
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{active ? "Included in daily updates" : "Left out of daily updates"}</TooltipContent>
-        </Tooltip>
-        {dirty ? (
-          <Button type="submit" size="sm" disabled={savePending || externalId.trim().length === 0}>
-            {savePending ? "Saving…" : mapping ? "Save" : "Connect"}
-          </Button>
+        {notStarted ? (
+          <input type="hidden" name="active" value="true" />
         ) : (
-          <Button type="button" size="sm" variant="ghost" disabled={verifying} onClick={handleVerify}>
-            <RefreshCwIcon className={cn("size-3.5", verifying && "animate-spin")} />
-            {verifying ? "Checking…" : "Re-check"}
-          </Button>
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center">
+                  <Switch
+                    name="active"
+                    value="true"
+                    checked={active}
+                    onCheckedChange={setActive}
+                    size="sm"
+                    aria-label={`Include ${label} in daily updates`}
+                  />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{active ? "Included in daily updates" : "Left out of daily updates"}</TooltipContent>
+            </Tooltip>
+            {dirty ? (
+              <Button type="submit" size="sm" disabled={savePending || externalId.trim().length === 0}>
+                {savePending ? "Saving…" : mapping ? "Save" : "Connect"}
+              </Button>
+            ) : (
+              <Button type="button" size="sm" variant="ghost" disabled={verifying} onClick={handleVerify}>
+                <RefreshCwIcon className={cn("size-3.5", verifying && "animate-spin")} />
+                {verifying ? "Checking…" : "Re-check"}
+              </Button>
+            )}
+          </>
         )}
       </div>
     </form>

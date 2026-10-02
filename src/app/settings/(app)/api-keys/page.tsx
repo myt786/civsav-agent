@@ -64,8 +64,8 @@ export default async function ApiKeysPage({
   const initialPlatform = params.platform === "openphone" ? "openphone" : "ghl";
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-8">
-      <div className="flex flex-col gap-1">
+    <div className="flex w-full flex-col gap-6">
+      <div className="flex max-w-3xl flex-col gap-1">
         <h2 className="font-heading text-lg font-medium text-foreground">API keys</h2>
         <p className="text-sm text-muted-foreground">
           An API key is like a password that lets this app read a client&apos;s numbers. GoHighLevel and OpenPhone
@@ -74,14 +74,17 @@ export default async function ApiKeysPage({
         </p>
       </div>
 
-      <AddApiKeyForm
-        initialPlatform={initialPlatform}
-        initialName={params.name ?? client?.name ?? ""}
-        clientId={client?.id}
-        clientName={client?.name}
-      />
-
-      <ApiKeysList keys={keys} envKeyNames={envKeyNames()} />
+      {/* Add on the left, what's saved on the right — the page used to be a
+          single narrow column with most of the screen empty. */}
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        <AddApiKeyForm
+          initialPlatform={initialPlatform}
+          initialName={params.name ?? client?.name ?? ""}
+          clientId={client?.id}
+          clientName={client?.name}
+        />
+        <ApiKeysList keys={keys} envKeyNames={envKeyNames()} />
+      </div>
     </div>
   );
 }
