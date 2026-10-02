@@ -78,12 +78,15 @@ export default async function ApiKeysPage({
       {/* Add on the left, what's saved on the right — the page used to be a
           single narrow column with most of the screen empty. */}
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-        <AddApiKeyForm
-          initialPlatform={initialPlatform}
-          initialName={params.name ?? client?.name ?? ""}
-          clientId={client?.id}
-          clientName={client?.name}
-        />
+        {/* Stays in view while scrolling a long list of saved keys. */}
+        <div className="lg:sticky lg:top-6">
+          <AddApiKeyForm
+            initialPlatform={initialPlatform}
+            initialName={params.name ?? client?.name ?? ""}
+            clientId={client?.id}
+            clientName={client?.name}
+          />
+        </div>
         <ApiKeysList keys={keys} envKeyNames={envKeyNames()} unsavedEnvKeys={await countUnsavedEnvKeys()} />
       </div>
     </div>

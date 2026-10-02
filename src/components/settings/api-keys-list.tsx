@@ -2,7 +2,8 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDownToLineIcon, KeyRoundIcon, ShieldCheckIcon } from "lucide-react";
+import { ArrowDownToLineIcon, KeyRoundIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   deletePlatformCredential,
   moveEnvKeysToSaved,
@@ -11,7 +12,6 @@ import {
   type CredentialFormState,
 } from "@/app/settings/credentials-actions";
 import { ConfirmSubmitButton } from "@/components/settings/confirm-submit-button";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
@@ -83,7 +83,9 @@ export function ApiKeysList({
             <div className="flex items-center justify-between gap-2">
               <h4 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h4>
               <span className="text-xs text-muted-foreground tabular-nums">
-                {rows.length + envNames.length} {rows.length + envNames.length === 1 ? "key" : "keys"}
+                {/* Saved keys plus any not moved in yet — a moved key exists in
+                    both places and must only count once. */}
+                {rows.length + unsavedEnvKeys[platform]} {rows.length + unsavedEnvKeys[platform] === 1 ? "key" : "keys"}
               </span>
             </div>
             {rows.length > 0 && (
@@ -113,8 +115,7 @@ export function ApiKeysList({
                 <p className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2.5 text-xs text-muted-foreground">
                   <ShieldCheckIcon className="mt-px size-3.5 shrink-0 text-success" aria-hidden />
                   <span>
-                    The {envNames.length} older {envNames.length === 1 ? "key has" : "keys have"} been moved in. A developer
-                    can now remove {envNames.length === 1 ? "it" : "them"} from Vercel — optional, nothing breaks either way.
+                    Older keys moved in. The copies in Vercel can now be removed (optional).
                   </span>
                 </p>
               )
@@ -199,41 +200,49 @@ function KeyRow({ row }: { row: ApiKeyRow }) {
   }, [deletePending, deleteState.error]);
 
   return (
-    <div className="flex flex-col gap-2 border-b border-border px-4 py-3 last:border-b-0">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <KeyRoundIcon className="size-4 shrink-0 text-muted-foreground" />
+    <div className="flex flex-col gap-2 border-b border-border px-3 py-2.5 transition-colors last:border-b-0 hover:bg-muted/30">
+      <div className="flex items-center gap-3">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <KeyRoundIcon className="size-4" aria-hidden />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm font-medium text-foreground">{row.name}</span>
-          <Badge variant="outline" className="shrink-0 text-muted-foreground">
-            {row.usedBy === 0 ? "not used by any client yet" : `used by ${row.usedBy} client${row.usedBy === 1 ? "" : "s"}`}
-          </Badge>
+          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <span className={cn("shrink-0", row.usedBy === 0 && "text-warning")}>
+              {row.usedBy === 0 ? "Not used by any client" : `Used by ${row.usedBy} client${row.usedBy === 1 ? "" : "s"}`}
+            </span>
+            {row.platform === "ghl" && row.locationId && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="truncate" title={`Sub-account ID ${row.locationId}`}>
+                  Sub-account <code className="text-foreground/80">{row.locationId}</code>
+                </span>
+              </>
+            )}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={() => setReplacing((r) => !r)}>
-            {replacing ? "Cancel" : "Replace key"}
+        <div className="flex shrink-0 items-center gap-1">
+          <Button type="button" size="sm" variant="ghost" onClick={() => setReplacing((r) => !r)}>
+            {replacing ? "Cancel" : "Replace"}
           </Button>
           <form action={deleteAction}>
             <ConfirmSubmitButton
               type="submit"
-              size="sm"
+              size="icon-sm"
               variant="ghost"
               disabled={deletePending}
+              aria-label={`Delete ${row.name}`}
+              title="Delete key"
+              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               confirmMessage={`Delete the key "${row.name}"? You can add it again later if you need to.`}
             >
-              Delete
+              <Trash2Icon className="size-3.5" />
             </ConfirmSubmitButton>
           </form>
         </div>
       </div>
 
-      {row.platform === "ghl" &&
-        (row.locationId ? (
-          <p className="text-xs text-muted-foreground">
-            Sub-account ID: <code className="text-foreground">{row.locationId}</code>
-          </p>
-        ) : (
-          <GhlLocationForm row={row} />
-        ))}
+      {row.platform === "ghl" && !row.locationId && <GhlLocationForm row={row} />}
 
       {replacing && (
         <form action={replaceAction} className="flex flex-col gap-1.5 sm:flex-row">
