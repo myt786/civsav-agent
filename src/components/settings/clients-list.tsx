@@ -3,11 +3,18 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, PlugIcon, SearchIcon } from "lucide-react";
+import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, EyeOffIcon, PlugIcon, SearchIcon } from "lucide-react";
 import { QuickAccountsSheet } from "@/components/settings/quick-accounts-sheet";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
-import { deactivateClient, reactivateClient, unarchiveClient, verifyAllMappings } from "@/app/settings/actions";
+import {
+  deactivateClient,
+  hideSeoOnlyFromDashboard,
+  reactivateClient,
+  unarchiveClient,
+  verifyAllMappings,
+} from "@/app/settings/actions";
+import { isSeoOnly } from "@/lib/settings/seo-only";
 import { formatRelativeTime } from "@/lib/dashboard/format";
 import { Input } from "@/components/ui/input";
 import { SegmentedFilter } from "@/components/ui/segmented-filter";
@@ -208,9 +215,45 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
 
   const filtersActive = query.trim() !== "" || status !== "all" || platform !== "any";
 
+  // SEO-only clients still listed on the health dashboard, where they only
+  // ever show dots — offered as one click instead of one per client.
+  const seoOnlyOnDashboard = clients.filter((c) => !c.archived && c.showOnDashboard && isSeoOnly(c.accounts));
+  const [hiding, startHiding] = useTransition();
+  function hideSeoOnly() {
+    startHiding(async () => {
+      const result = await hideSeoOnlyFromDashboard();
+      router.refresh();
+      toast(
+        result.count > 0
+          ? {
+              variant: "success",
+              title: `${result.count} SEO-only ${result.count === 1 ? "client" : "clients"} hidden from the health dashboard`,
+              description: "They're still on the SEO page. Click Health on any of them to bring it back.",
+            }
+          : { variant: "default", title: "Nothing to change", description: "No SEO-only clients are on the health dashboard." },
+      );
+    });
+  }
+
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-3">
+        {seoOnlyOnDashboard.length > 0 && (
+          <div className="flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-foreground">
+              <span className="font-medium">
+                {seoOnlyOnDashboard.length} {seoOnlyOnDashboard.length === 1 ? "client has" : "clients have"} only SEO accounts
+              </span>{" "}
+              <span className="text-muted-foreground">
+                but {seoOnlyOnDashboard.length === 1 ? "is" : "are"} still on the health dashboard, where there&apos;s nothing to show.
+              </span>
+            </p>
+            <Button type="button" size="sm" onClick={hideSeoOnly} disabled={hiding} className="shrink-0">
+              <EyeOffIcon className="size-3.5" />
+              {hiding ? "Hiding…" : `Hide ${seoOnlyOnDashboard.length} from health dashboard`}
+            </Button>
+          </div>
+        )}
         {clients.length > 0 && (
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <SegmentedFilter
