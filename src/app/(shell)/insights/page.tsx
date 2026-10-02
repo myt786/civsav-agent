@@ -29,8 +29,15 @@ export default async function InsightsPage() {
   const data = await getDashboardData(now);
   const flags = computeAttentionFlags(data);
   const forecasts = buildForecasts(data, FORECAST_DAYS, NOISE_BAND_PCT);
-  const leadsForecasts = sortByTrend(forecasts.filter((f) => f.metric.key === "leads"));
-  const spendForecasts = sortByTrend(forecasts.filter((f) => f.metric.key === "spend"));
+  // A card with too little history to project from is just an empty box —
+  // with ~60 clients most of the grid was those. Count them instead.
+  const forecastable = (key: MetricForecast["key"]) => forecasts.filter((f) => f.metric.key === key && f.metric.trend !== "unknown");
+  const notEnough = (key: MetricForecast["key"]) => forecasts.filter((f) => f.metric.key === key && f.metric.trend === "unknown").length;
+  const leadsForecasts = sortByTrend(forecastable("leads"));
+  const spendForecasts = sortByTrend(forecastable("spend"));
+  // Clients, not flags: one client can have several flags, and the
+  // dashboard's "Needs attention" card counts clients too.
+  const attentionClients = new Set(flags.map((f) => f.clientId)).size;
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] animate-in flex-col gap-8 px-6 py-8 fade-in-0 duration-300">
@@ -45,9 +52,9 @@ export default async function InsightsPage() {
         <section className="flex flex-col gap-2">
           <h2 className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Needs attention
-            {flags.length > 0 && (
+            {attentionClients > 0 && (
               <Badge variant="outline" className="h-4 border-warning/30 px-1.5 text-[10px] text-warning">
-                {flags.length}
+                {attentionClients} {attentionClients === 1 ? "client" : "clients"}
               </Badge>
             )}
           </h2>
@@ -69,33 +76,36 @@ export default async function InsightsPage() {
 
         <Tabs defaultValue="leads">
           <TabsList>
-            <TabsTrigger value="leads">Leads</TabsTrigger>
-            <TabsTrigger value="spend">Ad spend</TabsTrigger>
+            <TabsTrigger value="leads">Leads ({leadsForecasts.length})</TabsTrigger>
+            <TabsTrigger value="spend">Ad spend ({spendForecasts.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="leads">
-            {leadsForecasts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active clients yet.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {leadsForecasts.map((f) => (
-                  <ForecastChart key={f.clientId} clientName={f.clientName} metric={f.metric} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="spend">
-            {spendForecasts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active clients yet.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {spendForecasts.map((f) => (
-                  <ForecastChart key={f.clientId} clientName={f.clientName} metric={f.metric} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
+          {(
+            [
+              ["leads", leadsForecasts, "leads"],
+              ["spend", spendForecasts, "ad spend"],
+            ] as const
+          ).map(([key, items, noun]) => (
+            <TabsContent key={key} value={key} className="flex flex-col gap-3">
+              {items.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                  No client has enough days of {noun} yet to project from.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {items.map((f) => (
+                    <ForecastChart key={f.clientId} clientName={f.clientName} metric={f.metric} />
+                  ))}
+                </div>
+              )}
+              {notEnough(key) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {notEnough(key)} {notEnough(key) === 1 ? "client isn't" : "clients aren't"} shown — fewer than 5 days of{" "}
+                  {noun} in the last {SPARKLINE_DAYS} days, which is too little to project from.
+                </p>
+              )}
+            </TabsContent>
+          ))}
         </Tabs>
       </section>
     </div>

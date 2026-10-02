@@ -6,6 +6,9 @@ import type { AttentionFlag, MetricForecast } from "./types";
 
 const MISSED_CALL_RATE_THRESHOLD = 0.3;
 const MISSED_CALL_MIN_VOLUME = 5;
+// "Leads are down" only when last week had enough leads for a drop to
+// mean something — 2 leads falling to 1 is "-50%" but it's noise.
+const LEADS_DROP_MIN_PRIOR = 5;
 // How many standard deviations the last 7 days' average has to sit from a
 // metric's own prior baseline before it counts as a real departure rather
 // than that metric's normal week-to-week noise. ~2 is the standard
@@ -61,7 +64,16 @@ export function computeAttentionFlags(data: DashboardData): AttentionFlag[] {
       });
     }
 
-    if (row.leadsDelta.direction === "down" && row.leadsDelta.pct !== null) {
+    // The week before, recovered from this week's count and the change.
+    const priorLeads =
+      (row.leads.kind === "ok" || row.leads.kind === "unverified") && row.leadsDelta.pct !== null && row.leadsDelta.pct > -100
+        ? row.leads.value / (1 + row.leadsDelta.pct / 100)
+        : null;
+    if (
+      row.leadsDelta.direction === "down" &&
+      row.leadsDelta.pct !== null &&
+      (priorLeads === null || priorLeads >= LEADS_DROP_MIN_PRIOR)
+    ) {
       flags.push({
         kind: "leads_down",
         severity: "warning",
@@ -238,8 +250,14 @@ export function computeForecast(
   });
 
   // Trend direction judged the same way a delta is: a flat-looking slope
-  // over the whole window is noise, not a real trajectory.
-  const projectedChangePct = intercept !== 0 ? ((slope * points.length) / Math.abs(intercept)) * 100 : 0;
+  // over the whole window is noise, not a real trajectory. The change is
+  // measured against the series' own average, not the fitted line's
+  // starting value — that starting value can sit near zero (or below it)
+  // for a series that climbed from nothing, which blew a tiny slope up into
+  // a huge percentage or flipped its sign.
+  const knownValues = points.map((p) => p.value).filter((v): v is number => v !== null);
+  const typical = knownValues.reduce((a, b) => a + b, 0) / knownValues.length;
+  const projectedChangePct = typical > 0 ? ((slope * (points.length - 1)) / typical) * 100 : 0;
   const trend = Math.abs(projectedChangePct) < noiseBandPct ? "flat" : projectedChangePct > 0 ? "up" : "down";
 
   return { key, label, unit, history: points, forecast, trend };
