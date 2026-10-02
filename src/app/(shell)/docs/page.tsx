@@ -35,7 +35,7 @@ const TOC: { id: string; label: string; group: string }[] = [
 ];
 
 export const metadata = {
-  title: "Help — Client Dashboard",
+  title: "Help — Civilized Savage",
   description: "How to read the dashboard, manage clients and accounts, and fix common problems.",
 };
 

@@ -82,8 +82,13 @@ const COLLAPSE_KEY = "civsav:sidebar-collapsed";
 
 // One size for every clickable row, so the expanded list and the collapsed
 // icon rail line up exactly.
-const ROW = "flex h-9 items-center gap-2.5 rounded-lg text-sm transition-colors";
-const ROW_IDLE = "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground";
+const ROW =
+  "flex h-9 items-center gap-2.5 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/60";
+const ROW_IDLE = "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground";
+// The current page reads as a raised chip with a coloured icon, so it's
+// obvious at a glance in both themes and in the collapsed rail.
+const ROW_ACTIVE =
+  "bg-card font-medium text-foreground shadow-sm ring-1 ring-sidebar-border [&>svg:first-child]:text-sidebar-primary";
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -108,7 +113,9 @@ function Brand({ size = 26, showName = true }: { size?: number; showName?: boole
   return (
     <>
       <Image src="/civsav-icon.png" alt="" width={size} height={size} className="shrink-0 rounded-md" priority />
-      {showName && <span className="font-heading text-[15px] font-semibold tracking-tight text-sidebar-foreground">civsav</span>}
+      {showName && (
+        <span className="truncate font-heading text-[15px] font-semibold tracking-tight text-sidebar-foreground">Civilized Savage</span>
+      )}
     </>
   );
 }
@@ -151,9 +158,7 @@ function NavLinks({
                     ROW,
                     "relative",
                     collapsed ? "mx-auto w-10 justify-center" : "px-3",
-                    active
-                      ? "bg-sidebar-primary/10 font-medium text-sidebar-primary"
-                      : ROW_IDLE,
+                    active ? ROW_ACTIVE : ROW_IDLE,
                   )}
                 >
                   <Icon className="size-[18px] shrink-0" aria-hidden />
@@ -275,7 +280,7 @@ function SidebarFooter({
           </span>
           <span className="flex min-w-0 flex-1 flex-col leading-tight">
             <span className="truncate text-xs font-medium text-sidebar-foreground" title={email ?? undefined}>
-              {email ? email.split("@")[0] : "civsav ops"}
+              {email ? email.split("@")[0] : "Civilized Savage"}
             </span>
             <span className="truncate text-[11px] text-sidebar-foreground/50">{email ? `@${email.split("@")[1]}` : ""}</span>
           </span>
@@ -376,7 +381,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link
             href="/"
             className={cn("mb-4 flex h-9 items-center gap-2.5", collapsed ? "justify-center" : "px-2")}
-            aria-label="civsav home"
+            aria-label="Civilized Savage home"
           >
             <Brand showName={!collapsed} />
           </Link>
@@ -390,15 +395,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                 onClick={() => setPaletteOpen(true)}
                 aria-label="Quick jump"
                 className={cn(
-                  "flex h-9 items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 text-xs text-sidebar-foreground/55 transition-colors hover:border-sidebar-ring/40 hover:text-sidebar-foreground",
-                  collapsed ? "w-10 justify-center" : "min-w-0 flex-1 px-2.5",
+                  "group flex h-9 items-center gap-2 rounded-lg border border-sidebar-border bg-card text-sm text-muted-foreground shadow-xs transition-all outline-none hover:border-sidebar-ring/50 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-sidebar-ring/60",
+                  collapsed ? "w-10 justify-center" : "min-w-0 flex-1 pr-1.5 pl-2.5",
                 )}
               >
-                <SearchIcon className="size-4 shrink-0" aria-hidden />
+                <SearchIcon className="size-4 shrink-0 transition-colors group-hover:text-foreground" aria-hidden />
                 {!collapsed && (
                   <>
-                    <span className="flex-1 truncate text-left">Search…</span>
-                    <kbd className="rounded border border-sidebar-border bg-sidebar px-1 font-mono text-[10px]">⌘K</kbd>
+                    <span className="flex-1 truncate text-left text-[13px]">Search clients…</span>
+                    <kbd className="flex h-5 items-center rounded-md border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                      ⌘K
+                    </kbd>
                   </>
                 )}
               </button>
@@ -409,7 +416,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => setAssistantOpen(true)}
                   aria-label="Ask AI"
-                  className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-sidebar-border text-sidebar-primary transition-colors hover:border-sidebar-primary/40 hover:bg-sidebar-primary/10"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-sidebar-border bg-card text-sidebar-primary shadow-xs transition-all outline-none hover:border-sidebar-primary/40 hover:bg-sidebar-primary/10 focus-visible:ring-2 focus-visible:ring-sidebar-ring/60"
                 >
                   <SparklesIcon className="size-4" aria-hidden />
                 </button>

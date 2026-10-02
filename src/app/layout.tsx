@@ -27,7 +27,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Client Dashboard",
+  title: "Civilized Savage — Client Dashboard",
   description: "Read-only daily ops dashboard across connected platforms",
 };
 
