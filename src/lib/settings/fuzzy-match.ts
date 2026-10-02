@@ -81,6 +81,7 @@ export function bestMatch(clientName: string, accounts: DiscoveredAccount[]): Ac
 
   let best: AccountMatch | null = null;
   for (const account of accounts) {
+    if (!account.name) continue;
     const score = similarity(clientName, account.name);
     if (!best || score > best.score) {
       best = { account, score };

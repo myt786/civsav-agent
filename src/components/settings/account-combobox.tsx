@@ -38,6 +38,7 @@ export type DiscoveryState =
 // Search Console's site IDs are technical ("sc-domain:acme.com",
 // "https://www.acme.com/"); people know the site by its plain domain.
 function friendlySite(id: string): { name: string; note?: string } {
+  if (!id) return { name: "" };
   if (id.startsWith("sc-domain:")) return { name: id.slice("sc-domain:".length), note: "Whole domain" };
   try {
     const url = new URL(id);
@@ -67,7 +68,7 @@ function displayFor(platform: Platform, account: { id: string; name: string; ext
     const permission = account.extra ? (GSC_PERMISSION[account.extra] ?? null) : null;
     return { primary: site.name, secondary: [site.note, permission].filter(Boolean).join(" · ") || null };
   }
-  const name = account.name.trim();
+  const name = (account.name ?? "").trim();
   const idAddsInfo = name.length > 0 && name !== account.id && !name.includes(account.id);
   const detail = [idAddsInfo ? `ID ${account.id.replace(/^act_/, "")}` : null, account.extra].filter(Boolean).join(" · ");
   return { primary: name || account.id, secondary: detail || null };
