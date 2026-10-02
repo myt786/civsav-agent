@@ -155,6 +155,8 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
   );
   const isMappingVerified = (clientId: string, platform: Platform) =>
     mappingVerifiedSet.has(`${clientId}:${platform}`);
+  const activeMappingSet = new Set(mappingRows.filter((m) => m.active).map((m) => `${m.clientId}:${m.platform}`));
+  const hasMapping = (clientId: string, platform: Platform) => activeMappingSet.has(`${clientId}:${platform}`);
 
   const rows: ClientRow[] = [];
   const details: Record<string, ClientDetail> = {};
@@ -253,6 +255,20 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
       avgPosition,
       lastSyncedAt,
       staleHours,
+      connected: (() => {
+        const leadsOn = hasMapping(client.id, "lead_dashboard");
+        const adsOn = hasMapping(client.id, "google_ads") || hasMapping(client.id, "meta");
+        const ga4On = hasMapping(client.id, "ga4");
+        return {
+          leads: leadsOn,
+          calls: hasMapping(client.id, "openphone"),
+          spend: adsOn,
+          cpl: adsOn && leadsOn,
+          sessions: ga4On,
+          conversions: ga4On,
+          avgPosition: hasMapping(client.id, "search_console"),
+        };
+      })(),
     });
 
     const sparklines: SparklineMetric[] = [
