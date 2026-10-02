@@ -119,6 +119,14 @@ export function createClientColumns(
       const leadsSeries = detailsByClient[info.row.original.clientId]?.sparklines.find((s) => s.key === "leads");
       return (
         <span className="flex items-center justify-end gap-2">
+          {info.row.original.leadsSource === "ghl" && (
+            <span
+              className="rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground"
+              title="From GoHighLevel — this client has no Lead Dashboard account"
+            >
+              GHL
+            </span>
+          )}
           {leadsSeries && <MiniSparkline points={leadsSeries.points} stroke="var(--chart-1)" />}
           <DataCell state={info.getValue()} format={formatInteger} notConnected={info.row.original.connected?.leads === false} />
         </span>
