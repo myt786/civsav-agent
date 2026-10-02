@@ -378,8 +378,8 @@ export function MappingRow({
             <TooltipTrigger asChild>
               <label
                 className={cn(
-                  "flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium whitespace-nowrap",
-                  notUsed ? "bg-muted text-muted-foreground" : "bg-card text-foreground",
+                  "flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-2.5 text-xs font-medium whitespace-nowrap shadow-xs transition-colors hover:bg-muted/60",
+                  notUsed ? "text-muted-foreground" : "text-foreground",
                   usedPending && "opacity-60",
                 )}
               >
@@ -405,8 +405,8 @@ export function MappingRow({
               <TooltipTrigger asChild>
                 <label
                   className={cn(
-                    "flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium",
-                    active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground",
+                    "flex h-8 w-[4.75rem] shrink-0 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-2.5 text-xs font-medium shadow-xs transition-colors hover:bg-muted/60",
+                    active ? "text-success" : "text-muted-foreground",
                     togglePending && "opacity-60",
                   )}
                 >
@@ -425,11 +425,11 @@ export function MappingRow({
               </TooltipContent>
             </Tooltip>
             {dirty ? (
-              <Button type="submit" size="sm" disabled={savePending || externalId.trim().length === 0}>
+              <Button type="submit" size="sm" className="h-8 min-w-[6.5rem]" disabled={savePending || externalId.trim().length === 0}>
                 {savePending ? "Saving…" : mapping ? "Save" : "Connect"}
               </Button>
             ) : (
-              <Button type="button" size="sm" variant="ghost" disabled={verifying} onClick={handleVerify}>
+              <Button type="button" size="sm" variant="outline" className="h-8 min-w-[6.5rem]" disabled={verifying} onClick={handleVerify}>
                 <RefreshCwIcon className={cn("size-3.5", verifying && "animate-spin")} />
                 {verifying ? "Checking…" : "Re-check"}
               </Button>

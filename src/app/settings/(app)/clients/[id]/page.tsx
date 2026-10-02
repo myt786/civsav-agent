@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq, sql } from "drizzle-orm";
-import { ArchiveIcon, ArrowLeftIcon, ClockIcon, GlobeIcon, PauseIcon } from "lucide-react";
+import { AlertTriangleIcon, ArchiveIcon, ArrowLeftIcon, CheckCircle2Icon, ClockIcon, GlobeIcon, PauseIcon, PlugIcon } from "lucide-react";
 import { getDb } from "@/lib/db";
 import { metricSnapshots } from "@/lib/db/schema";
 import { getClient, getClientMappings } from "@/lib/settings/queries";
@@ -74,20 +74,83 @@ async function getLastUpdatedAt(clientId: string): Promise<Date | null> {
 
 const RECENT_CHANGES_SHOWN = 6;
 
-function StatTile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "warn" | "bad" }) {
+type TileTone = "neutral" | "good" | "bad" | "warn";
+
+const TILE_TONE: Record<TileTone, { icon: string; value: string }> = {
+  neutral: { icon: "bg-primary/10 text-primary", value: "text-foreground" },
+  good: { icon: "bg-success/10 text-success", value: "text-foreground" },
+  bad: { icon: "bg-destructive/10 text-destructive", value: "text-destructive" },
+  warn: { icon: "bg-warning/10 text-warning", value: "text-warning" },
+};
+
+function StatTile({
+  label,
+  value,
+  icon,
+  tone = "neutral",
+  children,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  tone?: TileTone;
+  children?: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-lg border border-border bg-card px-3 py-2.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          "font-heading text-lg font-medium tabular-nums text-foreground",
-          tone === "warn" && "text-warning",
-          tone === "bad" && "text-destructive",
-        )}
-      >
-        {value}
-      </span>
-      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</span>
+          <span className={cn("font-heading text-2xl font-semibold tabular-nums", TILE_TONE[tone].value)}>{value}</span>
+        </div>
+        <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", TILE_TONE[tone].icon)}>{icon}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// The platforms in one bucket as small chips, or a calm line when empty.
+function PlatformChips({ platforms, chipClass, empty }: { platforms: Platform[]; chipClass: string; empty: React.ReactNode }) {
+  if (platforms.length === 0) return <p className="text-xs text-muted-foreground">{empty}</p>;
+  const shown = platforms.slice(0, 4);
+  return (
+    <div className="flex flex-wrap gap-1">
+      {shown.map((p) => (
+        <span key={p} className={cn("rounded-full px-2 py-0.5 text-xs leading-5 whitespace-nowrap", chipClass)}>
+          {PLATFORM_LABELS[p]}
+        </span>
+      ))}
+      {platforms.length > shown.length && (
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs leading-5 text-muted-foreground">+{platforms.length - shown.length}</span>
+      )}
+    </div>
+  );
+}
+
+type SlotState = "working" | "broken" | "check" | "off" | "missing" | "unused";
+
+const SLOT_STYLE: Record<SlotState, { bar: string; label: string }> = {
+  working: { bar: "bg-success", label: "Working" },
+  broken: { bar: "bg-destructive", label: "Not working" },
+  check: { bar: "bg-warning", label: "Needs a check" },
+  off: { bar: "bg-muted-foreground/30", label: "Turned off" },
+  missing: { bar: "bg-muted", label: "Not connected" },
+  unused: { bar: "border border-dashed border-muted-foreground/30 bg-transparent", label: "Not used" },
+};
+
+// One segment per platform, coloured by its state — the whole client's
+// setup at a glance.
+function PlatformMeter({ slots }: { slots: { platform: Platform; state: SlotState }[] }) {
+  return (
+    <div className="flex gap-1" role="img" aria-label={slots.map((s) => `${PLATFORM_LABELS[s.platform]}: ${SLOT_STYLE[s.state].label}`).join(", ")}>
+      {slots.map((s) => (
+        <span
+          key={s.platform}
+          title={`${PLATFORM_LABELS[s.platform]} — ${SLOT_STYLE[s.state].label}`}
+          className={cn("h-2 flex-1 rounded-full", SLOT_STYLE[s.state].bar)}
+        />
+      ))}
     </div>
   );
 }
@@ -150,10 +213,19 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
   // broken or waiting for a check.
   const turnedOn = mappings.filter((m) => m.active);
   const turnedOff = mappings.length - turnedOn.length;
-  const working = turnedOn.filter((m) => m.verifiedAt && m.verifiedStatus === "ok").length;
-  const broken = turnedOn.filter((m) => m.verifiedAt && m.verifiedStatus === "error").length;
+  const inOrder = (list: typeof mappings) =>
+    PLATFORM_ORDER.filter((p) => list.some((m) => m.platform === p));
+  const workingPlatforms = inOrder(turnedOn.filter((m) => m.verifiedAt && m.verifiedStatus === "ok"));
+  const brokenPlatforms = inOrder(turnedOn.filter((m) => m.verifiedAt && m.verifiedStatus === "error"));
+  const checkPlatforms = inOrder(turnedOn.filter((m) => !m.verifiedAt || m.verifiedStatus === "no_data"));
+  const working = workingPlatforms.length;
+  const broken = brokenPlatforms.length;
   const quiet = turnedOn.filter((m) => m.verifiedAt && m.verifiedStatus === "no_data").length;
   const unchecked = turnedOn.filter((m) => !m.verifiedAt).length;
+  const lastCheckedAt = turnedOn.reduce<Date | null>(
+    (latest, m) => (m.verifiedAt && (!latest || m.verifiedAt > latest) ? m.verifiedAt : latest),
+    null,
+  );
 
   const status = archived
     ? { label: "Archived", className: "bg-muted text-muted-foreground" }
@@ -162,6 +234,24 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
       : broken > 0
         ? { label: "Needs attention", className: "bg-destructive/10 text-destructive" }
         : { label: "Active", className: "bg-success/10 text-success" };
+
+  const usedCount = PLATFORM_ORDER.length - excludedPlatforms.length;
+  const toConnect = PLATFORM_ORDER.filter((p) => !mappedPlatforms.has(p) && !excludedPlatforms.includes(p));
+  const slots = PLATFORM_ORDER.map((platform) => {
+    const m = mappings.find((x) => x.platform === platform);
+    const state: SlotState = !m
+      ? excludedPlatforms.includes(platform)
+        ? "unused"
+        : "missing"
+      : !m.active
+        ? "off"
+        : !m.verifiedAt || m.verifiedStatus === "no_data"
+          ? "check"
+          : m.verifiedStatus === "error"
+            ? "broken"
+            : "working";
+    return { platform, state };
+  });
 
   const recent = changes.slice(0, RECENT_CHANGES_SHOWN);
   const older = changes.slice(RECENT_CHANGES_SHOWN);
@@ -224,29 +314,58 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
         )
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           label="Accounts connected"
-          value={`${connected} of ${PLATFORM_ORDER.length - excludedPlatforms.length}`}
-          hint={
-            [turnedOff > 0 ? `${turnedOff} turned off` : null, excludedPlatforms.length > 0 ? `${excludedPlatforms.length} not used` : null]
+          value={`${connected} of ${usedCount}`}
+          icon={<PlugIcon className="size-4" />}
+          tone={toConnect.length === 0 ? "good" : "neutral"}
+        >
+          <PlatformMeter slots={slots} />
+          <p className="text-xs text-muted-foreground">
+            {[
+              toConnect.length === 0
+                ? "Everything this client uses is connected"
+                : `To connect: ${toConnect.map((p) => PLATFORM_LABELS[p]).join(", ")}`,
+              turnedOff > 0 ? `${turnedOff} turned off` : null,
+              excludedPlatforms.length > 0 ? `${excludedPlatforms.length} not used` : null,
+            ]
               .filter(Boolean)
-              .join(" · ") || undefined
-          }
-        />
-        <StatTile label="Working" value={String(working)} />
+              .join(" · ")}
+          </p>
+        </StatTile>
+        <StatTile label="Working" value={String(working)} icon={<CheckCircle2Icon className="size-4" />} tone="good">
+          <PlatformChips platforms={workingPlatforms} chipClass="bg-success/10 text-success" empty="Nothing confirmed working yet." />
+        </StatTile>
         <StatTile
           label="Not working"
           value={String(broken)}
-          tone={broken > 0 ? "bad" : undefined}
-          hint={broken > 0 ? "See the red rows below" : undefined}
-        />
+          icon={<AlertTriangleIcon className="size-4" />}
+          tone={broken > 0 ? "bad" : "good"}
+        >
+          <PlatformChips
+            platforms={brokenPlatforms}
+            chipClass="bg-destructive/10 font-medium text-destructive"
+            empty={
+              <span className="flex items-center gap-1 text-success">
+                <CheckCircle2Icon className="size-3.5" /> Nothing to fix
+              </span>
+            }
+          />
+        </StatTile>
         <StatTile
-          label="Not checked yet"
+          label="Needs a check"
           value={String(unchecked + quiet)}
-          tone={unchecked + quiet > 0 ? "warn" : undefined}
-          hint={quiet > 0 ? `${quiet} with no recent activity` : undefined}
-        />
+          icon={<ClockIcon className="size-4" />}
+          tone={unchecked + quiet > 0 ? "warn" : "good"}
+        >
+          <PlatformChips
+            platforms={checkPlatforms}
+            chipClass="bg-warning/10 text-warning"
+            empty={lastCheckedAt ? `All checked · last ${formatRelativeTime(lastCheckedAt, new Date())}` : "Nothing connected to check yet."}
+          />
+          {quiet > 0 && <p className="text-xs text-muted-foreground">{quiet} connected but quiet lately</p>}
+        </StatTile>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
