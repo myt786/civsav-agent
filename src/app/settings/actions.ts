@@ -11,6 +11,7 @@ import { logChange, logChanges } from "@/lib/settings/audit";
 import { externalIdSchemas, isPlatform, isUuid, isValidCredentialLabel } from "@/lib/settings/validation";
 import { connectorRegistry } from "@/lib/connectors/registry";
 import { getAllDiscoveredAccounts, type DiscoveredAccounts } from "@/lib/connectors/discovery-cache";
+import { getAccessInfo, type AccessInfo } from "@/lib/connectors/access-info";
 import type { Platform, PlatformAccount, DateRange, ConnectorResult } from "@/lib/connectors/types";
 import { runSync } from "@/lib/sync/run";
 import { PLATFORM_LABELS } from "@/lib/connectors/platform-labels";
@@ -593,4 +594,43 @@ export async function createClientWithMappings(
 
   revalidatePath("/settings/clients");
   redirect(`/settings/clients/${created.id}`);
+}
+
+export interface QuickAccountsData {
+  mappings: {
+    platform: Platform;
+    externalId: string;
+    active: boolean;
+    credentialLabel: string | null;
+    verifiedAt: Date | null;
+    verifiedStatus: "ok" | "no_data" | "error" | null;
+    lastError: string | null;
+  }[];
+  discovery: DiscoveredAccounts[];
+  accessInfo: AccessInfo;
+}
+
+// Everything the "Accounts" side panel on the clients list needs to edit
+// one client's accounts in place — same data the client page loads.
+export async function getQuickAccountsData(clientId: string): Promise<QuickAccountsData | null> {
+  await requireSession();
+  if (!isUuid(clientId)) return null;
+  const db = await getDb();
+  const [mappings, discovery] = await Promise.all([
+    db.select().from(clientPlatformAccounts).where(eq(clientPlatformAccounts.clientId, clientId)),
+    getAllDiscoveredAccounts(),
+  ]);
+  return {
+    mappings: mappings.map((m) => ({
+      platform: m.platform,
+      externalId: m.externalId,
+      active: m.active,
+      credentialLabel: m.credentialLabel,
+      verifiedAt: m.verifiedAt,
+      verifiedStatus: m.verifiedStatus,
+      lastError: m.lastError,
+    })),
+    discovery,
+    accessInfo: getAccessInfo(),
+  };
 }

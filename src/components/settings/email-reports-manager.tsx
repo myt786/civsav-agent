@@ -21,11 +21,13 @@ export interface RecipientRow {
   email: string;
   dailySummary: boolean;
   monthlySeo: boolean;
+  accessReport: boolean;
 }
 
 const REPORTS = [
   { key: "dailySummary", label: "Daily summary", hint: "Every morning" },
   { key: "monthlySeo", label: "SEO monthly", hint: "On the 4th" },
+  { key: "accessReport", label: "Access report", hint: "Mondays — clients whose accounts need access or fixing" },
 ] as const;
 
 const initialState: RecipientFormState = {};
@@ -64,7 +66,12 @@ function AddRecipientForm() {
         <legend className="mb-1 text-sm font-medium text-foreground">Send them</legend>
         {REPORTS.map((report) => (
           <label key={report.key} className="flex items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" name={report.key} defaultChecked className="size-4 accent-primary" />
+            <input
+              type="checkbox"
+              name={report.key}
+              defaultChecked={report.key !== "accessReport"}
+              className="size-4 accent-primary"
+            />
             {report.label}
             <span className="text-xs text-muted-foreground">· {report.hint}</span>
           </label>
@@ -81,7 +88,7 @@ function RecipientItem({ row }: { row: RecipientRow }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  function toggle(field: "dailySummary" | "monthlySeo", value: boolean) {
+  function toggle(field: "dailySummary" | "monthlySeo" | "accessReport", value: boolean) {
     startTransition(async () => {
       await updateReportRecipient(row.id, field, value);
       router.refresh();
@@ -124,7 +131,15 @@ function RecipientItem({ row }: { row: RecipientRow }) {
   );
 }
 
-function SendNowButton({ kind, label, disabled }: { kind: "daily" | "monthlySeo"; label: string; disabled: boolean }) {
+function SendNowButton({
+  kind,
+  label,
+  disabled,
+}: {
+  kind: "daily" | "monthlySeo" | "access";
+  label: string;
+  disabled: boolean;
+}) {
   const [pending, startTransition] = useTransition();
   return (
     <Button
@@ -152,6 +167,7 @@ function SendNowButton({ kind, label, disabled }: { kind: "daily" | "monthlySeo"
 export function EmailReportsManager({ recipients, configured }: { recipients: RecipientRow[]; configured: boolean }) {
   const dailyCount = recipients.filter((r) => r.dailySummary).length;
   const seoCount = recipients.filter((r) => r.monthlySeo).length;
+  const accessCount = recipients.filter((r) => r.accessReport).length;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
@@ -187,6 +203,7 @@ export function EmailReportsManager({ recipients, configured }: { recipients: Re
           <div className="flex flex-wrap gap-2">
             <SendNowButton kind="daily" label={`Send daily summary (${dailyCount})`} disabled={!configured || dailyCount === 0} />
             <SendNowButton kind="monthlySeo" label={`Send SEO summary (${seoCount})`} disabled={!configured || seoCount === 0} />
+            <SendNowButton kind="access" label={`Send access report (${accessCount})`} disabled={!configured || accessCount === 0} />
           </div>
         </div>
       </div>

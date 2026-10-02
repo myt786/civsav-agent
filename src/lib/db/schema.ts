@@ -128,6 +128,8 @@ export const reportRecipients = pgTable(
     email: text("email").notNull(),
     dailySummary: boolean("daily_summary").notNull().default(true),
     monthlySeo: boolean("monthly_seo").notNull().default(true),
+    // Weekly list of clients whose accounts need access given or fixing.
+    accessReport: boolean("access_report").notNull().default(false),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

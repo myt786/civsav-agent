@@ -182,6 +182,7 @@ export function MappingRow({
   suggestedId,
   addKeyHref,
   accessInfo,
+  onChanged,
 }: {
   clientId: string;
   platform: Platform;
@@ -193,6 +194,9 @@ export function MappingRow({
   // GHL/OpenPhone only: where to paste this client's own API key.
   addKeyHref?: string;
   accessInfo?: AccessInfo;
+  // Called after a save or a check, for a parent that keeps its own copy
+  // of the data (the clients-list side panel).
+  onChanged?: () => void;
 }) {
   const boundUpsert = upsertMapping.bind(null, clientId, platform);
   const [state, formAction, savePending] = useActionState(boundUpsert, initialState);
@@ -214,6 +218,7 @@ export function MappingRow({
     if (wasSaving.current && !savePending && !state.error && state.verify) {
       setVerifyResult(state.verify);
       toastVerify(`${label} saved`, state.verify);
+      onChanged?.();
     }
     wasSaving.current = savePending;
   }, [savePending, state.error, state.verify, label]);
@@ -224,6 +229,7 @@ export function MappingRow({
       setVerifyResult(result);
       router.refresh();
       toastVerify(label, result);
+      onChanged?.();
     });
   }
 

@@ -4,11 +4,16 @@ import { getDb } from "../db";
 import { reportRecipients } from "../db/schema";
 import { sendEmail, type EmailMessage, type EmailSendResult } from "./resend";
 
-export type ReportKind = "daily" | "monthlySeo";
+export type ReportKind = "daily" | "monthlySeo" | "access";
 
 export async function getReportRecipients(kind: ReportKind): Promise<string[]> {
   const db = await getDb();
-  const column = kind === "daily" ? reportRecipients.dailySummary : reportRecipients.monthlySeo;
+  const column =
+    kind === "daily"
+      ? reportRecipients.dailySummary
+      : kind === "monthlySeo"
+        ? reportRecipients.monthlySeo
+        : reportRecipients.accessReport;
   const rows = await db
     .select({ email: reportRecipients.email })
     .from(reportRecipients)

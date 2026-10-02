@@ -2,6 +2,7 @@ import { dailyDigestContent, type DailyDigestInput } from "../insights/daily-dig
 import type { DigestSummary } from "../seo/digest";
 import { formatPercent } from "../dashboard/format";
 import type { EmailMessage } from "./resend";
+import type { AccessReport } from "../settings/access-report";
 
 // Email clients ignore stylesheets and most modern CSS, so these are plain
 // tables with inline styles — the one layout that renders the same in
@@ -128,6 +129,63 @@ export function buildSeoDigestEmail(s: DigestSummary, appUrl: string | null): Om
   return {
     subject: `SEO monthly summary — ${s.newestMonth}`,
     html: layout(`SEO monthly summary — ${s.newestMonth}`, `${s.totalClients} active clients · ${s.oldestMonth} to ${s.newestMonth}`, body, footerText(appUrl)),
+    text,
+  };
+}
+
+export function buildAccessReportEmail(report: AccessReport, appUrl: string | null): Omit<EmailMessage, "to"> {
+  const date = report.generatedAt.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  const problems = report.notWorking.length + report.notChecked.length;
+  const summary =
+    problems === 0
+      ? "Every connected account is working."
+      : `${report.notWorking.length} connected ${report.notWorking.length === 1 ? "account isn't" : "accounts aren't"} working${report.notChecked.length > 0 ? `, and ${report.notChecked.length} ${report.notChecked.length === 1 ? "hasn't" : "haven't"} been checked yet` : ""}.`;
+
+  let body = `<p style="margin:12px 0 0;font-size:15px;">${esc(summary)}</p>`;
+  if (report.notWorking.length > 0) {
+    body +=
+      heading(`Not working — give access or fix (${report.notWorking.length})`, "#b91c1c") +
+      list(
+        report.notWorking.map(
+          (r) => `<strong>${esc(r.clientName)}</strong> · ${esc(r.platform)}<br><span style="color:${MUTED};">${esc(r.reason)}</span>`,
+        ),
+      );
+  }
+  if (report.notChecked.length > 0) {
+    body +=
+      heading(`Not checked yet (${report.notChecked.length})`, "#b45309") +
+      list(report.notChecked.map((r) => `<strong>${esc(r.clientName)}</strong> · ${esc(r.platform)}`));
+  }
+  if (report.notConnected.length > 0) {
+    body +=
+      heading("Not connected", MUTED) +
+      `<p style="margin:0 0 6px;font-size:13px;color:${MUTED};">Clients with no account set up for a platform — either they don't use it, or access still needs to be given.</p>` +
+      list(
+        report.notConnected.map(
+          (g) =>
+            `<strong>${esc(g.platform)}</strong> (${g.clients.length}): ${esc(g.clients.slice(0, 12).join(", "))}${g.clients.length > 12 ? ` +${g.clients.length - 12} more` : ""}`,
+        ),
+      );
+  }
+  if (appUrl) body += button(`${appUrl}/settings/clients`, "Fix in Settings → Clients");
+
+  const text = [
+    `Account access report — ${date}`,
+    "",
+    summary,
+    ...(report.notWorking.length > 0
+      ? ["", "NOT WORKING — GIVE ACCESS OR FIX", ...report.notWorking.map((r) => `- ${r.clientName} · ${r.platform}: ${r.reason}`)]
+      : []),
+    ...(report.notChecked.length > 0 ? ["", "NOT CHECKED YET", ...report.notChecked.map((r) => `- ${r.clientName} · ${r.platform}`)] : []),
+    ...(report.notConnected.length > 0
+      ? ["", "NOT CONNECTED", ...report.notConnected.map((g) => `- ${g.platform} (${g.clients.length}): ${g.clients.join(", ")}`)]
+      : []),
+    ...(appUrl ? ["", `Fix in Settings → Clients: ${appUrl}/settings/clients`] : []),
+  ].join("\n");
+
+  return {
+    subject: `Account access report — ${problems === 0 ? "all working" : `${problems} to fix`}`,
+    html: layout(`Account access report — ${date}`, `${report.clientCount} active clients`, body, footerText(appUrl)),
     text,
   };
 }
