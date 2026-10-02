@@ -85,6 +85,13 @@ describe("computeAttentionFlags", () => {
     expect(flags.some((f) => f.kind === "leads_down")).toBe(true);
   });
 
+  it("doesn't flag a leads drop on tiny numbers", () => {
+    // 1 lead this week vs 2 the week before is -50%, but it's noise.
+    const row = baseRow({ leads: okCell(1), leadsDelta: { pct: -50, direction: "down" } });
+    const flags = computeAttentionFlags(dataWith(row));
+    expect(flags.some((f) => f.kind === "leads_down")).toBe(false);
+  });
+
   it("does not flag leads down when the delta is unknown (no prior baseline)", () => {
     const row = baseRow({ leads: noData(), leadsDelta: { pct: null, direction: "unknown" } });
     const flags = computeAttentionFlags(dataWith(row));
