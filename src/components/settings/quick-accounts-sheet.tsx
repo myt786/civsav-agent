@@ -58,7 +58,14 @@ export function QuickAccountsSheet({
         }
       }}
     >
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-4xl">
+      {/* The sheet's own default caps a right panel at max-w-sm through a
+          data-[side=right] variant, which a plain sm:max-w-* can't
+          override — so the width is set with the same variant. Wide enough
+          for the account rows' three columns. */}
+      <SheetContent
+        side="right"
+        className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:w-[min(68rem,94vw)] data-[side=right]:sm:max-w-none"
+      >
         <SheetHeader>
           <SheetTitle>{client?.name ?? ""}</SheetTitle>
           <SheetDescription className="flex flex-wrap items-center gap-x-3">

@@ -176,7 +176,7 @@ export function SeoRecommendationsTab({ initialRows }: { initialRows: SeoRecomme
 
       <Sheet open={selected !== null} onOpenChange={(open) => !open && setSelectedId(null)}>
         {selected && (
-          <SheetContent className="sm:max-w-lg" side="right">
+          <SheetContent className="data-[side=right]:sm:max-w-xl" side="right">
             <SheetHeader>
               <SheetTitle>{selected.clientName}</SheetTitle>
               <SheetDescription>

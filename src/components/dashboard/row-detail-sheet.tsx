@@ -33,7 +33,7 @@ export function RowDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg" side="right">
+      <SheetContent className="data-[side=right]:sm:max-w-xl" side="right">
         <SheetHeader>
           <SheetTitle>{row.clientName}</SheetTitle>
           <SheetDescription>The last 30 days, and where this week&apos;s numbers came from</SheetDescription>
