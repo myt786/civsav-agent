@@ -180,7 +180,7 @@ export default function DocsPage() {
           </div>
           <Tip>
             Press <kbd className="rounded border border-border bg-muted px-1 font-mono text-xs">⌘K</kbd> (or Ctrl+K) to jump
-            to any client, and use the sparkles button at the top right to ask a question in plain English.
+            to any client or page, and the sparkles button next to search in the sidebar to ask a question in plain English. The sidebar can be shrunk to icons with Collapse at the bottom.
           </Tip>
         </Section>
 
