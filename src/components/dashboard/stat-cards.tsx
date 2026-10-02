@@ -30,6 +30,8 @@ export interface Stat {
   href?: string;
   // Week-over-week change in percent (already ×100). Null hides it.
   changePct?: number | null;
+  // What the change compares against; defaults to the week before.
+  changeLabel?: string;
   // Whether a rise is good news (leads, visits) or neutral (spend) —
   // spend going up isn't "bad", so it's never coloured red or green.
   changeTone?: "up-is-good" | "neutral";
@@ -128,7 +130,7 @@ function StatCard({ stat }: { stat: Stat }) {
         </div>
         {(stat.hint || (stat.changePct !== undefined && stat.changePct !== null)) && (
           <span className="text-xs text-muted-foreground">
-            {[stat.changePct !== undefined && stat.changePct !== null ? "vs the week before" : null, stat.hint]
+            {[stat.changePct !== undefined && stat.changePct !== null ? (stat.changeLabel ?? "vs the week before") : null, stat.hint]
               .filter(Boolean)
               .join(" · ")}
           </span>

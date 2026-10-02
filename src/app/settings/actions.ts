@@ -260,11 +260,100 @@ export async function upsertMapping(
     },
   ]);
 
+  // Connecting an account means the client does use this platform after all.
+  const [owner] = await db.select({ excludedPlatforms: clients.excludedPlatforms }).from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (owner && (owner.excludedPlatforms ?? []).includes(platform)) {
+    await db
+      .update(clients)
+      .set({ excludedPlatforms: owner.excludedPlatforms.filter((p) => p !== platform) })
+      .where(eq(clients.id, clientId));
+  }
+
   const verify = await runVerification(clientId, platform);
   revalidatePath(`/settings/clients/${clientId}`);
   // The clients list shows each account's status, which this just changed.
   revalidatePath("/settings/clients");
   return { verify };
+}
+
+// "Not used" on a platform the client simply doesn't have (no GA4, no
+// OpenPhone): it stops being listed as missing access in Settings and the
+// weekly access report. Only for platforms with no account connected.
+export async function setPlatformExcluded(
+  clientId: string,
+  platform: Platform,
+  excluded: boolean,
+): Promise<{ error?: string }> {
+  const session = await requireSession();
+  if (!isUuid(clientId) || !isPlatform(platform) || typeof excluded !== "boolean") return { error: BAD_TARGET };
+
+  const db = await getDb();
+  const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (!client) return { error: BAD_TARGET };
+  const current = (client.excludedPlatforms ?? []).filter(isPlatform);
+  if (excluded) {
+    const [mapping] = await db
+      .select({ id: clientPlatformAccounts.id })
+      .from(clientPlatformAccounts)
+      .where(and(eq(clientPlatformAccounts.clientId, clientId), eq(clientPlatformAccounts.platform, platform)))
+      .limit(1);
+    if (mapping) return { error: "This platform has an account connected — turn it off instead." };
+  }
+  const next = excluded ? [...new Set([...current, platform])] : current.filter((p) => p !== platform);
+  if (next.length === current.length && next.every((p) => current.includes(p))) return {};
+
+  await db.update(clients).set({ excludedPlatforms: next }).where(eq(clients.id, clientId));
+  await logChange(db, {
+    userEmail: session.email,
+    clientId,
+    platform,
+    field: "used",
+    oldValue: String(!current.includes(platform)),
+    newValue: String(!excluded),
+  });
+
+  revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath("/settings/clients");
+  return {};
+}
+
+// The On/Off switch on an account row: turns one platform on or off for a
+// client straight away, without touching the account picked or needing
+// a Save. Off keeps the account but leaves it out of updates and the
+// daily numbers until it's turned back on.
+export async function setMappingActive(
+  clientId: string,
+  platform: Platform,
+  active: boolean,
+): Promise<{ error?: string }> {
+  const session = await requireSession();
+  if (!isUuid(clientId) || !isPlatform(platform) || typeof active !== "boolean") return { error: BAD_TARGET };
+
+  const db = await getDb();
+  const [existing] = await db
+    .select()
+    .from(clientPlatformAccounts)
+    .where(and(eq(clientPlatformAccounts.clientId, clientId), eq(clientPlatformAccounts.platform, platform)))
+    .limit(1);
+  if (!existing) return { error: "Connect an account first, then it can be turned on or off." };
+  if (existing.active === active) return {};
+
+  await db
+    .update(clientPlatformAccounts)
+    .set({ active })
+    .where(and(eq(clientPlatformAccounts.clientId, clientId), eq(clientPlatformAccounts.platform, platform)));
+  await logChange(db, {
+    userEmail: session.email,
+    clientId,
+    platform,
+    field: "active",
+    oldValue: String(existing.active),
+    newValue: String(active),
+  });
+
+  revalidatePath(`/settings/clients/${clientId}`);
+  revalidatePath("/settings/clients");
+  return {};
 }
 
 export type VerifyResult =
@@ -608,6 +697,7 @@ export interface QuickAccountsData {
   }[];
   discovery: DiscoveredAccounts[];
   accessInfo: AccessInfo;
+  excludedPlatforms: Platform[];
 }
 
 // Everything the "Accounts" side panel on the clients list needs to edit
@@ -616,9 +706,10 @@ export async function getQuickAccountsData(clientId: string): Promise<QuickAccou
   await requireSession();
   if (!isUuid(clientId)) return null;
   const db = await getDb();
-  const [mappings, discovery] = await Promise.all([
+  const [mappings, discovery, [client]] = await Promise.all([
     db.select().from(clientPlatformAccounts).where(eq(clientPlatformAccounts.clientId, clientId)),
     getAllDiscoveredAccounts(),
+    db.select({ excludedPlatforms: clients.excludedPlatforms }).from(clients).where(eq(clients.id, clientId)).limit(1),
   ]);
   return {
     mappings: mappings.map((m) => ({
@@ -632,5 +723,6 @@ export async function getQuickAccountsData(clientId: string): Promise<QuickAccou
     })),
     discovery,
     accessInfo: getAccessInfo(),
+    excludedPlatforms: (client?.excludedPlatforms ?? []).filter(isPlatform),
   };
 }

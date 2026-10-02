@@ -39,6 +39,9 @@ function describeChange(change: {
   if (change.field === "credential_label") {
     return `changed which ${platform ?? ""} access key is used`.replace("  ", " ");
   }
+  if (change.field === "used") {
+    return change.newValue === "false" ? `marked ${platform ?? "a platform"} as not used` : `marked ${platform ?? "a platform"} as used again`;
+  }
   if (change.field === "archived") {
     return change.newValue === "true" ? "archived this client" : "restored this client from the archive";
   }
@@ -124,6 +127,10 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
   if (!client) notFound();
 
   const archived = client.archivedAt !== null;
+  const mappedPlatforms = new Set(mappings.map((m) => m.platform));
+  const excludedPlatforms = PLATFORM_ORDER.filter(
+    (p) => (client.excludedPlatforms ?? []).includes(p) && !mappedPlatforms.has(p),
+  );
   const mappingByPlatform = new Map(
     mappings.map((m) => [
       m.platform,
@@ -139,10 +146,14 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
   );
 
   const connected = mappings.length;
-  const working = mappings.filter((m) => m.verifiedAt && m.verifiedStatus === "ok").length;
-  const broken = mappings.filter((m) => m.verifiedAt && m.verifiedStatus === "error").length;
-  const quiet = mappings.filter((m) => m.verifiedAt && m.verifiedStatus === "no_data").length;
-  const unchecked = mappings.filter((m) => !m.verifiedAt).length;
+  // Accounts switched off are kept but paused, so they don't count as
+  // broken or waiting for a check.
+  const turnedOn = mappings.filter((m) => m.active);
+  const turnedOff = mappings.length - turnedOn.length;
+  const working = turnedOn.filter((m) => m.verifiedAt && m.verifiedStatus === "ok").length;
+  const broken = turnedOn.filter((m) => m.verifiedAt && m.verifiedStatus === "error").length;
+  const quiet = turnedOn.filter((m) => m.verifiedAt && m.verifiedStatus === "no_data").length;
+  const unchecked = turnedOn.filter((m) => !m.verifiedAt).length;
 
   const status = archived
     ? { label: "Archived", className: "bg-muted text-muted-foreground" }
@@ -214,7 +225,15 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Accounts connected" value={`${connected} of ${PLATFORM_ORDER.length}`} />
+        <StatTile
+          label="Accounts connected"
+          value={`${connected} of ${PLATFORM_ORDER.length - excludedPlatforms.length}`}
+          hint={
+            [turnedOff > 0 ? `${turnedOff} turned off` : null, excludedPlatforms.length > 0 ? `${excludedPlatforms.length} not used` : null]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
+        />
         <StatTile label="Working" value={String(working)} />
         <StatTile
           label="Not working"
@@ -237,6 +256,7 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
           initialDiscovery={discovery}
           mappingByPlatform={mappingByPlatform}
           accessInfo={getAccessInfo()}
+          excludedPlatforms={excludedPlatforms}
         />
 
         <aside className="flex flex-col gap-6">

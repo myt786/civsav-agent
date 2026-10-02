@@ -75,6 +75,7 @@ export default async function SeoDashboardPage() {
             formatKind: "integer",
             icon: <MousePointerClickIcon className="size-3.5" aria-hidden />,
             changePct: aggregates.portfolioMomPct === null ? null : aggregates.portfolioMomPct * 100,
+            changeLabel: "vs the month before",
             hint:
               aggregates.portfolio3moPct === null
                 ? "all clients combined"

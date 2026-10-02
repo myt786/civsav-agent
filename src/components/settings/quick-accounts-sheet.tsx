@@ -99,6 +99,7 @@ export function QuickAccountsSheet({
                 initialDiscovery={loaded.discovery}
                 mappingByPlatform={mappingByPlatform}
                 accessInfo={loaded.accessInfo}
+                excludedPlatforms={loaded.excludedPlatforms}
                 onChanged={reload}
               />
             )

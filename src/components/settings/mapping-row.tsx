@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CopyIcon, ExternalLinkIcon, RefreshCwIcon } from "lucide-react";
-import { upsertMapping, verifyMapping, type MappingFormState, type VerifyResult } from "@/app/settings/actions";
+import { setMappingActive, setPlatformExcluded, upsertMapping, verifyMapping, type MappingFormState, type VerifyResult } from "@/app/settings/actions";
 import type { Platform } from "@/lib/connectors/types";
 import { externalIdSchemas } from "@/lib/settings/validation";
 import { AccountCombobox, type DiscoveryState } from "@/components/settings/account-combobox";
@@ -30,6 +30,8 @@ export interface MappingRowData {
 
 const STATUS_STYLE = {
   none: { dot: "bg-muted-foreground/30", text: "text-muted-foreground" },
+  off: { dot: "bg-muted-foreground/40", text: "text-muted-foreground" },
+  unused: { dot: "bg-transparent border border-muted-foreground/40", text: "text-muted-foreground/80" },
   unchecked: { dot: "border border-dashed border-muted-foreground bg-transparent", text: "text-muted-foreground" },
   ok: { dot: "bg-success", text: "text-muted-foreground" },
   no_data: { dot: "bg-warning", text: "text-warning" },
@@ -38,10 +40,20 @@ const STATUS_STYLE = {
 
 // One quiet line under the platform name: a coloured dot plus plain words,
 // with when it was last checked — instead of a badge and a full timestamp.
-function StatusLine({ mapping }: { mapping: MappingRowData | null }) {
-  const key = !mapping ? "none" : !mapping.verifiedAt ? "unchecked" : (mapping.verifiedStatus ?? "unchecked");
+function StatusLine({ mapping, notUsed }: { mapping: MappingRowData | null; notUsed?: boolean }) {
+  const key = !mapping
+    ? notUsed
+      ? "unused"
+      : "none"
+    : !mapping.active
+      ? "off"
+      : !mapping.verifiedAt
+        ? "unchecked"
+        : (mapping.verifiedStatus ?? "unchecked");
   const label = {
     none: "Not connected",
+    off: "Turned off",
+    unused: "Not used by this client",
     unchecked: "Not checked yet",
     ok: "Working",
     no_data: "No recent activity",
@@ -52,7 +64,7 @@ function StatusLine({ mapping }: { mapping: MappingRowData | null }) {
     <span className={cn("flex items-center gap-1.5 text-xs", style.text)}>
       <span className={cn("size-2 shrink-0 rounded-full", style.dot)} aria-hidden />
       {label}
-      {mapping?.verifiedAt && (
+      {mapping?.active && mapping.verifiedAt && (
         <span className="font-normal text-muted-foreground" title={mapping.verifiedAt.toLocaleString()}>
           · {formatRelativeTime(mapping.verifiedAt, new Date())}
         </span>
@@ -182,6 +194,7 @@ export function MappingRow({
   suggestedId,
   addKeyHref,
   accessInfo,
+  excluded = false,
   onChanged,
 }: {
   clientId: string;
@@ -194,6 +207,8 @@ export function MappingRow({
   // GHL/OpenPhone only: where to paste this client's own API key.
   addKeyHref?: string;
   accessInfo?: AccessInfo;
+  // Marked "Not used" for this client (only meaningful while not connected).
+  excluded?: boolean;
   // Called after a save or a check, for a parent that keeps its own copy
   // of the data (the clients-list side panel).
   onChanged?: () => void;
@@ -223,6 +238,54 @@ export function MappingRow({
     wasSaving.current = savePending;
   }, [savePending, state.error, state.verify, label]);
 
+  // Saved straight away for a connected account — turning one off shouldn't
+  // need a second click on Save. For an account still being connected the
+  // choice just rides along with Connect.
+  const [togglePending, startToggle] = useTransition();
+  function handleActiveChange(next: boolean) {
+    setActive(next);
+    if (!mapping) return;
+    startToggle(async () => {
+      const result = await setMappingActive(clientId, platform, next);
+      if (result.error) {
+        setActive(!next);
+        toast({ variant: "error", title: `Couldn't turn ${label} ${next ? "on" : "off"}`, description: result.error });
+        return;
+      }
+      toast({
+        variant: next ? "success" : "default",
+        title: `${label} turned ${next ? "on" : "off"}`,
+        description: next ? "Its numbers are collected again from the next update." : "Kept, but left out of updates until it's turned back on.",
+      });
+      router.refresh();
+      onChanged?.();
+    });
+  }
+
+  // "Used / Not used" for a platform with nothing connected — saved
+  // straight away, like the On/Off switch.
+  const [notUsed, setNotUsed] = useState(excluded);
+  useEffect(() => setNotUsed(excluded), [excluded]);
+  const [usedPending, startUsed] = useTransition();
+  function handleUsedChange(used: boolean) {
+    setNotUsed(!used);
+    startUsed(async () => {
+      const result = await setPlatformExcluded(clientId, platform, !used);
+      if (result.error) {
+        setNotUsed(used);
+        toast({ variant: "error", title: "Couldn't save that", description: result.error });
+        return;
+      }
+      toast({
+        variant: "default",
+        title: used ? `${label} marked as used` : `${label} marked as not used`,
+        description: used ? "Pick its account when you're ready." : "It won't be listed as missing access any more.",
+      });
+      router.refresh();
+      onChanged?.();
+    });
+  }
+
   function handleVerify() {
     startVerifying(async () => {
       const result = await verifyMapping(clientId, platform);
@@ -238,7 +301,6 @@ export function MappingRow({
   const dirty =
     !mapping ||
     externalId !== mapping.externalId ||
-    active !== mapping.active ||
     (credentialLabel ?? null) !== (mapping.credentialLabel ?? null);
   // A saved error shows inline (not just in a tooltip) until a fresh check
   // replaces it, so the reason is readable at a glance.
@@ -249,7 +311,7 @@ export function MappingRow({
     <form
       action={formAction}
       className={cn(
-        "grid gap-x-4 gap-y-2 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[11rem_minmax(0,1fr)_10.5rem] md:items-start",
+        "grid gap-x-4 gap-y-2 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[11rem_minmax(0,1fr)_12.5rem] md:items-start",
         mapping?.verifiedStatus === "error" && mapping.verifiedAt && "bg-destructive/[0.03]",
       )}
     >
@@ -268,9 +330,14 @@ export function MappingRow({
             }
           />
         </div>
-        <StatusLine mapping={mapping} />
+        <StatusLine mapping={mapping} notUsed={!mapping && notUsed} />
       </div>
 
+      {!mapping && notUsed ? (
+        <p className="flex min-h-8 items-center text-sm text-muted-foreground md:pt-0.5">
+          Not used — nothing to connect. Switch it back to Used if that changes.
+        </p>
+      ) : (
       <div className="flex min-w-0 flex-col gap-1">
         <AccountCombobox
           platform={platform}
@@ -299,29 +366,63 @@ export function MappingRow({
           />
         )}
       </div>
+      )}
 
       {/* Fixed-width action column so the account pickers line up row to
           row. A platform with nothing picked yet shows no controls at all —
           a switch and a greyed-out button there only read as broken. */}
       <div className="flex items-center gap-2 md:h-8 md:justify-end md:self-start md:pt-0.5">
+        <input type="hidden" name="active" value={String(active)} />
         {notStarted ? (
-          <input type="hidden" name="active" value="true" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <label
+                className={cn(
+                  "flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium whitespace-nowrap",
+                  notUsed ? "bg-muted text-muted-foreground" : "bg-card text-foreground",
+                  usedPending && "opacity-60",
+                )}
+              >
+                <Switch
+                  checked={!notUsed}
+                  onCheckedChange={handleUsedChange}
+                  disabled={usedPending}
+                  size="sm"
+                  aria-label={`Does this client use ${label}?`}
+                />
+                {notUsed ? "Not used" : "Used"}
+              </label>
+            </TooltipTrigger>
+            <TooltipContent>
+              {notUsed
+                ? "Marked as not used, so it isn't listed as missing access. Switch on if the client starts using it."
+                : `Switch off if this client doesn't use ${label} — it stops showing as missing access.`}
+            </TooltipContent>
+          </Tooltip>
         ) : (
           <>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="flex items-center">
+                <label
+                  className={cn(
+                    "flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium",
+                    active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground",
+                    togglePending && "opacity-60",
+                  )}
+                >
                   <Switch
-                    name="active"
-                    value="true"
                     checked={active}
-                    onCheckedChange={setActive}
+                    onCheckedChange={handleActiveChange}
+                    disabled={togglePending}
                     size="sm"
-                    aria-label={`Include ${label} in daily updates`}
+                    aria-label={`${label} on or off for this client`}
                   />
-                </span>
+                  {active ? "On" : "Off"}
+                </label>
               </TooltipTrigger>
-              <TooltipContent>{active ? "Included in daily updates" : "Left out of daily updates"}</TooltipContent>
+              <TooltipContent>
+                {active ? "Collecting this account's numbers. Turn off to pause it." : "Paused — kept, but left out of updates. Turn on to resume."}
+              </TooltipContent>
             </Tooltip>
             {dirty ? (
               <Button type="submit" size="sm" disabled={savePending || externalId.trim().length === 0}>

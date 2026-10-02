@@ -22,7 +22,7 @@ export interface AccessReport {
 export async function buildAccessReport(now: Date = new Date()): Promise<AccessReport> {
   const db = await getDb();
   const [activeClients, mappings] = await Promise.all([
-    db.select({ id: clients.id, name: clients.name }).from(clients).where(eq(clients.active, true)).orderBy(asc(clients.name)),
+    db.select({ id: clients.id, name: clients.name, excludedPlatforms: clients.excludedPlatforms }).from(clients).where(eq(clients.active, true)).orderBy(asc(clients.name)),
     db.select().from(clientPlatformAccounts),
   ]);
 
@@ -40,6 +40,8 @@ export async function buildAccessReport(now: Date = new Date()): Promise<AccessR
     const accounts = byClient.get(client.id) ?? new Map();
     for (const platform of PLATFORM_ORDER) {
       const m = accounts.get(platform);
+      // Marked "Not used" for this client — nothing to give access to.
+      if (!m && (client.excludedPlatforms ?? []).includes(platform)) continue;
       if (!m) {
         missing.set(platform, [...(missing.get(platform) ?? []), client.name]);
         continue;

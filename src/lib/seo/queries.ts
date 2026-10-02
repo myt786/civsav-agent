@@ -10,6 +10,7 @@ import type { CellState } from "../dashboard/types";
 import { computePortfolioAggregates, computeRowMetrics } from "./compute";
 import { MONTHS_SHOWN } from "./constants";
 import type { SeoClientRow, SeoDashboardData, SeoMonthCell } from "./types";
+import { parseStoredRecommendations, type RecommendationItem, type RecommendationSources } from "./recommendation-items";
 
 // The last MONTHS_SHOWN complete calendar months, oldest -> newest,
 // excluding the current (still in-progress) month — same idea as
@@ -313,8 +314,10 @@ export interface SeoRecommendationRow {
   clientId: string;
   clientName: string;
   tier: SeoClientRow["tier"];
-  recommendations: string[] | null;
-  sitemapUrlCount: number | null;
+  trend: SeoClientRow["trend"];
+  // Null until a list has been written for this client.
+  items: RecommendationItem[] | null;
+  sources: RecommendationSources | null;
   generatedAt: Date | null;
 }
 
@@ -334,12 +337,14 @@ export async function getSeoRecommendations(rows: SeoClientRow[]): Promise<SeoRe
 
   return rows.map((row) => {
     const c = cachedByClient.get(row.clientId);
+    const stored = c ? parseStoredRecommendations(c.recommendations, c.sitemapUrlCount) : null;
     return {
       clientId: row.clientId,
       clientName: row.clientName,
       tier: row.tier,
-      recommendations: (c?.recommendations as string[] | undefined) ?? null,
-      sitemapUrlCount: c?.sitemapUrlCount ?? null,
+      trend: row.trend,
+      items: stored ? stored.items : null,
+      sources: stored?.sources ?? null,
       generatedAt: c?.generatedAt ?? null,
     };
   });

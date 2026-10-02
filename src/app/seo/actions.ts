@@ -5,7 +5,8 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
 import { getDb } from "@/lib/db";
-import { clientSeoMonthly } from "@/lib/db/schema";
+import { clientSeoMonthly, clientSeoRecommendations } from "@/lib/db/schema";
+import { parseStoredRecommendations, type RecStatus } from "@/lib/seo/recommendation-items";
 import { logChanges } from "@/lib/settings/audit";
 
 const seoMonthlySchema = z.object({
@@ -94,6 +95,48 @@ export async function updateSeoMonthly(
     },
   ]);
 
+  revalidatePath("/seo");
+  return {};
+}
+
+const recStatusSchema = z.object({
+  clientId: z.string().uuid(),
+  itemId: z.string().min(1).max(80),
+  status: z.enum(["open", "done", "dismissed"]),
+});
+
+// Ticks a recommendation off (or turns it down, or reopens it). Saved on
+// the stored list itself, so the next rewrite knows what's been handled.
+export async function setRecommendationStatus(
+  clientId: string,
+  itemId: string,
+  status: RecStatus,
+): Promise<{ error?: string }> {
+  await requireSession();
+  const parsed = recStatusSchema.safeParse({ clientId, itemId, status });
+  if (!parsed.success) return { error: "Something's off with that request — please refresh and try again." };
+
+  const db = await getDb();
+  const [row] = await db
+    .select()
+    .from(clientSeoRecommendations)
+    .where(eq(clientSeoRecommendations.clientId, parsed.data.clientId))
+    .limit(1);
+  const stored = row ? parseStoredRecommendations(row.recommendations, row.sitemapUrlCount) : null;
+  if (!stored || !stored.items.some((item) => item.id === parsed.data.itemId)) {
+    return { error: "That recommendation was replaced by a newer list — refresh to see it." };
+  }
+
+  const now = new Date().toISOString();
+  const items = stored.items.map((item) =>
+    item.id === parsed.data.itemId
+      ? { ...item, status: parsed.data.status, statusAt: parsed.data.status === "open" ? null : now }
+      : item,
+  );
+  await db
+    .update(clientSeoRecommendations)
+    .set({ recommendations: { ...stored, items } })
+    .where(eq(clientSeoRecommendations.clientId, parsed.data.clientId));
   revalidatePath("/seo");
   return {};
 }

@@ -47,6 +47,9 @@ export const clients = pgTable("clients", {
   // SEO, Insights, the daily/monthly syncs and every other active-only
   // query. Null for live (active or merely paused) clients.
   archivedAt: timestamp("archived_at", { withTimezone: true }),
+  // Platforms this client doesn't use at all (no GA4, no OpenPhone, ...),
+  // marked "Not used" in Settings so they stop showing as missing access.
+  excludedPlatforms: jsonb("excluded_platforms").$type<string[]>().notNull().default([]),
 });
 
 // Mapping table: one row per (client, platform). All data joins through
