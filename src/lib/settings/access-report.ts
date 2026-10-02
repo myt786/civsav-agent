@@ -22,7 +22,14 @@ export interface AccessReport {
 export async function buildAccessReport(now: Date = new Date()): Promise<AccessReport> {
   const db = await getDb();
   const [activeClients, mappings] = await Promise.all([
-    db.select({ id: clients.id, name: clients.name, excludedPlatforms: clients.excludedPlatforms }).from(clients).where(eq(clients.active, true)).orderBy(asc(clients.name)),
+    db
+      .select({
+        id: clients.id,
+        name: clients.name,
+        excludedPlatforms: clients.excludedPlatforms,
+        showOnDashboard: clients.showOnDashboard,
+        showOnSeo: clients.showOnSeo,
+      }).from(clients).where(eq(clients.active, true)).orderBy(asc(clients.name)),
     db.select().from(clientPlatformAccounts),
   ]);
 
@@ -42,6 +49,11 @@ export async function buildAccessReport(now: Date = new Date()): Promise<AccessR
       const m = accounts.get(platform);
       // Marked "Not used" for this client — nothing to give access to.
       if (!m && (client.excludedPlatforms ?? []).includes(platform)) continue;
+      // A client hidden from SEO doesn't need Search Console/Ahrefs, and one
+      // hidden from the health dashboard doesn't need the rest — so they
+      // aren't listed as missing (a connected account is still checked).
+      const isSeoPlatform = platform === "search_console" || platform === "ahrefs";
+      if (!m && (isSeoPlatform ? !client.showOnSeo : !client.showOnDashboard)) continue;
       if (!m) {
         missing.set(platform, [...(missing.get(platform) ?? []), client.name]);
         continue;

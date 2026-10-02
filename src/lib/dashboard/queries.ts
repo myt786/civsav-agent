@@ -164,6 +164,25 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
   const activeMappingSet = new Set(mappingRows.filter((m) => m.active).map((m) => `${m.clientId}:${m.platform}`));
   const hasMapping = (clientId: string, platform: Platform) => activeMappingSet.has(`${clientId}:${platform}`);
 
+  // The latest failed attempt only counts while it's still the account's
+  // current state. Sync skips accounts that are switched off or removed, so
+  // their last error would otherwise linger for the whole fetch window as a
+  // red cell, a "Needs attention" flag and a "Not updating" line in the
+  // daily summary. Likewise a successful check in Settings after the
+  // failure means it's been fixed.
+  const mappingByKey = new Map(mappingRows.map((m) => [`${m.clientId}:${m.platform}`, m]));
+  const errorFor = (clientId: string, platform: Platform): string | null => {
+    const mapping = mappingByKey.get(`${clientId}:${platform}`);
+    if (!mapping || !mapping.active) return null;
+    const message = attemptErrorFor(latestAttempt, clientId, platform);
+    if (message === null) return null;
+    const attempt = latestAttempt.get(`${clientId}:${platform}`);
+    if (mapping.verifiedAt && mapping.verifiedStatus !== "error" && attempt && mapping.verifiedAt > attempt.fetchedAt) {
+      return null;
+    }
+    return message;
+  };
+
   const rows: ClientRow[] = [];
   const details: Record<string, ClientDetail> = {};
 
@@ -176,7 +195,7 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
     const leadsVerified = isMappingVerified(client.id, "lead_dashboard");
     const leadsRows = rowsFor(snapshotsByClient, client.id, "lead_dashboard", current7);
     const leadsPrevRows = rowsFor(snapshotsByClient, client.id, "lead_dashboard", prev7);
-    const leadsErr = attemptErrorFor(latestAttempt, client.id, "lead_dashboard");
+    const leadsErr = errorFor(client.id, "lead_dashboard");
     const leads = downgradeIfUnverifiedMapping(
       buildNumericCell(leadsRows, leadDashboardDataSchema, (d) => d.totalLeads, leadsErr),
       leadsVerified,
@@ -189,7 +208,7 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
 
     const callsVerified = isMappingVerified(client.id, "openphone");
     const callsRows = rowsFor(snapshotsByClient, client.id, "openphone", current7);
-    const callsErr = attemptErrorFor(latestAttempt, client.id, "openphone");
+    const callsErr = errorFor(client.id, "openphone");
     const calls = downgradeIfUnverifiedMapping(buildCallsCell(callsRows, telephonyDataSchema, callsErr), callsVerified);
     const callsTotal = downgradeIfUnverifiedMapping(
       buildNumericCell(callsRows, telephonyDataSchema, (d) => d.totalCalls, callsErr),
@@ -197,14 +216,14 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
     );
 
     const googleAdsRows = rowsFor(snapshotsByClient, client.id, "google_ads", current7);
-    const googleAdsErr = attemptErrorFor(latestAttempt, client.id, "google_ads");
+    const googleAdsErr = errorFor(client.id, "google_ads");
     const googleAdsSpend = downgradeIfUnverifiedMapping(
       buildNumericCell(googleAdsRows, googleAdsDataSchema, (d) => d.cost, googleAdsErr),
       isMappingVerified(client.id, "google_ads"),
     );
 
     const metaRows = rowsFor(snapshotsByClient, client.id, "meta", current7);
-    const metaErr = attemptErrorFor(latestAttempt, client.id, "meta");
+    const metaErr = errorFor(client.id, "meta");
     const metaSpend = downgradeIfUnverifiedMapping(
       buildNumericCell(metaRows, metaDataSchema, (d) => d.spend, metaErr),
       isMappingVerified(client.id, "meta"),
@@ -215,7 +234,7 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
 
     const ga4Verified = isMappingVerified(client.id, "ga4");
     const ga4Rows = rowsFor(snapshotsByClient, client.id, "ga4", current7);
-    const ga4Err = attemptErrorFor(latestAttempt, client.id, "ga4");
+    const ga4Err = errorFor(client.id, "ga4");
     const sessions = downgradeIfUnverifiedMapping(
       buildNumericCell(ga4Rows, ga4DataSchema, (d) => d.totalSessions, ga4Err),
       ga4Verified,
@@ -226,7 +245,7 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
     );
 
     const searchConsoleRows = rowsFor(snapshotsByClient, client.id, "search_console", current7);
-    const searchConsoleErr = attemptErrorFor(latestAttempt, client.id, "search_console");
+    const searchConsoleErr = errorFor(client.id, "search_console");
     const avgPosition = downgradeIfUnverifiedMapping(
       buildWeightedAverageCell(
         searchConsoleRows,
@@ -241,7 +260,12 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
     // Only successful attempts count as "updated": counting failures too
     // kept a client whose every platform errors daily looking fresh, so the
     // stale/"Out of date" warning never fired for exactly those clients.
-    const allRawForClient = rawRows.filter((r) => r.clientId === client.id && !isErrorPayload(r.payload));
+    // Only accounts still switched on count: a client whose accounts were
+    // all turned off or removed isn't "out of date", it just has nothing
+    // left to update.
+    const allRawForClient = rawRows.filter(
+      (r) => r.clientId === client.id && hasMapping(client.id, r.platform) && !isErrorPayload(r.payload),
+    );
     const lastSyncedAt =
       allRawForClient.length > 0
         ? allRawForClient.reduce((max, r) => (r.fetchedAt > max ? r.fetchedAt : max), allRawForClient[0].fetchedAt)
