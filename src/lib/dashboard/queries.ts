@@ -119,7 +119,20 @@ function safeExtract<TData>(schema: { safeParse: (v: unknown) => { success: bool
   return extract(parsed.data);
 }
 
+// One quiet retry: the database occasionally refuses a connection when many
+// requests arrive at once (each serverless instance opens its own small
+// pool), and a second attempt a moment later almost always gets through.
 export async function getDashboardData(now: Date = new Date()): Promise<DashboardData> {
+  try {
+    return await loadDashboardData(now);
+  } catch (error) {
+    console.error("getDashboardData failed, retrying once", error);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return loadDashboardData(now);
+  }
+}
+
+async function loadDashboardData(now: Date): Promise<DashboardData> {
   const db = await getDb();
 
   // Clients switched off for the health dashboard in Settings are left out
