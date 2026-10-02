@@ -25,6 +25,8 @@ export interface ClientWithAccounts {
   archived: boolean;
   showOnDashboard: boolean;
   showOnSeo: boolean;
+  // Platforms marked "Not used" for this client.
+  excludedPlatforms: Platform[];
   accounts: ClientAccountSummary[];
   // When this client's numbers last arrived from any platform (null if
   // never).
@@ -72,6 +74,7 @@ export async function listClientsWithAccounts(): Promise<ClientWithAccounts[]> {
     archived: client.archivedAt !== null,
     showOnDashboard: client.showOnDashboard,
     showOnSeo: client.showOnSeo,
+    excludedPlatforms: (client.excludedPlatforms ?? []) as Platform[],
     accounts: byClient.get(client.id) ?? [],
     lastUpdatedAt: lastUpdateByClient.get(client.id) ? new Date(lastUpdateByClient.get(client.id)!) : null,
   }));

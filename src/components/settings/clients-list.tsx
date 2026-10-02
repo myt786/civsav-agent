@@ -43,11 +43,12 @@ interface ClientListItem {
   archived: boolean;
   showOnDashboard: boolean;
   showOnSeo: boolean;
+  excludedPlatforms: Platform[];
   accounts: ClientAccount[];
   lastUpdatedAt: Date | null;
 }
 
-type AccountState = "working" | "quiet" | "broken" | "unchecked" | "paused";
+type AccountState = "working" | "quiet" | "broken" | "unchecked" | "paused" | "missing" | "unused";
 
 function accountState(account: ClientAccount): AccountState {
   if (!account.active) return "paused";
@@ -57,16 +58,21 @@ function accountState(account: ClientAccount): AccountState {
   return "working";
 }
 
-// Working accounts are deliberately plain (the Health column already says
-// "All working"); only accounts that need a look carry colour, so problems
-// stand out instead of every chip competing for attention.
+// Every platform gets a chip, coloured by state, so a row reads at a
+// glance: green working, gold connected but quiet, red not working, grey
+// not connected.
 const STATE_STYLE: Record<AccountState, { chip: string; label: string }> = {
-  working: { chip: "bg-muted text-foreground/75", label: "Working" },
-  quiet: { chip: "bg-warning/10 text-warning", label: "No recent activity" },
-  broken: { chip: "bg-destructive/10 font-medium text-destructive", label: "Not working" },
-  unchecked: { chip: "border border-dashed border-muted-foreground/40 text-muted-foreground", label: "Not checked yet" },
-  paused: { chip: "bg-muted/50 text-muted-foreground/60", label: "Updates paused" },
+  working: { chip: "border border-success/25 bg-success/10 text-success", label: "Connected and working" },
+  quiet: { chip: "border border-warning/30 bg-warning/10 text-warning", label: "Connected, but no recent data" },
+  broken: { chip: "border border-destructive/30 bg-destructive/10 font-medium text-destructive", label: "Connected, but not working" },
+  unchecked: { chip: "border border-dashed border-primary/40 bg-primary/5 text-primary", label: "Connected, not checked yet" },
+  paused: { chip: "border border-border bg-muted text-muted-foreground line-through", label: "Connected, but turned off" },
+  missing: { chip: "border border-border bg-transparent text-muted-foreground/60", label: "Not connected" },
+  unused: { chip: "border border-dashed border-border bg-transparent text-muted-foreground/40", label: "Not used by this client" },
 };
+
+// Order and wording of the legend above the table.
+const LEGEND: AccountState[] = ["working", "quiet", "broken", "unchecked", "missing"];
 
 function Chip({ state, children }: { state: AccountState; children: React.ReactNode }) {
   return (
@@ -362,7 +368,7 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
             click a client to open it, or Accounts to edit its accounts right here
           </span>
           <span className="flex flex-wrap items-center gap-3">
-            {(["working", "quiet", "broken", "unchecked"] as const).map((state) => (
+            {LEGEND.map((state) => (
               <Chip key={state} state={state}>
                 {STATE_STYLE[state].label}
               </Chip>
@@ -375,26 +381,25 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
   );
 }
 
-function AccountBadges({ accounts }: { accounts: ClientAccount[] }) {
-  if (accounts.length === 0) {
-    return <span className="text-sm text-muted-foreground">No accounts connected yet</span>;
-  }
-  const sorted = [...accounts].sort((a, b) => PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform));
+function AccountBadges({ accounts, excluded }: { accounts: ClientAccount[]; excluded: Platform[] }) {
+  const byPlatform = new Map(accounts.map((a) => [a.platform, a]));
   return (
     <div className="flex flex-wrap gap-1">
-      {sorted.map((account) => {
-        const state = accountState(account);
+      {PLATFORM_ORDER.map((platform) => {
+        const account = byPlatform.get(platform);
+        const state: AccountState = account ? accountState(account) : excluded.includes(platform) ? "unused" : "missing";
         const style = STATE_STYLE[state];
         return (
-          <Tooltip key={account.platform}>
+          <Tooltip key={platform}>
             <TooltipTrigger asChild>
               <span tabIndex={0} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-                <Chip state={state}>{SHORT_LABEL[account.platform]}</Chip>
+                <Chip state={state}>{SHORT_LABEL[platform]}</Chip>
               </span>
             </TooltipTrigger>
             <TooltipContent className="max-w-72 text-pretty">
-              <span className="font-medium">{PLATFORM_LABELS[account.platform]}:</span> {style.label}
-              {state === "broken" && account.lastError ? ` — ${friendlyError(account.lastError).summary}` : ""}
+              <span className="font-medium">{PLATFORM_LABELS[platform]}:</span> {style.label}
+              {state === "broken" && account?.lastError ? ` — ${friendlyError(account.lastError).summary}` : ""}
+              {state === "missing" ? " — click to connect it" : ""}
             </TooltipContent>
           </Tooltip>
         );
@@ -511,7 +516,7 @@ function ClientRow({
         }}
         title="Edit accounts"
       >
-        <AccountBadges accounts={client.accounts} />
+        <AccountBadges accounts={client.accounts} excluded={client.excludedPlatforms} />
       </TableCell>
       <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
         <ClientVisibilityChips
