@@ -6,18 +6,44 @@ import { credentialsDb, storedIdFromLabel } from "@/lib/connectors/stored-creden
 import { AddApiKeyForm } from "@/components/settings/add-api-key-form";
 import { ApiKeysList, type ApiKeyRow } from "@/components/settings/api-keys-list";
 import { countUnsavedEnvKeys } from "@/lib/connectors/env-keys";
+import { CircleAlertIcon, KeyRoundIcon, LinkIcon, MapPinIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+function SummaryTile({
+  label,
+  value,
+  hint,
+  icon,
+  tone = "neutral",
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  icon: React.ReactNode;
+  tone?: "neutral" | "good" | "warn";
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+          tone === "good" && "bg-success/10 text-success",
+          tone === "warn" && "bg-warning/10 text-warning",
+          tone === "neutral" && "bg-primary/10 text-primary",
+        )}
+      >
+        {icon}
+      </span>
+      <div className="flex min-w-0 flex-col">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="font-heading text-xl font-semibold text-foreground tabular-nums">{value}</span>
+        <span className="truncate text-xs text-muted-foreground">{hint}</span>
+      </div>
+    </div>
+  );
+}
 
 export const dynamic = "force-dynamic";
-
-// Names only — never values. Lists keys still configured the old way so
-// it's clear what's in use while they're moved over.
-function envKeyNames(): { ghl: string[]; openphone: string[] } {
-  const keys = Object.keys(process.env).filter((key) => process.env[key]);
-  return {
-    ghl: keys.filter((key) => key.startsWith("GHL_AGENCY_API_KEY__")),
-    openphone: keys.filter((key) => key === "OPENPHONE_API_KEY" || key.startsWith("OPENPHONE_API_KEY__")),
-  };
-}
 
 export default async function ApiKeysPage({
   searchParams,
@@ -63,21 +89,54 @@ export default async function ApiKeysPage({
     }));
 
   const initialPlatform = params.platform === "openphone" ? "openphone" : "ghl";
+  const unsavedEnvKeys = await countUnsavedEnvKeys();
+  const inUse = keys.filter((k) => k.usedBy > 0).length;
+  const unused = keys.length - inUse;
+  const missingLocation = keys.filter((k) => k.platform === "ghl" && !k.locationId).length;
+  const ghlCount = keys.filter((k) => k.platform === "ghl").length;
 
   return (
     <div className="flex w-full flex-col gap-6">
       <div className="flex max-w-3xl flex-col gap-1">
         <h2 className="font-heading text-lg font-medium text-foreground">API keys</h2>
         <p className="text-sm text-muted-foreground">
-          An API key is like a password that lets this app read a client&apos;s numbers. GoHighLevel and OpenPhone
-          need a separate key for each client, so paste each one here. We test it before saving and keep it
-          locked away — no one can see it again after it&apos;s saved.
+          GoHighLevel and OpenPhone need their own key for each client, so they&apos;re added here. Every key is
+          tested before it&apos;s saved and can&apos;t be viewed again afterwards.
         </p>
       </div>
 
-      {/* Add on the left, what's saved on the right — the page used to be a
-          single narrow column with most of the screen empty. */}
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SummaryTile
+          label="Saved keys"
+          value={keys.length}
+          hint={`${ghlCount} GoHighLevel · ${keys.length - ghlCount} OpenPhone`}
+          icon={<KeyRoundIcon className="size-4" />}
+        />
+        <SummaryTile
+          label="In use"
+          value={inUse}
+          hint="Connected to at least one client"
+          icon={<LinkIcon className="size-4" />}
+          tone="good"
+        />
+        <SummaryTile
+          label="Not used yet"
+          value={unused}
+          hint={unused > 0 ? "Connect them on a client's page" : "Every key is connected"}
+          icon={<CircleAlertIcon className="size-4" />}
+          tone={unused > 0 ? "warn" : "good"}
+        />
+        <SummaryTile
+          label="Need a sub-account ID"
+          value={missingLocation}
+          hint={missingLocation > 0 ? "GoHighLevel keys can't work without one" : "All GoHighLevel keys are set"}
+          icon={<MapPinIcon className="size-4" />}
+          tone={missingLocation > 0 ? "warn" : "good"}
+        />
+      </div>
+
+      {/* Add on the left, what's saved on the right. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
         {/* Stays in view while scrolling a long list of saved keys. */}
         <div className="lg:sticky lg:top-6">
           <AddApiKeyForm
@@ -87,7 +146,7 @@ export default async function ApiKeysPage({
             clientName={client?.name}
           />
         </div>
-        <ApiKeysList keys={keys} envKeyNames={envKeyNames()} unsavedEnvKeys={await countUnsavedEnvKeys()} />
+        <ApiKeysList keys={keys} unsavedEnvKeys={unsavedEnvKeys} initialPlatform={initialPlatform} />
       </div>
     </div>
   );
