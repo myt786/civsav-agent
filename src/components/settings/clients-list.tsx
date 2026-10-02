@@ -3,7 +3,21 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangleIcon, ArrowDownIcon, ArrowUpIcon, CheckCheckIcon, EyeOffIcon, PlugIcon, SearchIcon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  ArchiveRestoreIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CheckCheckIcon,
+  ExternalLinkIcon,
+  EyeOffIcon,
+  MoreHorizontalIcon,
+  PauseIcon,
+  PlayIcon,
+  PlugIcon,
+  SearchIcon,
+} from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { QuickAccountsSheet } from "@/components/settings/quick-accounts-sheet";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
@@ -78,7 +92,7 @@ function Chip({ state, children }: { state: AccountState; children: React.ReactN
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs leading-5 whitespace-nowrap",
+        "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium whitespace-nowrap",
         STATE_STYLE[state].chip,
       )}
     >
@@ -91,13 +105,13 @@ function Chip({ state, children }: { state: AccountState; children: React.ReactN
 // Short names so a client with every platform still fits on one line.
 const SHORT_LABEL: Record<Platform, string> = {
   lead_dashboard: "Leads",
-  ghl: "GoHighLevel",
-  google_ads: "Google Ads",
+  ghl: "GHL",
+  google_ads: "G Ads",
   meta: "Meta",
   ga4: "GA4",
-  search_console: "Search Console",
+  search_console: "GSC",
   ahrefs: "Ahrefs",
-  openphone: "OpenPhone",
+  openphone: "Phone",
 };
 
 type StatusFilter = "all" | "attention" | "unchecked" | "none" | "seo_only" | "health_only" | "paused" | "archived";
@@ -353,11 +367,13 @@ export function ClientsList({ clients }: { clients: ClientListItem[] }) {
                   />
                 </TableHead>
                 <SortHead label="Client" sortKey="name" sort={sort} onSort={toggleSort} className="w-[24%]" />
-                <TableHead>Connected accounts</TableHead>
-                <TableHead className="w-40">Shows on</TableHead>
+                <TableHead>Accounts</TableHead>
+                <TableHead className="w-36">Shows on</TableHead>
                 <SortHead label="Health" sortKey="health" sort={sort} onSort={toggleSort} className="w-36" />
-                <SortHead label="Last updated" sortKey="updated" sort={sort} onSort={toggleSort} className="w-32" />
-                <TableHead className="w-1 text-right">Actions</TableHead>
+                <SortHead label="Updated" sortKey="updated" sort={sort} onSort={toggleSort} className="w-28" />
+                <TableHead className="w-1 text-right">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -430,7 +446,7 @@ function AccountBadges({ accounts, excluded }: { accounts: ClientAccount[]; excl
   const byPlatform = new Map<Platform, ClientAccount>();
   for (const account of accounts) byPlatform.set(account.platform, account);
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex max-w-[22rem] flex-wrap gap-1">
       {/* A platform marked "Not used" (and with nothing connected) isn't
           shown at all — grey is only for ones still to connect. */}
       {PLATFORM_ORDER.filter((platform) => byPlatform.has(platform) || !excluded.includes(platform)).map((platform) => {
@@ -547,12 +563,22 @@ function ClientRow({
     });
   }
 
+  const used = client.accounts.filter((a) => a.active);
+  const workingCount = used.filter((a) => accountState(a) === "working").length;
+  const initials =
+    client.name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+
   return (
     <TableRow
-      className={cn("cursor-pointer", !client.active && "opacity-60", selected && "bg-primary/5 hover:bg-primary/10")}
+      className={cn("group/row cursor-pointer", selected && "bg-primary/5 hover:bg-primary/10")}
       onClick={onOpen}
     >
-      <TableCell className="w-10 py-3 pr-0" onClick={(e) => e.stopPropagation()}>
+      <TableCell className="w-10 py-2.5 pr-0" onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
           className="size-4 cursor-pointer accent-primary align-middle"
@@ -561,18 +587,39 @@ function ClientRow({
           aria-label={`Select ${client.name}`}
         />
       </TableCell>
-      <TableCell className="py-3">
-        <Link
-          href={`/settings/clients/${client.id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="font-medium text-foreground hover:underline"
-        >
-          {client.name}
-        </Link>
-        <div className="text-xs text-muted-foreground">{client.timezone}</div>
+      <TableCell className="py-2.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold",
+              client.active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+            )}
+            aria-hidden
+          >
+            {initials}
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <Link
+              href={`/settings/clients/${client.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="truncate font-medium text-foreground hover:underline"
+              title={client.name}
+            >
+              {client.name}
+            </Link>
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="truncate">{client.timezone.replace(/_/g, " ")}</span>
+              {client.archived ? (
+                <span className="rounded bg-muted px-1.5 text-[10px] font-medium uppercase">Archived</span>
+              ) : (
+                !client.active && <span className="rounded bg-warning/15 px-1.5 text-[10px] font-medium text-warning uppercase">Paused</span>
+              )}
+            </span>
+          </div>
+        </div>
       </TableCell>
       <TableCell
-        className="py-3"
+        className={cn("py-2.5", !client.active && "opacity-60")}
         onClick={(e) => {
           // The chips open the accounts panel rather than the full page.
           e.stopPropagation();
@@ -582,7 +629,7 @@ function ClientRow({
       >
         <AccountBadges accounts={client.accounts} excluded={client.excludedPlatforms} />
       </TableCell>
-      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+      <TableCell className="py-2.5" onClick={(e) => e.stopPropagation()}>
         <ClientVisibilityChips
           clientId={client.id}
           clientName={client.name}
@@ -591,33 +638,74 @@ function ClientRow({
           disabled={client.archived}
         />
       </TableCell>
-      <TableCell className={cn("py-3 text-sm", HEALTH_TONE[health.tone])}>{health.label}</TableCell>
-      <TableCell className="py-3 text-sm text-muted-foreground">
+      <TableCell className="py-2.5">
+        <div className="flex flex-col">
+          <span className={cn("text-sm", HEALTH_TONE[health.tone])}>{health.label}</span>
+          {client.active && used.length > 0 && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {workingCount} of {used.length} working
+            </span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="py-2.5 text-sm whitespace-nowrap text-muted-foreground">
         {client.lastUpdatedAt ? formatRelativeTime(client.lastUpdatedAt, now) : "Never"}
       </TableCell>
-      <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
+      <TableCell className="py-2.5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
-          {!client.archived && (
+          {client.archived ? (
+            <Button type="button" size="sm" variant="outline" disabled={toggling} onClick={restore}>
+              <ArchiveRestoreIcon className="size-3.5" aria-hidden />
+              Restore
+            </Button>
+          ) : (
             <Button type="button" size="sm" variant="outline" onClick={onEditAccounts}>
               <PlugIcon className="size-3.5" aria-hidden />
               Accounts
             </Button>
           )}
-          {client.active && client.accounts.length > 0 && (
-            <Button type="button" size="sm" variant="outline" disabled={checking} onClick={check}>
-              <CheckCheckIcon className="size-3.5" aria-hidden />
-              {checking ? "Checking…" : "Check"}
-            </Button>
-          )}
-          {client.archived ? (
-            <Button type="button" size="sm" variant="outline" disabled={toggling} onClick={restore}>
-              Restore
-            </Button>
-          ) : (
-            <Button type="button" size="sm" variant="ghost" disabled={toggling} onClick={togglePaused}>
-              {client.active ? "Pause" : "Resume"}
-            </Button>
-          )}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" size="icon-sm" variant="ghost" aria-label={`More actions for ${client.name}`}>
+                <MoreHorizontalIcon className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-48 p-1">
+              <Link
+                href={`/settings/clients/${client.id}`}
+                className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm hover:bg-muted"
+              >
+                <ExternalLinkIcon className="size-3.5 text-muted-foreground" />
+                Open client page
+              </Link>
+              {client.active && client.accounts.length > 0 && (
+                <button
+                  type="button"
+                  disabled={checking}
+                  onClick={check}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-60"
+                >
+                  <CheckCheckIcon className="size-3.5 text-muted-foreground" />
+                  {checking ? "Checking…" : "Check accounts"}
+                </button>
+              )}
+              {!client.archived && (
+                <button
+                  type="button"
+                  disabled={toggling}
+                  onClick={togglePaused}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-60"
+                >
+                  {client.active ? (
+                    <PauseIcon className="size-3.5 text-muted-foreground" />
+                  ) : (
+                    <PlayIcon className="size-3.5 text-muted-foreground" />
+                  )}
+                  {client.active ? "Pause updates" : "Resume updates"}
+                </button>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
       </TableCell>
     </TableRow>

@@ -145,7 +145,7 @@ export function ClientVisibilityChips({
             onClick={() => set(option.field, !on)}
             title={`${on ? "Shown on" : "Hidden from"} ${option.label} — click to ${on ? "hide" : "show"}`}
             className={cn(
-              "flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-medium transition-colors disabled:opacity-60",
+              "flex h-6 items-center gap-1 rounded-md border px-2 text-[11px] font-medium transition-colors disabled:opacity-60",
               on
                 ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"
                 : "border-dashed border-border text-muted-foreground/70 line-through decoration-muted-foreground/40 hover:bg-muted",
