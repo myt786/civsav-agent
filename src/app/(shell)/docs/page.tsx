@@ -28,6 +28,7 @@ const TOC: { id: string; label: string; group: string }[] = [
   { id: "clients", label: "Managing clients", group: "Settings" },
   { id: "accounts", label: "Connecting accounts", group: "Settings" },
   { id: "keys", label: "API keys", group: "Settings" },
+  { id: "team", label: "Team", group: "Settings" },
   { id: "email", label: "Email reports", group: "Settings" },
   { id: "updates", label: "How often numbers update", group: "Reference" },
   { id: "platforms", label: "Connected platforms", group: "Reference" },
@@ -388,6 +389,16 @@ export default function DocsPage() {
             <strong>need a look</strong> filter shows keys not used by any client, or GoHighLevel keys missing a sub-account ID.
           </p>
           <GoTo href="/settings/api-keys">Open API keys</GoTo>
+        </Section>
+
+        <Section id="team" title="Team" icon={KeyRoundIcon} lead="Each person signs in with their own email and password.">
+          <p>
+            In <strong>Settings → Team</strong>, add someone&apos;s work email and a password is generated for them.
+            It&apos;s shown once, so use <strong>Copy sign-in details</strong> and send it privately. <strong>Reset password</strong> gives
+            them a new one, and <strong>Remove</strong> takes their access away. Either way they&apos;re signed out straight away. The
+            shared password from Vercel still works as the owner&apos;s way in.
+          </p>
+          <GoTo href="/settings/team">Open Team</GoTo>
         </Section>
 
         <Section id="email" title="Email reports" icon={MailIcon} lead="Pick who gets each report in Settings → Email reports.">

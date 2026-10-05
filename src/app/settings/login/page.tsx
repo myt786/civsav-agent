@@ -12,9 +12,9 @@ const HIGHLIGHTS = [
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; ended?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, ended } = await searchParams;
 
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -81,12 +81,17 @@ export default async function LoginPage({
               <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Welcome back</h1>
               <p className="text-sm text-muted-foreground">Sign in to see your clients&apos; dashboard.</p>
             </div>
+            {ended && (
+              <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-foreground" role="status">
+                You were signed out because your access changed. Sign in with your current password.
+              </p>
+            )}
             <LoginForm next={next && next.startsWith("/") && !next.startsWith("//") ? next : "/"} />
           </div>
         </div>
 
         <p className="relative text-center text-xs text-muted-foreground">
-          Trouble signing in? Ask whoever manages the app for the password.
+          Trouble signing in? Ask whoever manages Settings → Team for a new password.
         </p>
       </div>
     </div>

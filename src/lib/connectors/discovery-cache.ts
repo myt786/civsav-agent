@@ -2,12 +2,41 @@ import "server-only";
 import { connectorRegistry } from "./registry";
 import type { DiscoveryResult, Platform } from "./types";
 import { PLATFORM_ORDER } from "./platform-labels";
+import { sql } from "drizzle-orm";
+import { platformCredentials } from "../db/schema";
+import { credentialsDb } from "./stored-credentials";
 
 const TTL_MS = 60 * 60 * 1000;
 
 interface CacheEntry {
   result: DiscoveryResult;
   fetchedAt: Date;
+  // Fingerprint of the platform's saved keys/logins when this was fetched.
+  credentialsStamp: string;
+}
+
+// Platforms whose accounts depend on keys/logins saved in Settings → API keys.
+const STORED_CREDENTIAL_PLATFORMS = new Set<Platform>(["ghl", "openphone", "google_ads"]);
+
+// Vercel runs several server instances, each with its own copy of this
+// cache, and invalidateDiscovery() only clears the one that saved the key.
+// So the others notice instead: a key added, replaced or removed changes
+// this count/last-updated fingerprint, and the cached list is refetched.
+async function credentialsStampFor(platform: Platform): Promise<string> {
+  if (!STORED_CREDENTIAL_PLATFORMS.has(platform)) return "";
+  try {
+    const db = await credentialsDb();
+    const [row] = await db
+      .select({
+        count: sql<number>`count(*)`,
+        latest: sql<string | null>`max(${platformCredentials.updatedAt})`,
+      })
+      .from(platformCredentials)
+      .where(sql`${platformCredentials.platform} = ${platform}`);
+    return `${row?.count ?? 0}:${row?.latest ?? ""}`;
+  } catch {
+    return "";
+  }
 }
 
 // Module-scope cache: this app runs as a single Node process (PGlite-backed
@@ -58,7 +87,9 @@ export async function getDiscoveredAccounts(
   { forceRefresh = false }: { forceRefresh?: boolean } = {},
 ): Promise<DiscoveredAccounts> {
   const cached = cache.get(platform);
-  const isFresh = cached && Date.now() - cached.fetchedAt.getTime() < TTL_MS;
+  const credentialsStamp = await credentialsStampFor(platform);
+  const isFresh =
+    cached && Date.now() - cached.fetchedAt.getTime() < TTL_MS && cached.credentialsStamp === credentialsStamp;
   if (cached && isFresh && !forceRefresh) {
     return { platform, result: cached.result, cachedAt: cached.fetchedAt };
   }
@@ -69,7 +100,7 @@ export async function getDiscoveredAccounts(
     : { status: "error", error: `Account discovery isn't available for this platform yet.` };
 
   const fetchedAt = new Date();
-  cache.set(platform, { result, fetchedAt });
+  cache.set(platform, { result, fetchedAt, credentialsStamp });
   return { platform, result, cachedAt: fetchedAt };
 }
 

@@ -130,6 +130,26 @@ export const platformCredentials = pgTable(
 
 // Who gets the emailed reports (Settings → Email reports), and which ones.
 // Sent through Resend — see src/lib/email.
+// People who sign in with their own password (Settings → Team). The shared
+// SETTINGS_PASSWORD still works too, as the owner's way in.
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Always stored lower-case.
+    email: text("email").notNull(),
+    // scrypt, see lib/auth/passwords.ts. Never sent to the browser.
+    passwordHash: text("password_hash").notNull(),
+    // Changes on every reset, and sessions carry it, so a reset or removal
+    // signs that person out everywhere.
+    passwordSetAt: timestamp("password_set_at", { withTimezone: true }).notNull().defaultNow(),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("team_members_email_idx").on(table.email)],
+);
+
 export const reportRecipients = pgTable(
   "report_recipients",
   {

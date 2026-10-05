@@ -10,6 +10,18 @@ export const SETTINGS_SESSION_COOKIE = "settings_session";
 interface SessionPayload {
   email: string;
   exp: number;
+  // Set when signed in with a personal password (Settings → Team): the
+  // member, and when their password was last set. Checked against the
+  // database on the server so removing someone or resetting their password
+  // signs them out. Absent for the shared SETTINGS_PASSWORD.
+  memberId?: string;
+  pwv?: number;
+}
+
+export interface Session {
+  email: string;
+  memberId?: string;
+  pwv?: number;
 }
 
 function getSecret(): string {
@@ -44,15 +56,18 @@ function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-export async function createSessionCookieValue(email: string): Promise<string> {
+export async function createSessionCookieValue(
+  email: string,
+  member?: { memberId: string; pwv: number },
+): Promise<string> {
   const key = await getKey();
-  const payload: SessionPayload = { email, exp: Date.now() + SESSION_TTL_MS };
+  const payload: SessionPayload = { email, exp: Date.now() + SESSION_TTL_MS, ...member };
   const payloadB64 = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payloadB64));
   return `${payloadB64}.${toBase64Url(new Uint8Array(signature))}`;
 }
 
-export async function verifySessionCookieValue(value: string | undefined | null): Promise<{ email: string } | null> {
+export async function verifySessionCookieValue(value: string | undefined | null): Promise<Session | null> {
   if (!value) return null;
   const [payloadB64, signatureB64] = value.split(".");
   if (!payloadB64 || !signatureB64) return null;
@@ -79,9 +94,9 @@ export async function verifySessionCookieValue(value: string | undefined | null)
     ) {
       return null;
     }
-    const { email, exp } = payload as SessionPayload;
+    const { email, exp, memberId, pwv } = payload as SessionPayload;
     if (Date.now() > exp) return null;
-    return { email };
+    return typeof memberId === "string" && typeof pwv === "number" ? { email, memberId, pwv } : { email };
   } catch {
     return null;
   }

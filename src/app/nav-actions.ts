@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { clientPlatformAccounts, clients } from "@/lib/db/schema";
 import { SETTINGS_SESSION_COOKIE, verifySessionCookieValue } from "@/lib/auth/session";
 import { getDashboardData, getSyncStatus } from "@/lib/dashboard/queries";
+import { isSessionActive } from "@/lib/auth/team";
 import { computeAttentionFlags } from "@/lib/insights/rules";
 
 export interface NavSummary {
@@ -16,6 +17,9 @@ export interface NavSummary {
   brokenAccounts: number;
   lastRunAt: string | null;
   lastRunStatus: string | null;
+  // Removed from Settings → Team, or their password was reset: the shell
+  // signs them out.
+  ended?: boolean;
 }
 
 // The sidebar's badges and footer, loaded after the page so it never slows
@@ -27,6 +31,7 @@ export async function getNavSummary(): Promise<NavSummary> {
   const jar = await cookies();
   const session = await verifySessionCookieValue(jar.get(SETTINGS_SESSION_COOKIE)?.value);
   if (!session) return summary;
+  if (!(await isSessionActive(session))) return { ...summary, ended: true };
   summary.email = session.email;
 
   await Promise.all([

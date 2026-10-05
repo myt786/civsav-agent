@@ -16,6 +16,7 @@ import {
   SearchIcon,
   SparklesIcon,
   TrendingUpIcon,
+  UserCogIcon,
   UsersIcon,
   ZapIcon,
 } from "lucide-react";
@@ -55,6 +56,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: "/settings/clients", label: "Clients", icon: UsersIcon, badge: "brokenAccounts" },
       { href: "/settings/api-keys", label: "API keys", icon: KeyRoundIcon },
       { href: "/settings/email-reports", label: "Email reports", icon: MailIcon },
+      { href: "/settings/team", label: "Team", icon: UserCogIcon },
     ],
   },
   {
@@ -354,6 +356,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     let cancelled = false;
     getNavSummary()
       .then((result) => {
+        if (result.ended) {
+          void logout();
+          return;
+        }
         if (!cancelled) setSummary(result);
       })
       .catch(() => {});

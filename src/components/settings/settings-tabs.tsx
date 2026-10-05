@@ -8,6 +8,7 @@ const TABS = [
   { href: "/settings/clients", label: "Clients" },
   { href: "/settings/api-keys", label: "API keys" },
   { href: "/settings/email-reports", label: "Email reports" },
+  { href: "/settings/team", label: "Team" },
 ];
 
 export function SettingsTabs({ children }: { children?: React.ReactNode }) {
