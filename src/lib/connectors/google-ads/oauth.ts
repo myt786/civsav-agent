@@ -4,13 +4,14 @@ import { and, eq } from "drizzle-orm";
 import { platformCredentials } from "../../db/schema";
 import { credentialsDb, encryptSecret } from "../stored-credentials";
 import { invalidateDiscovery } from "../discovery-cache";
-import { listAccountsForLogin, listManagerAccounts, oauthClient } from "./client";
+import { connectOauthClient, listAccountsForLogin, listManagerAccounts } from "./client";
 
 // "Connect Google Ads" in Settings → API keys: a team member signs in with
 // Google, and the refresh token that comes back is saved (encrypted) as one
 // more Google Ads login — no OAuth Playground, no Vercel env var, no
-// redeploy. Uses the same OAuth client as the main login, whose Google
-// Cloud settings must list callbackUrl() as an authorised redirect URI.
+// redeploy. Uses connectOauthClient() — a Web application client whose
+// Google Cloud settings must list callbackUrl() as an authorised redirect
+// URI.
 
 export const OAUTH_COOKIE = "gads_oauth";
 const SCOPES = ["https://www.googleapis.com/auth/adwords", "openid", "email"];
@@ -39,8 +40,8 @@ export function startConnect(
   origin: string,
   input: { name: string; managerId: string; createdBy: string },
 ): { ok: true; url: string; pending: PendingConnect } | { ok: false; error: string } {
-  const oauth = oauthClient();
-  if (!oauth) return { ok: false, error: "Google Ads isn't set up in this app yet (GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET)." };
+  const oauth = connectOauthClient();
+  if (!oauth) return { ok: false, error: "Google Ads isn't set up in this app yet (GOOGLE_ADS_WEB_CLIENT_ID / GOOGLE_ADS_WEB_CLIENT_SECRET)." };
   const managerId = managerDigits(input.managerId);
   if (managerId !== "" && managerId.length !== 10) {
     return { ok: false, error: "A manager account ID has 10 digits, like 123-456-7890." };
@@ -82,7 +83,7 @@ export type ConnectOutcome =
   | { ok: false; error: string };
 
 export async function finishConnect(origin: string, code: string, pending: PendingConnect): Promise<ConnectOutcome> {
-  const oauth = oauthClient();
+  const oauth = connectOauthClient();
   if (!oauth) return { ok: false, error: "Google Ads isn't set up in this app yet." };
 
   const response = await fetch("https://oauth2.googleapis.com/token", {

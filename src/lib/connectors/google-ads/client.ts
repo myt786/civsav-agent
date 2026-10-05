@@ -96,6 +96,23 @@ export function oauthClient(): { clientId: string; clientSecret: string } | null
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
+// The OAuth client saved logins are connected with (oauth.ts). A Desktop-
+// type client — what the main login was made with — can't take a redirect
+// URI, so a separate Web application client can be set in
+// GOOGLE_ADS_WEB_CLIENT_ID / GOOGLE_ADS_WEB_CLIENT_SECRET just for
+// connecting. A refresh token only works with the client that issued it,
+// so saved logins are always read with this one. Falls back to the main
+// client when it's already a Web application.
+export function connectOauthClient(): { clientId: string; clientSecret: string } | null {
+  const clientId = process.env.GOOGLE_ADS_WEB_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_ADS_WEB_CLIENT_SECRET;
+  return clientId && clientSecret ? { clientId, clientSecret } : oauthClient();
+}
+
+function oauthClientFor(login: Pick<GoogleAdsLogin, "label">) {
+  return login.label ? connectOauthClient() : oauthClient();
+}
+
 async function loginForLabel(label: string | null | undefined): Promise<GoogleAdsLogin | null> {
   if (!label) return mainLogin();
   if (!storedIdFromLabel(label)) return null;
@@ -114,8 +131,8 @@ export async function fetchRawCampaignReport(
     return JSON.parse(raw);
   }
 
-  const oauth = oauthClient();
   const login = await loginForLabel(account.credentialLabel);
+  const oauth = login ? oauthClientFor(login) : oauthClient();
   if (!oauth || (!login && !account.credentialLabel)) {
     throw new Error(
       "GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET / GOOGLE_ADS_REFRESH_TOKEN not configured",
@@ -223,8 +240,7 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
     status: "error",
     error: "GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET / GOOGLE_ADS_REFRESH_TOKEN not configured.",
   };
-  const oauth = oauthClient();
-  if (!oauth) return notConfigured;
+  if (!oauthClient() && !connectOauthClient()) return notConfigured;
 
   const logins: GoogleAdsLogin[] = [];
   const main = mainLogin();
@@ -242,7 +258,10 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
   const accounts: DiscoveredAccount[] = [];
   const errors: string[] = [];
   for (const login of logins) {
-    const result = await listAccountsForLogin(oauth, login);
+    const oauth = oauthClientFor(login);
+    const result: DiscoveryResult = oauth
+      ? await listAccountsForLogin(oauth, login)
+      : { status: "error", error: "GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET not configured." };
     if (result.status === "error") {
       errors.push(logins.length > 1 ? `${login.name}: ${result.error}` : result.error);
       continue;

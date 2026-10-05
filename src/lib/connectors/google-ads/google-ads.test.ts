@@ -400,6 +400,24 @@ describe("several Google Ads logins", () => {
     });
   });
 
+  it("reads saved logins with the Web client they were connected with, and the main login with its own", async () => {
+    process.env.GOOGLE_ADS_WEB_CLIENT_ID = "web-client-id";
+    process.env.GOOGLE_ADS_WEB_CLIENT_SECRET = "web-client-secret";
+    try {
+      vi.mocked(storedCredentialForLabel).mockResolvedValueOnce({ name: "Ali", externalId: null, secret: "ali-token" });
+      reportMock.mockResolvedValue([]);
+
+      await underFakeTimers(() => googleAdsConnector.fetch({ ...account, credentialLabel: SAVED_LABEL }, range));
+      expect(googleAdsApiMock).toHaveBeenLastCalledWith(expect.objectContaining({ client_id: "web-client-id", client_secret: "web-client-secret" }));
+
+      await underFakeTimers(() => googleAdsConnector.fetch(account, range));
+      expect(googleAdsApiMock).toHaveBeenLastCalledWith(expect.objectContaining({ client_id: "client-id", client_secret: "client-secret" }));
+    } finally {
+      delete process.env.GOOGLE_ADS_WEB_CLIENT_ID;
+      delete process.env.GOOGLE_ADS_WEB_CLIENT_SECRET;
+    }
+  });
+
   it("uses the main login when a client has no saved login", async () => {
     reportMock.mockResolvedValue([]);
 

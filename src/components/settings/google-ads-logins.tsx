@@ -139,11 +139,13 @@ export function GoogleAdsLogins({
   logins,
   redirectUri,
   configured,
+  hasWebClient,
   result,
 }: {
   logins: GoogleAdsLoginRow[];
   redirectUri: string;
   configured: boolean;
+  hasWebClient: boolean;
   result: GoogleAdsConnectResult | null;
 }) {
   const router = useRouter();
@@ -234,10 +236,19 @@ export function GoogleAdsLogins({
           <details className="text-xs text-muted-foreground">
             <summary className="cursor-pointer select-none hover:text-foreground">First time? One-off Google Cloud setup</summary>
             <div className="mt-2 flex flex-col gap-2">
-              <p>
-                In Google Cloud → APIs &amp; Services → Credentials, open the OAuth client used for Google Ads and add
-                this as an authorised redirect URI:
-              </p>
+              {hasWebClient ? (
+                <p>
+                  In Google Cloud → Google Auth Platform → Clients, open the Web application client set in
+                  GOOGLE_ADS_WEB_CLIENT_ID and add this as an authorised redirect URI:
+                </p>
+              ) : (
+                <p>
+                  In Google Cloud → Google Auth Platform → Clients, in the same project as the main Google Ads login,
+                  create a client of type <strong>Web application</strong> with this authorised redirect URI. Then set
+                  its ID and secret in Vercel as GOOGLE_ADS_WEB_CLIENT_ID and GOOGLE_ADS_WEB_CLIENT_SECRET, and
+                  redeploy. A Desktop client, which the main login may use, can&apos;t take a redirect URI.
+                </p>
+              )}
               <CopyRedirect value={redirectUri} />
               <p>
                 Also set the OAuth consent screen to <strong>In production</strong>. In testing mode, Google
