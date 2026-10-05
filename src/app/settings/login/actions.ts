@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { createSessionCookieValue, SETTINGS_SESSION_COOKIE } from "@/lib/auth/session";
 import { verifyPassword } from "@/lib/auth/passwords";
-import { findTeamMember, normalizeEmail } from "@/lib/auth/team";
+import { findTeamMember, normalizeEmail, type TeamMember } from "@/lib/auth/team";
 import { getDb } from "@/lib/db";
 import { teamMembers } from "@/lib/db/schema";
 
@@ -45,7 +45,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   // SETTINGS_PASSWORD, which stays the owner's way in. Looking the person
   // up is best-effort: if the database is down, the shared password still
   // works.
-  let member: Awaited<ReturnType<typeof findTeamMember>> = null;
+  let member: TeamMember | null = null;
   try {
     member = await findTeamMember(email);
   } catch {

@@ -8,10 +8,12 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export async function findTeamMember(email: string) {
+export type TeamMember = typeof teamMembers.$inferSelect;
+
+export async function findTeamMember(email: string): Promise<TeamMember | null> {
   const db = await getDb();
-  const [member] = await db.select().from(teamMembers).where(eq(teamMembers.email, normalizeEmail(email))).limit(1);
-  return member ?? null;
+  const rows: TeamMember[] = await db.select().from(teamMembers).where(eq(teamMembers.email, normalizeEmail(email))).limit(1);
+  return rows[0] ?? null;
 }
 
 // A personal-password session only lasts while that person is still on the
