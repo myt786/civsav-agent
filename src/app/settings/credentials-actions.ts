@@ -215,7 +215,7 @@ export async function deletePlatformCredential(
   }
 
   await db.delete(platformCredentials).where(eq(platformCredentials.id, credentialId));
-  if (row.platform === "ghl" || row.platform === "openphone") invalidateDiscovery(row.platform);
+  invalidateDiscovery(row.platform);
   revalidatePath("/settings/api-keys");
   return {};
 }

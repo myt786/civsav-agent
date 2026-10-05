@@ -375,9 +375,10 @@ export default function DocsPage() {
           />
         </Section>
 
-        <Section id="keys" title="API keys" icon={KeyRoundIcon} lead="GoHighLevel and OpenPhone need a key per client or workspace.">
+        <Section id="keys" title="API keys" icon={KeyRoundIcon} lead="Google Ads logins for each team member, and a GoHighLevel or OpenPhone key per client or workspace.">
           <Terms
             rows={[
+              { term: "Google Ads", body: "One login per team member whose ad accounts sit under a different manager account. Click Connect Google Ads, and they sign in with Google. Their accounts then appear in the account list on a client's page, marked “via” their login. Use Reconnect after a password change." },
               { term: "GoHighLevel", body: "One key per client sub-account (Settings → Private Integrations, with View Opportunities ticked), plus the sub-account ID from the address bar." },
               { term: "OpenPhone", body: "One key per workspace (Settings → API). It covers every number in that workspace." },
             ]}
