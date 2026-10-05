@@ -4,6 +4,7 @@ import { GoogleAdsApi } from "google-ads-api";
 import { formatInTimeZone } from "date-fns-tz";
 import { RateLimiter } from "../shared/http";
 import type { PlatformAccount, DateRange, DiscoveredAccount, DiscoveryResult } from "../types";
+import { listStoredCredentials, storedCredentialForLabel, storedIdFromLabel } from "../stored-credentials";
 
 // Explorer access tier caps at 2,880 operations per DAY, not per second.
 // Report queries are batched per client (one call per sync), so a daily run
@@ -60,6 +61,49 @@ async function withRetry<T>(operation: () => Promise<T>): Promise<T> {
   throw lastError;
 }
 
+// A Google user Google Ads is read as. The main one is set up in Vercel
+// (GOOGLE_ADS_REFRESH_TOKEN, optionally reading through the manager account
+// in GOOGLE_ADS_LOGIN_CUSTOMER_ID). Team members whose ad accounts sit
+// under a different manager connect their own in Settings → API keys
+// (oauth.ts): saved in platform_credentials with the refresh token as the
+// secret and their manager ID as externalId, and a client's mapping points
+// at it through credentialLabel ("db:<id>"). Every login shares the one
+// OAuth client in GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET.
+export interface GoogleAdsLogin {
+  // null for the main login, "db:<id>" for a saved one.
+  label: string | null;
+  name: string;
+  refreshToken: string;
+  loginCustomerId?: string;
+}
+
+export const MAIN_LOGIN_NAME = "Main login";
+
+function mainLogin(): GoogleAdsLogin | null {
+  const refreshToken = process.env.GOOGLE_ADS_REFRESH_TOKEN;
+  if (!refreshToken) return null;
+  return {
+    label: null,
+    name: MAIN_LOGIN_NAME,
+    refreshToken,
+    loginCustomerId: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || undefined,
+  };
+}
+
+export function oauthClient(): { clientId: string; clientSecret: string } | null {
+  const clientId = process.env.GOOGLE_ADS_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET;
+  return clientId && clientSecret ? { clientId, clientSecret } : null;
+}
+
+async function loginForLabel(label: string | null | undefined): Promise<GoogleAdsLogin | null> {
+  if (!label) return mainLogin();
+  if (!storedIdFromLabel(label)) return null;
+  const stored = await storedCredentialForLabel("google_ads", label);
+  if (!stored) return null;
+  return { label, name: stored.name, refreshToken: stored.secret, loginCustomerId: stored.externalId ?? undefined };
+}
+
 export async function fetchRawCampaignReport(
   account: PlatformAccount,
   range: DateRange,
@@ -70,26 +114,30 @@ export async function fetchRawCampaignReport(
     return JSON.parse(raw);
   }
 
-  const clientId = process.env.GOOGLE_ADS_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_ADS_REFRESH_TOKEN;
-  if (!clientId || !clientSecret || !refreshToken) {
+  const oauth = oauthClient();
+  const login = await loginForLabel(account.credentialLabel);
+  if (!oauth || (!login && !account.credentialLabel)) {
     throw new Error(
       "GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET / GOOGLE_ADS_REFRESH_TOKEN not configured",
+    );
+  }
+  if (!login) {
+    throw new Error(
+      "The Google Ads login this client used was removed. Pick the account again on the client's page.",
     );
   }
 
   await rateLimiter.wait();
 
   const client = new GoogleAdsApi({
-    client_id: clientId,
-    client_secret: clientSecret,
+    client_id: oauth.clientId,
+    client_secret: oauth.clientSecret,
     developer_token: DEVELOPER_TOKEN,
   });
   const customer = client.Customer({
     customer_id: account.externalId,
-    refresh_token: refreshToken,
-    login_customer_id: process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+    refresh_token: login.refreshToken,
+    login_customer_id: login.loginCustomerId,
   });
 
   const date = formatInTimeZone(range.start, account.clientTimezone, "yyyy-MM-dd");
@@ -171,35 +219,67 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
     }
   }
 
-  const clientId = process.env.GOOGLE_ADS_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_ADS_REFRESH_TOKEN;
-  // Optional. Set it and discovery walks the child accounts under that MCC.
-  // Leave it blank (the current tayyab@civsav.com setup — a plain login, not
-  // a manager) and discovery lists whatever accounts that OAuth user can see
-  // directly. The MCC path stays wired up for when the manager account is
-  // approved and we switch over.
-  const loginCustomerId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
-  if (!clientId || !clientSecret || !refreshToken) {
-    return {
-      status: "error",
-      error:
-        "GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET / GOOGLE_ADS_REFRESH_TOKEN not configured.",
-    };
+  const notConfigured: DiscoveryResult = {
+    status: "error",
+    error: "GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET / GOOGLE_ADS_REFRESH_TOKEN not configured.",
+  };
+  const oauth = oauthClient();
+  if (!oauth) return notConfigured;
+
+  const logins: GoogleAdsLogin[] = [];
+  const main = mainLogin();
+  if (main) logins.push(main);
+  try {
+    for (const cred of await listStoredCredentials("google_ads")) {
+      logins.push({ label: cred.label, name: cred.name, refreshToken: cred.secret, loginCustomerId: cred.externalId ?? undefined });
+    }
+  } catch {
+    // Saved logins unreadable (e.g. the encryption secret changed) — the
+    // main login still lists its accounts.
+  }
+  if (logins.length === 0) return notConfigured;
+
+  const accounts: DiscoveredAccount[] = [];
+  const errors: string[] = [];
+  for (const login of logins) {
+    const result = await listAccountsForLogin(oauth, login);
+    if (result.status === "error") {
+      errors.push(logins.length > 1 ? `${login.name}: ${result.error}` : result.error);
+      continue;
+    }
+    for (const account of result.accounts) {
+      // Saved logins' accounts are tagged so the mapping remembers which
+      // login to use; with several logins, each says which it comes through.
+      accounts.push({
+        ...account,
+        ...(logins.length > 1 ? { extra: [account.extra, `via ${login.name}`].filter(Boolean).join(" · ") } : {}),
+        ...(login.label ? { credentialLabel: login.label, credentialName: login.name } : {}),
+      });
+    }
   }
 
+  if (errors.length === logins.length) return { status: "error", error: errors.join(" ") };
+  return { status: "ok", accounts };
+}
+
+// The accounts one login can read: every child of its manager account when
+// it has one, otherwise whatever the Google user can open directly.
+export async function listAccountsForLogin(
+  oauth: { clientId: string; clientSecret: string },
+  login: Pick<GoogleAdsLogin, "refreshToken" | "loginCustomerId">,
+): Promise<DiscoveryResult> {
   await rateLimiter.wait();
 
   try {
     const client = new GoogleAdsApi({
-      client_id: clientId,
-      client_secret: clientSecret,
+      client_id: oauth.clientId,
+      client_secret: oauth.clientSecret,
       developer_token: DEVELOPER_TOKEN,
     });
 
-    const customers = loginCustomerId
-      ? await listAccountsViaManager(client, refreshToken, loginCustomerId)
-      : await listAccountsViaDirectAccess(client, refreshToken);
+    const customers = login.loginCustomerId
+      ? await listAccountsViaManager(client, login.refreshToken, login.loginCustomerId)
+      : await listAccountsViaDirectAccess(client, login.refreshToken);
 
     return { status: "ok", accounts: toDiscoveredAccounts(customers) };
   } catch (err) {
@@ -207,13 +287,43 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
     if (status === 401 || status === 403) {
       return {
         status: "error",
-        error: loginCustomerId
-          ? "No access to Google Ads accounts under the manager account. Check the refresh token has access and GOOGLE_ADS_LOGIN_CUSTOMER_ID is correct."
-          : "No access to any Google Ads accounts for this login. Check GOOGLE_ADS_REFRESH_TOKEN was issued for a user with Google Ads access.",
+        error: login.loginCustomerId
+          ? "No access to Google Ads accounts under the manager account. Check the login still has access to that manager account and its ID is correct."
+          : "No access to any Google Ads accounts for this login. Check the Google user it was connected with has Google Ads access.",
       };
     }
     return { status: "error", error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+// The manager accounts a Google user can open directly — used when someone
+// connects a login without typing their manager ID, so it can be filled in
+// for them when there's exactly one.
+export async function listManagerAccounts(
+  oauth: { clientId: string; clientSecret: string },
+  refreshToken: string,
+): Promise<{ id: string; name: string }[]> {
+  const client = new GoogleAdsApi({
+    client_id: oauth.clientId,
+    client_secret: oauth.clientSecret,
+    developer_token: DEVELOPER_TOKEN,
+  });
+  const { resource_names } = await withRetry(() => client.listAccessibleCustomers(refreshToken));
+  const ids = (resource_names ?? []).map((name) => name.split("/")[1]).filter((id): id is string => Boolean(id));
+  const settled = await Promise.allSettled(
+    ids.map((id) =>
+      withRetry(() =>
+        client
+          .Customer({ customer_id: id, refresh_token: refreshToken })
+          .query<CustomerRow[]>("SELECT customer.id, customer.descriptive_name, customer.manager FROM customer"),
+      ),
+    ),
+  );
+  return settled
+    .filter((r): r is PromiseFulfilledResult<CustomerRow[]> => r.status === "fulfilled")
+    .flatMap((r) => customerRowsToDiscovered(r.value))
+    .filter((c) => c.manager && c.id !== "")
+    .map((c) => ({ id: c.id, name: c.name ?? c.id }));
 }
 
 // Queried against the manager account itself (not a specific client's

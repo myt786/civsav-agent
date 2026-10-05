@@ -146,3 +146,22 @@ export async function storedSecretForLabel(
     .limit(1);
   return row ? decryptSecret(row.secretEncrypted) : undefined;
 }
+
+// One saved credential by its mapping label, with its externalId — for a
+// platform whose saved logins carry more than a secret (Google Ads: the
+// manager account the login reads through). undefined when the label isn't
+// a stored one, or the credential was deleted.
+export async function storedCredentialForLabel(
+  platform: Platform,
+  label: string | null | undefined,
+): Promise<{ name: string; externalId: string | null; secret: string } | undefined> {
+  const id = storedIdFromLabel(label);
+  if (!id) return undefined;
+  const db = await credentialsDb();
+  const [row] = await db
+    .select({ name: platformCredentials.name, externalId: platformCredentials.externalId, secretEncrypted: platformCredentials.secretEncrypted })
+    .from(platformCredentials)
+    .where(and(eq(platformCredentials.id, id), eq(platformCredentials.platform, platform)))
+    .limit(1);
+  return row ? { name: row.name, externalId: row.externalId, secret: decryptSecret(row.secretEncrypted) } : undefined;
+}

@@ -18,7 +18,16 @@ vi.mock("google-ads-api", () => ({
   GoogleAdsApi: googleAdsApiMock,
 }));
 
+// Saved Google Ads logins (Settings → API keys) live in the database;
+// stubbed here, empty unless a test sets them.
+vi.mock("../stored-credentials", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../stored-credentials")>()),
+  listStoredCredentials: vi.fn(async () => []),
+  storedCredentialForLabel: vi.fn(async () => undefined),
+}));
+
 import { googleAdsConnector } from "./index";
+import { listStoredCredentials, storedCredentialForLabel } from "../stored-credentials";
 import { microsToCurrency } from "./schema";
 import type { PlatformAccount, DateRange } from "../types";
 
@@ -337,5 +346,123 @@ describe("googleAdsConnector.listAccounts", () => {
       if (result.status !== "error") throw new Error("expected error");
       expect(result.error).toMatch(/No access to any Google Ads accounts for this login/);
     });
+  });
+});
+
+describe("several Google Ads logins", () => {
+  const SAVED_LABEL = "db:11111111-2222-3333-4444-555555555555";
+
+  beforeEach(() => {
+    delete process.env.CONNECTOR_MODE;
+    process.env.GOOGLE_ADS_CLIENT_ID = "client-id";
+    process.env.GOOGLE_ADS_CLIENT_SECRET = "client-secret";
+    process.env.GOOGLE_ADS_REFRESH_TOKEN = "main-token";
+    process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID = "1112223333";
+    reportMock.mockReset();
+    queryMock.mockReset();
+    customerMock.mockReset();
+    customerMock.mockReturnValue({ report: reportMock, query: queryMock });
+    googleAdsApiMock.mockImplementation(function GoogleAdsApiMock() {
+      return { Customer: customerMock, listAccessibleCustomers: listAccessibleCustomersMock };
+    });
+  });
+
+  afterEach(() => {
+    delete process.env.GOOGLE_ADS_CLIENT_ID;
+    delete process.env.GOOGLE_ADS_CLIENT_SECRET;
+    delete process.env.GOOGLE_ADS_REFRESH_TOKEN;
+    delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+    vi.useRealTimers();
+  });
+
+  async function underFakeTimers<T>(run: () => Promise<T>): Promise<T> {
+    vi.useFakeTimers();
+    try {
+      const promise = run();
+      await vi.runAllTimersAsync();
+      return await promise;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it("fetches with the saved login a client points at, through its own manager account", async () => {
+    vi.mocked(storedCredentialForLabel).mockResolvedValueOnce({ name: "Ali", externalId: "5556667777", secret: "ali-token" });
+    reportMock.mockResolvedValue([]);
+
+    const result = await underFakeTimers(() => googleAdsConnector.fetch({ ...account, credentialLabel: SAVED_LABEL }, range));
+
+    expect(result.status).toBe("no_data");
+    expect(customerMock).toHaveBeenCalledWith({
+      customer_id: "1234567890",
+      refresh_token: "ali-token",
+      login_customer_id: "5556667777",
+    });
+  });
+
+  it("uses the main login when a client has no saved login", async () => {
+    reportMock.mockResolvedValue([]);
+
+    await underFakeTimers(() => googleAdsConnector.fetch(account, range));
+
+    expect(customerMock).toHaveBeenCalledWith({
+      customer_id: "1234567890",
+      refresh_token: "main-token",
+      login_customer_id: "1112223333",
+    });
+  });
+
+  it("returns an error (not the main login's data) when the saved login was removed", async () => {
+    const result = await underFakeTimers(() => googleAdsConnector.fetch({ ...account, credentialLabel: SAVED_LABEL }, range));
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected error");
+    expect(result.error).toMatch(/login this client used was removed/);
+    expect(reportMock).not.toHaveBeenCalled();
+  });
+
+  it("lists every login's accounts, tagging saved ones so the mapping remembers which to use", async () => {
+    vi.mocked(listStoredCredentials).mockResolvedValueOnce([
+      { id: "x", label: SAVED_LABEL, name: "Ali", externalId: "5556667777", secret: "ali-token" },
+    ]);
+    queryMock
+      .mockResolvedValueOnce([
+        { customer_client: { id: "1234567890", descriptive_name: "Acme Roofing", status: "ENABLED", manager: false, currency_code: "USD" } },
+      ])
+      .mockResolvedValueOnce([
+        { customer_client: { id: "9998887777", descriptive_name: "Beta Dental", status: "ENABLED", manager: false, currency_code: "EUR" } },
+      ]);
+
+    const result = await underFakeTimers(() => googleAdsConnector.listAccounts!());
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toEqual([
+      { id: "1234567890", name: "Acme Roofing", extra: "USD · ENABLED · via Main login" },
+      {
+        id: "9998887777",
+        name: "Beta Dental",
+        extra: "EUR · ENABLED · via Ali",
+        credentialLabel: SAVED_LABEL,
+        credentialName: "Ali",
+      },
+    ]);
+  });
+
+  it("still lists the other logins' accounts when one login fails", async () => {
+    vi.mocked(listStoredCredentials).mockResolvedValueOnce([
+      { id: "x", label: SAVED_LABEL, name: "Ali", externalId: "5556667777", secret: "ali-token" },
+    ]);
+    queryMock
+      .mockRejectedValueOnce(httpError(403, "403 Forbidden"))
+      .mockResolvedValueOnce([
+        { customer_client: { id: "9998887777", descriptive_name: "Beta Dental", status: "ENABLED", manager: false, currency_code: "EUR" } },
+      ]);
+
+    const result = await underFakeTimers(() => googleAdsConnector.listAccounts!());
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts.map((a) => a.id)).toEqual(["9998887777"]);
   });
 });

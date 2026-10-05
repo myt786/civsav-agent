@@ -1,4 +1,5 @@
-import { asc, like } from "drizzle-orm";
+import { asc, eq, like, or } from "drizzle-orm";
+import { headers } from "next/headers";
 import { clientPlatformAccounts, platformCredentials } from "@/lib/db/schema";
 import { getClient } from "@/lib/settings/queries";
 import { isUuid } from "@/lib/settings/validation";
@@ -6,6 +7,9 @@ import { credentialsDb, storedIdFromLabel } from "@/lib/connectors/stored-creden
 import { AddApiKeyForm } from "@/components/settings/add-api-key-form";
 import { ApiKeysList, type ApiKeyRow } from "@/components/settings/api-keys-list";
 import { countUnsavedEnvKeys } from "@/lib/connectors/env-keys";
+import { GoogleAdsLogins, type GoogleAdsConnectResult, type GoogleAdsLoginRow } from "@/components/settings/google-ads-logins";
+import { callbackUrl, formatManagerId } from "@/lib/connectors/google-ads/oauth";
+import { MAIN_LOGIN_NAME, oauthClient } from "@/lib/connectors/google-ads/client";
 import { CircleAlertIcon, KeyRoundIcon, LinkIcon, MapPinIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +52,7 @@ export const dynamic = "force-dynamic";
 export default async function ApiKeysPage({
   searchParams,
 }: {
-  searchParams: Promise<{ platform?: string; clientId?: string; name?: string }>;
+  searchParams: Promise<{ platform?: string; clientId?: string; name?: string; gads?: string; message?: string; accounts?: string }>;
 }) {
   const params = await searchParams;
   const db = await credentialsDb();
@@ -61,18 +65,21 @@ export default async function ApiKeysPage({
         name: platformCredentials.name,
         externalId: platformCredentials.externalId,
         updatedAt: platformCredentials.updatedAt,
+        createdBy: platformCredentials.createdBy,
       })
       .from(platformCredentials)
       .orderBy(asc(platformCredentials.platform), asc(platformCredentials.name)),
     db
-      .select({ credentialLabel: clientPlatformAccounts.credentialLabel })
+      .select({ platform: clientPlatformAccounts.platform, credentialLabel: clientPlatformAccounts.credentialLabel })
       .from(clientPlatformAccounts)
-      .where(like(clientPlatformAccounts.credentialLabel, "db:%")),
+      .where(or(like(clientPlatformAccounts.credentialLabel, "db:%"), eq(clientPlatformAccounts.platform, "google_ads"))),
     isUuid(params.clientId) ? getClient(params.clientId) : Promise.resolve(null),
   ]);
 
   const usage = new Map<string, number>();
+  let mainGoogleAdsUsage = 0;
   for (const mapping of mappings) {
+    if (mapping.platform === "google_ads" && !mapping.credentialLabel) mainGoogleAdsUsage++;
     const id = storedIdFromLabel(mapping.credentialLabel);
     if (id) usage.set(id, (usage.get(id) ?? 0) + 1);
   }
@@ -88,6 +95,39 @@ export default async function ApiKeysPage({
       usedBy: usage.get(row.id) ?? 0,
     }));
 
+  // Google Ads logins: the main one from Vercel env, then saved ones.
+  const googleAdsLogins: GoogleAdsLoginRow[] = [
+    ...(process.env.GOOGLE_ADS_REFRESH_TOKEN
+      ? [
+          {
+            id: null,
+            name: MAIN_LOGIN_NAME,
+            managerId: formatManagerId(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID),
+            usedBy: mainGoogleAdsUsage,
+            createdBy: null,
+            updatedAt: null,
+          },
+        ]
+      : []),
+    ...rows
+      .filter((row) => row.platform === "google_ads")
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        managerId: formatManagerId(row.externalId),
+        usedBy: usage.get(row.id) ?? 0,
+        createdBy: row.createdBy,
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+  ];
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const proto = headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const connectResult: GoogleAdsConnectResult | null =
+    params.gads === "connected" || params.gads === "reconnected" || params.gads === "error"
+      ? { status: params.gads, name: params.name, accounts: params.accounts, message: params.message }
+      : null;
+
   const initialPlatform = params.platform === "openphone" ? "openphone" : "ghl";
   const unsavedEnvKeys = await countUnsavedEnvKeys();
   const inUse = keys.filter((k) => k.usedBy > 0).length;
@@ -100,8 +140,8 @@ export default async function ApiKeysPage({
       <div className="flex max-w-3xl flex-col gap-1">
         <h2 className="font-heading text-lg font-medium text-foreground">API keys</h2>
         <p className="text-sm text-muted-foreground">
-          GoHighLevel and OpenPhone need their own key for each client, so they&apos;re added here. Every key is
-          tested before it&apos;s saved and can&apos;t be viewed again afterwards.
+          Google Ads logins for each team member, plus the GoHighLevel and OpenPhone keys each client needs. Every
+          login and key is tested before it&apos;s saved and can&apos;t be viewed again afterwards.
         </p>
       </div>
 
@@ -135,13 +175,20 @@ export default async function ApiKeysPage({
         />
       </div>
 
+      <GoogleAdsLogins
+        logins={googleAdsLogins}
+        redirectUri={callbackUrl(`${proto}://${host}`)}
+        configured={oauthClient() !== null}
+        result={connectResult}
+      />
+
       {/* Add on the left, what's saved on the right. */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
         {/* Stays in view while scrolling a long list of saved keys. */}
         <div className="lg:sticky lg:top-6">
           <AddApiKeyForm
             initialPlatform={initialPlatform}
-            initialName={params.name ?? client?.name ?? ""}
+            initialName={(params.gads ? null : params.name) ?? client?.name ?? ""}
             clientId={client?.id}
             clientName={client?.name}
           />
