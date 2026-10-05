@@ -64,9 +64,12 @@ export function QuickAccountsSheet({
           for the account rows' three columns. */}
       <SheetContent
         side="right"
-        className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:w-[min(68rem,94vw)] data-[side=right]:sm:max-w-none"
+        className="gap-0 overflow-hidden data-[side=right]:h-dvh data-[side=right]:w-full data-[side=right]:sm:w-[min(68rem,94vw)] data-[side=right]:sm:max-w-none"
       >
-        <SheetHeader>
+        {/* Header stays put; only the body below scrolls. Scrolling the
+            dialog panel itself didn't work reliably under the modal's
+            scroll lock. */}
+        <SheetHeader className="shrink-0 border-b border-border">
           <SheetTitle>{client?.name ?? ""}</SheetTitle>
           <SheetDescription className="flex flex-wrap items-center gap-x-3">
             Connect or change this client&apos;s accounts.
@@ -81,7 +84,7 @@ export function QuickAccountsSheet({
             )}
           </SheetDescription>
         </SheetHeader>
-        <div className="px-4 pb-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-6">
           {loaded === undefined ? (
             <div className="flex flex-col gap-3">
               {Array.from({ length: 6 }, (_, i) => (

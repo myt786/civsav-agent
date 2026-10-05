@@ -6,6 +6,14 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 // `import "server-only"` is a no-op here, same as any other test would need.
 vi.mock("server-only", () => ({}));
 
+// The saved-keys fingerprint reads the database; with no database here it
+// reads as unchanged, so only the TTL and forceRefresh decide.
+vi.mock("./stored-credentials", () => ({
+  credentialsDb: vi.fn(async () => {
+    throw new Error("no database in tests");
+  }),
+}));
+
 const { listAccountsMocks } = vi.hoisted(() => ({
   listAccountsMocks: {
     lead_dashboard: vi.fn(),
