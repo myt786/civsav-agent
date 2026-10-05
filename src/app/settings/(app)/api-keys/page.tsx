@@ -9,7 +9,7 @@ import { ApiKeysList, type ApiKeyRow } from "@/components/settings/api-keys-list
 import { countUnsavedEnvKeys } from "@/lib/connectors/env-keys";
 import { GoogleAdsLogins, type GoogleAdsConnectResult, type GoogleAdsLoginRow } from "@/components/settings/google-ads-logins";
 import { callbackUrl, formatManagerId } from "@/lib/connectors/google-ads/oauth";
-import { MAIN_LOGIN_NAME, oauthClient } from "@/lib/connectors/google-ads/client";
+import { MAIN_LOGIN_NAME, connectOauthClient } from "@/lib/connectors/google-ads/client";
 import { CircleAlertIcon, KeyRoundIcon, LinkIcon, MapPinIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -178,7 +178,8 @@ export default async function ApiKeysPage({
       <GoogleAdsLogins
         logins={googleAdsLogins}
         redirectUri={callbackUrl(`${proto}://${host}`)}
-        configured={oauthClient() !== null}
+        configured={connectOauthClient() !== null}
+        hasWebClient={Boolean(process.env.GOOGLE_ADS_WEB_CLIENT_ID && process.env.GOOGLE_ADS_WEB_CLIENT_SECRET)}
         result={connectResult}
       />
 
