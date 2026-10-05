@@ -360,6 +360,8 @@ describe("several Google Ads logins", () => {
     process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID = "1112223333";
     reportMock.mockReset();
     queryMock.mockReset();
+    listAccessibleCustomersMock.mockReset();
+    listAccessibleCustomersMock.mockResolvedValue({ resource_names: [] });
     customerMock.mockReset();
     customerMock.mockReturnValue({ report: reportMock, query: queryMock });
     googleAdsApiMock.mockImplementation(function GoogleAdsApiMock() {
@@ -465,6 +467,47 @@ describe("several Google Ads logins", () => {
         credentialName: "Ali",
       },
     ]);
+  });
+
+  it("lists a saved login's directly opened accounts when its manager account holds none", async () => {
+    vi.mocked(listStoredCredentials).mockResolvedValueOnce([
+      { id: "x", label: SAVED_LABEL, name: "Ali", externalId: "5556667777", secret: "ali-token" },
+    ]);
+    listAccessibleCustomersMock.mockResolvedValue({ resource_names: ["customers/4445556666"] });
+    queryMock
+      .mockResolvedValueOnce([]) // main login's manager: nothing
+      .mockResolvedValueOnce([]) // Ali's manager: nothing
+      .mockResolvedValueOnce([
+        { customer: { id: "4445556666", descriptive_name: "Gamma Plumbing", status: "ENABLED", manager: false, currency_code: "USD" } },
+      ]);
+
+    const result = await underFakeTimers(() => googleAdsConnector.listAccounts!());
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("expected ok");
+    expect(result.accounts).toEqual([
+      {
+        id: "4445556666",
+        name: "Gamma Plumbing",
+        extra: "USD · ENABLED · via Ali",
+        credentialLabel: SAVED_LABEL,
+        credentialName: "Ali",
+      },
+    ]);
+  });
+
+  it("retries a saved login's report without its manager when the manager can't reach the account", async () => {
+    vi.mocked(storedCredentialForLabel).mockResolvedValueOnce({ name: "Ali", externalId: "5556667777", secret: "ali-token" });
+    reportMock.mockRejectedValueOnce(httpError(403, "403 Forbidden")).mockResolvedValueOnce([]);
+
+    const result = await underFakeTimers(() => googleAdsConnector.fetch({ ...account, credentialLabel: SAVED_LABEL }, range));
+
+    expect(result.status).toBe("no_data");
+    expect(customerMock).toHaveBeenLastCalledWith({
+      customer_id: "1234567890",
+      refresh_token: "ali-token",
+      login_customer_id: undefined,
+    });
   });
 
   it("still lists the other logins' accounts when one login fails", async () => {

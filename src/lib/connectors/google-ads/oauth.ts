@@ -123,7 +123,7 @@ export async function finishConnect(origin: string, code: string, pending: Pendi
   }
 
   // Proves the login can actually read ad accounts before it's saved.
-  const listed = await listAccountsForLogin(oauth, { refreshToken, loginCustomerId: managerId || undefined });
+  const listed = await listAccountsForLogin(oauth, { refreshToken, loginCustomerId: managerId || undefined }, { includeDirect: true });
   if (listed.status === "error") return { ok: false, error: listed.error };
 
   const name = pending.name || email || "Google Ads login";
