@@ -151,28 +151,31 @@ export async function fetchRawCampaignReport(
     client_secret: oauth.clientSecret,
     developer_token: DEVELOPER_TOKEN,
   });
-  const customer = client.Customer({
-    customer_id: account.externalId,
-    refresh_token: login.refreshToken,
-    login_customer_id: login.loginCustomerId,
-  });
-
   const date = formatInTimeZone(range.start, account.clientTimezone, "yyyy-MM-dd");
+  const report = (loginCustomerId: string | undefined) =>
+    withRetry(() =>
+      client
+        .Customer({ customer_id: account.externalId, refresh_token: login.refreshToken, login_customer_id: loginCustomerId })
+        .report({
+          entity: "campaign",
+          metrics: ["metrics.impressions", "metrics.clicks", "metrics.cost_micros", "metrics.conversions"],
+          segments: ["segments.date"],
+          from_date: date,
+          to_date: date,
+        }),
+    );
 
-  return withRetry(() =>
-    customer.report({
-      entity: "campaign",
-      metrics: [
-        "metrics.impressions",
-        "metrics.clicks",
-        "metrics.cost_micros",
-        "metrics.conversions",
-      ],
-      segments: ["segments.date"],
-      from_date: date,
-      to_date: date,
-    }),
-  );
+  // A saved login lists both the accounts under its manager and the ones
+  // its Google user opens directly (see listAccountsForLogin), so an
+  // account may not be reachable through the manager: try directly too.
+  if (login.label && login.loginCustomerId) {
+    try {
+      return await report(login.loginCustomerId);
+    } catch {
+      return report(undefined);
+    }
+  }
+  return report(login.loginCustomerId);
 }
 
 // customer_client rows come back from a `FROM customer_client` query run
@@ -261,7 +264,7 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
   for (const login of logins) {
     const oauth = oauthClientFor(login);
     const result: DiscoveryResult = oauth
-      ? await listAccountsForLogin(oauth, login)
+      ? await listAccountsForLogin(oauth, login, { includeDirect: Boolean(login.label) })
       : { status: "error", error: "GOOGLE_ADS_CLIENT_ID / GOOGLE_ADS_CLIENT_SECRET not configured." };
     if (result.status === "error") {
       errors.push(logins.length > 1 ? `${login.name}: ${result.error}` : result.error);
@@ -269,7 +272,7 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
     }
     if (logins.length > 1 && result.accounts.length === 0) {
       warnings.push(
-        `${login.name}: no ad accounts found${login.loginCustomerId ? " under its manager account" : ""}. Check that Google user can open them in Google Ads.`,
+        `${login.name}: no ad accounts found. Check that Google user can open them in Google Ads, or reconnect it with the right manager account ID.`,
       );
     }
     for (const account of result.accounts) {
@@ -294,6 +297,10 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
 export async function listAccountsForLogin(
   oauth: { clientId: string; clientSecret: string },
   login: Pick<GoogleAdsLogin, "refreshToken" | "loginCustomerId">,
+  // Saved logins: also include accounts the Google user opens directly,
+  // not only those under its manager — a team member's manager account
+  // doesn't always hold the accounts they actually work in.
+  { includeDirect = false }: { includeDirect?: boolean } = {},
 ): Promise<DiscoveryResult> {
   await rateLimiter.wait();
 
@@ -304,9 +311,23 @@ export async function listAccountsForLogin(
       developer_token: DEVELOPER_TOKEN,
     });
 
-    const customers = login.loginCustomerId
-      ? await listAccountsViaManager(client, login.refreshToken, login.loginCustomerId)
-      : await listAccountsViaDirectAccess(client, login.refreshToken);
+    let customers: DiscoveredCustomer[];
+    if (login.loginCustomerId && includeDirect) {
+      const [viaManager, direct] = await Promise.allSettled([
+        listAccountsViaManager(client, login.refreshToken, login.loginCustomerId),
+        listAccountsViaDirectAccess(client, login.refreshToken),
+      ]);
+      if (viaManager.status === "rejected" && direct.status === "rejected") throw viaManager.reason;
+      const seen = new Set<string>();
+      customers = [
+        ...(viaManager.status === "fulfilled" ? viaManager.value : []),
+        ...(direct.status === "fulfilled" ? direct.value : []),
+      ].filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true)));
+    } else {
+      customers = login.loginCustomerId
+        ? await listAccountsViaManager(client, login.refreshToken, login.loginCustomerId)
+        : await listAccountsViaDirectAccess(client, login.refreshToken);
+    }
 
     return { status: "ok", accounts: toDiscoveredAccounts(customers) };
   } catch (err) {
