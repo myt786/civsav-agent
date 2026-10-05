@@ -21,7 +21,7 @@ function toDiscoveryState(entries: DiscoveredAccounts[]): Record<Platform, Disco
     entries.map(({ platform, result }) => [
       platform,
       result.status === "ok"
-        ? { status: "ok" as const, accounts: result.accounts }
+        ? { status: "ok" as const, accounts: result.accounts, warnings: result.warnings }
         : { status: "error" as const, error: result.error, accounts: [] },
     ]),
   ) as Record<Platform, DiscoveryState>;

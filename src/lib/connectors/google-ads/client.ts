@@ -257,6 +257,7 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
 
   const accounts: DiscoveredAccount[] = [];
   const errors: string[] = [];
+  const warnings: string[] = [];
   for (const login of logins) {
     const oauth = oauthClientFor(login);
     const result: DiscoveryResult = oauth
@@ -265,6 +266,11 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
     if (result.status === "error") {
       errors.push(logins.length > 1 ? `${login.name}: ${result.error}` : result.error);
       continue;
+    }
+    if (logins.length > 1 && result.accounts.length === 0) {
+      warnings.push(
+        `${login.name}: no ad accounts found${login.loginCustomerId ? " under its manager account" : ""}. Check that Google user can open them in Google Ads.`,
+      );
     }
     for (const account of result.accounts) {
       // Saved logins' accounts are tagged so the mapping remembers which
@@ -278,7 +284,9 @@ export async function listGoogleAdsAccounts(): Promise<DiscoveryResult> {
   }
 
   if (errors.length === logins.length) return { status: "error", error: errors.join(" ") };
-  return { status: "ok", accounts };
+  // Some logins worked: list their accounts, and say why the others' are missing.
+  const notes = [...errors.map((error) => `Couldn't list ${error}`), ...warnings];
+  return notes.length > 0 ? { status: "ok", accounts, warnings: notes } : { status: "ok", accounts };
 }
 
 // The accounts one login can read: every child of its manager account when
@@ -346,7 +354,10 @@ export async function listManagerAccounts(
 }
 
 // Queried against the manager account itself (not a specific client's
-// externalId) — that's what surfaces every child account underneath it.
+// externalId) — that's what surfaces every child account underneath it,
+// including ones a few sub-manager levels down (a team member's manager
+// account often groups clients under sub-managers). The top manager as
+// login-customer-id can read all of them.
 async function listAccountsViaManager(
   client: GoogleAdsApi,
   refreshToken: string,
@@ -360,7 +371,7 @@ async function listAccountsViaManager(
 
   const rows = await withRetry(() =>
     customer.query<CustomerClientRow[]>(
-      "SELECT customer_client.id, customer_client.descriptive_name, customer_client.status, customer_client.manager, customer_client.currency_code FROM customer_client WHERE customer_client.level <= 1",
+      "SELECT customer_client.id, customer_client.descriptive_name, customer_client.status, customer_client.manager, customer_client.currency_code FROM customer_client WHERE customer_client.level <= 4",
     ),
   );
 

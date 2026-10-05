@@ -32,7 +32,7 @@ function humanizeLabel(label: string): string {
 
 export type DiscoveryState =
   | { status: "loading" }
-  | { status: "ok"; accounts: DiscoveredAccount[] }
+  | { status: "ok"; accounts: DiscoveredAccount[]; warnings?: string[] }
   | { status: "error"; error: string; accounts: DiscoveredAccount[] };
 
 // Search Console's site IDs are technical ("sc-domain:acme.com",
@@ -243,6 +243,13 @@ export function AccountCombobox({
                 </CommandGroup>
               </CommandList>
             </Command>
+            {discovery.status === "ok" && discovery.warnings && discovery.warnings.length > 0 && (
+              <div className="flex flex-col gap-1 border-t border-border bg-warning/10 px-3 py-2 text-xs text-foreground">
+                {discovery.warnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            )}
             {/* Typing an ID by hand is the exception, so it lives in the
                 dropdown rather than as a permanent link under every row. */}
             <button

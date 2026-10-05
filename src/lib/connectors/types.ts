@@ -55,7 +55,9 @@ export interface DiscoveredAccount {
 }
 
 export type DiscoveryResult =
-  | { status: "ok"; accounts: DiscoveredAccount[] }
+  // warnings: accounts were found, but part of the listing failed (e.g. one
+  // of several Google Ads logins) — shown under the account list.
+  | { status: "ok"; accounts: DiscoveredAccount[]; warnings?: string[] }
   | { status: "error"; error: string };
 
 export interface Connector<T> {
