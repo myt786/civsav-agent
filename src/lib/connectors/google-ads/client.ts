@@ -462,10 +462,12 @@ function customerRowsToDiscovered(rows: CustomerRow[]): DiscoveredCustomer[] {
 function toDiscoveredAccounts(customers: DiscoveredCustomer[]): DiscoveredAccount[] {
   return customers
     .filter((c) => !c.manager)
-    .filter((c) => c.id !== "" && c.name)
+    // An account with no name set in Google Ads is still a real account —
+    // listed by its ID rather than dropped.
+    .filter((c) => c.id !== "")
     .map((c) => ({
       id: c.id,
-      name: c.name!,
+      name: c.name?.trim() ? c.name : `Account ${c.id}`,
       extra: [c.currencyCode, c.status].filter(Boolean).join(" · "),
     }));
 }
