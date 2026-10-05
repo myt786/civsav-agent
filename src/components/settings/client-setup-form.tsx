@@ -76,7 +76,7 @@ export function ClientSetupForm({ defaultTimezone }: { defaultTimezone: string }
       for (const { platform, result } of results) {
         next[platform] =
           result.status === "ok"
-            ? { status: "ok", accounts: result.accounts }
+            ? { status: "ok", accounts: result.accounts, warnings: result.warnings }
             : { status: "error", error: result.error, accounts: [] };
       }
       return next;

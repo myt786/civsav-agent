@@ -61,6 +61,7 @@ function cleanResult(result: DiscoveryResult): DiscoveryResult {
   }
   return {
     status: "ok",
+    ...(Array.isArray(result.warnings) && result.warnings.length > 0 ? { warnings: result.warnings } : {}),
     accounts: result.accounts
       .filter((account) => account && typeof account === "object")
       .map((account) => {
