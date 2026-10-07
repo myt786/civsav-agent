@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { clientAnalyses } from "@/lib/db/schema";
 import { isUuid } from "@/lib/settings/validation";
 import type { RecommendationStatus, StoredAnalysis } from "@/lib/analysis/types";
+import { allRecommendations, mapRecommendations } from "@/lib/analysis/format";
 
 const STATUSES: RecommendationStatus[] = ["open", "done", "dismissed"];
 
@@ -28,19 +29,12 @@ export async function setAnalysisRecommendationStatus(
   if (!row) return { error: "That report wasn't found." };
 
   const report = row.report as StoredAnalysis;
-  const exists = report.accounts.some((a) => a.recommendations.some((r) => r.id === recommendationId));
+  const exists = allRecommendations(report).some((r) => r.id === recommendationId);
   if (!exists) return { error: "That recommendation wasn't found." };
   const now = new Date().toISOString();
-  const updated: StoredAnalysis = {
-    ...report,
-    accounts: report.accounts.map((account) => ({
-      ...account,
-      recommendations: account.recommendations.map((rec) => {
-        if (rec.id !== recommendationId) return rec;
-        return { ...rec, status, statusAt: status === "open" ? null : now };
-      }),
-    })),
-  };
+  const updated: StoredAnalysis = mapRecommendations(report, (rec) =>
+    rec.id === recommendationId ? { ...rec, status, statusAt: status === "open" ? null : now } : rec,
+  );
   await db.update(clientAnalyses).set({ report: updated }).where(eq(clientAnalyses.id, analysisId));
   revalidatePath(`/settings/clients/${row.clientId}`);
   revalidatePath("/insights");

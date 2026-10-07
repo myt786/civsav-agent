@@ -205,7 +205,7 @@ export function buildMonthlyAnalysisEmail(entries: ClientHealthEntry[], appUrl: 
     entries.length === 0
       ? "No client analyses were written this month."
       : `${entries.length} clients analysed, average health ${average}/100. ${needWork === 0 ? "None need urgent work." : `${needWork} ${needWork === 1 ? "needs" : "need"} work (under 60).`}`;
-  const platformName = (p: string) => PLATFORM_LABELS[p as Platform] ?? p;
+  const platformName = (p: string) => (p === "leads" ? "Leads" : (PLATFORM_LABELS[p as Platform] ?? p));
 
   let body = `<p style="margin:12px 0 0;font-size:15px;">${esc(summary)}</p>`;
   if (entries.length > 0) {

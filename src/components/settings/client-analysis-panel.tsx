@@ -12,6 +12,7 @@ import {
   MinusIcon,
   RotateCcwIcon,
   SparklesIcon,
+  UsersIcon,
   XIcon,
 } from "lucide-react";
 import { setAnalysisRecommendationStatus } from "@/app/settings/analysis-actions";
@@ -20,12 +21,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/toaster";
 import { PLATFORM_LABELS } from "@/lib/connectors/platform-labels";
 import { formatRelativeTime } from "@/lib/dashboard/format";
-import { changeTone, formatChange, formatFactValue } from "@/lib/analysis/format";
+import { allRecommendations, changeTone, formatChange, formatFactValue, mapRecommendations } from "@/lib/analysis/format";
 import type {
   AccountAnalysis,
   AnalysisListEntry,
   AnalysisRecommendation,
   AnalysisRow,
+  LeadFunnelFacts,
+  LeadsAnalysis,
+  MetricFact,
   RecommendationStatus,
 } from "@/lib/analysis/types";
 import { cn } from "@/lib/utils";
@@ -152,6 +156,185 @@ function Recommendation({
   );
 }
 
+function MetricTile({ m }: { m: MetricFact }) {
+  const tone = changeTone(m);
+  const change = formatChange(m.change);
+  return (
+    <div className="flex flex-col gap-0.5 rounded-lg bg-muted/50 px-2.5 py-2">
+      <span className="truncate text-[11px] text-muted-foreground" title={m.label}>
+        {m.label}
+      </span>
+      <span className="flex items-baseline gap-1.5">
+        <span className="text-sm font-semibold text-foreground tabular-nums">{formatFactValue(m, m.current)}</span>
+        {change && (
+          <span
+            className={cn(
+              "flex items-center text-[11px] font-medium tabular-nums",
+              tone === "good" && "text-success",
+              tone === "bad" && "text-destructive",
+              tone === "flat" && "text-muted-foreground",
+            )}
+          >
+            {tone === "flat" ? (
+              <MinusIcon className="size-3" />
+            ) : (m.change ?? 0) > 0 ? (
+              <ArrowUpRightIcon className="size-3" />
+            ) : (
+              <ArrowDownRightIcon className="size-3" />
+            )}
+            {change}
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{children}</span>;
+}
+
+// Leads across every account: the funnel, where they come from, and which
+// weekdays bring them — then the AI's read and what to do about it.
+function LeadsSection({
+  facts,
+  analysis,
+  onStatus,
+  busyId,
+}: {
+  facts: LeadFunnelFacts;
+  analysis: LeadsAnalysis | null | undefined;
+  onStatus: (rec: AnalysisRecommendation, status: RecommendationStatus) => void;
+  busyId: string | null;
+}) {
+  const maxChannel = Math.max(1, ...facts.channels.map((c) => c.current ?? 0));
+  const hasLeadDays = facts.weekdays.some((d) => d.leads !== null);
+  const hasCallDays = facts.weekdays.some((d) => d.calls !== null);
+  const maxDay = Math.max(1, ...facts.weekdays.map((d) => Math.max(d.leads ?? 0, d.missedCalls ?? 0)));
+  return (
+    <section className="flex flex-col gap-4 rounded-xl border border-success/25 bg-success/[0.03] p-4">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="flex items-center gap-2 font-heading text-sm font-semibold text-foreground">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-success/10 text-success">
+            <UsersIcon className="size-3.5" />
+          </span>
+          Leads
+        </h4>
+        <span className="text-[11px] text-muted-foreground">
+          {facts.source === "lead_dashboard" ? "Lead count from Lead Dashboard" : facts.source === "ghl" ? "Lead count from GoHighLevel" : "No lead source connected"}
+        </span>
+      </header>
+
+      {analysis && (
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-medium text-foreground">{analysis.headline}</p>
+          <p className="text-sm text-muted-foreground">{analysis.whatChanged}</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+        {facts.metrics.map((m) => (
+          <MetricTile key={m.label} m={m} />
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {facts.channels.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <SectionLabel>Where leads come from</SectionLabel>
+            <ul className="flex flex-col gap-1.5">
+              {facts.channels.map((c) => {
+                const change = formatChange(c.change);
+                return (
+                  <li key={c.label} className="flex flex-col gap-1">
+                    <div className="flex items-baseline justify-between gap-2 text-xs">
+                      <span className="truncate text-foreground">{c.label}</span>
+                      <span className="shrink-0 text-muted-foreground tabular-nums">
+                        <span className="font-semibold text-foreground">{c.current === null ? "–" : Math.round(c.current).toLocaleString("en-US")}</span>
+                        {change && (
+                          <span className={cn("ml-1.5", (c.change ?? 0) >= 0 ? "text-success" : "text-destructive")}>{change}</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-success/70" style={{ width: `${((c.current ?? 0) / maxChannel) * 100}%` }} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-[11px] text-muted-foreground">Each platform counts its own way, so these overlap rather than add up.</p>
+          </div>
+        )}
+        {(hasLeadDays || hasCallDays) && (
+          <div className="flex flex-col gap-2">
+            <SectionLabel>By day of the week</SectionLabel>
+            <div className="flex h-28 items-end gap-2">
+              {facts.weekdays.map((d) => (
+                <div key={d.day} className="flex flex-1 flex-col items-center gap-1">
+                  <div className="flex h-20 w-full items-end justify-center gap-0.5">
+                    {hasLeadDays && (
+                      <div
+                        className="w-2.5 rounded-t bg-success/70"
+                        style={{ height: `${((d.leads ?? 0) / maxDay) * 100}%` }}
+                        title={`${d.day}: ${Math.round(d.leads ?? 0)} leads`}
+                      />
+                    )}
+                    {hasCallDays && (
+                      <div
+                        className="w-2.5 rounded-t bg-destructive/60"
+                        style={{ height: `${((d.missedCalls ?? 0) / maxDay) * 100}%` }}
+                        title={`${d.day}: ${Math.round(d.missedCalls ?? 0)} missed of ${Math.round(d.calls ?? 0)} calls`}
+                      />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">{d.day}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 text-[11px] text-muted-foreground">
+              {hasLeadDays && (
+                <span className="flex items-center gap-1">
+                  <span className="size-2 rounded-sm bg-success/70" /> Leads
+                </span>
+              )}
+              {hasCallDays && (
+                <span className="flex items-center gap-1">
+                  <span className="size-2 rounded-sm bg-destructive/60" /> Missed calls
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {analysis && analysis.insights.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <SectionLabel>What stands out</SectionLabel>
+          <ul className="flex flex-col gap-1">
+            {analysis.insights.map((insight) => (
+              <li key={insight} className="flex gap-2 text-sm text-muted-foreground">
+                <CircleDotIcon className="mt-1 size-3 shrink-0 text-success/70" />
+                {insight}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {analysis && analysis.recommendations.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <SectionLabel>How to get more leads</SectionLabel>
+          <ul className="grid gap-2 lg:grid-cols-2">
+            {analysis.recommendations.map((rec) => (
+              <Recommendation key={rec.id} rec={rec} busy={busyId === rec.id} onStatus={(s) => onStatus(rec, s)} />
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AccountCard({
   account,
   analysis,
@@ -174,39 +357,9 @@ function AccountCard({
       </header>
       {shown.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
-          {shown.map((m) => {
-            const tone = changeTone(m);
-            const change = formatChange(m.change);
-            return (
-              <div key={m.label} className="flex flex-col gap-0.5 rounded-lg bg-muted/50 px-2.5 py-2">
-                <span className="truncate text-[11px] text-muted-foreground" title={m.label}>
-                  {m.label}
-                </span>
-                <span className="flex items-baseline gap-1.5">
-                  <span className="text-sm font-semibold text-foreground tabular-nums">{formatFactValue(m, m.current)}</span>
-                  {change && (
-                    <span
-                      className={cn(
-                        "flex items-center text-[11px] font-medium tabular-nums",
-                        tone === "good" && "text-success",
-                        tone === "bad" && "text-destructive",
-                        tone === "flat" && "text-muted-foreground",
-                      )}
-                    >
-                      {tone === "flat" ? (
-                        <MinusIcon className="size-3" />
-                      ) : (m.change ?? 0) > 0 ? (
-                        <ArrowUpRightIcon className="size-3" />
-                      ) : (
-                        <ArrowDownRightIcon className="size-3" />
-                      )}
-                      {change}
-                    </span>
-                  )}
-                </span>
-              </div>
-            );
-          })}
+          {shown.map((m) => (
+            <MetricTile key={m.label} m={m} />
+          ))}
         </div>
       )}
       <div className="flex flex-col gap-1">
@@ -295,15 +448,11 @@ export function ClientAnalysisPanel({
     if (!current || !report) return;
     const previous = report;
     setBusyId(rec.id);
-    setReport({
-      ...report,
-      accounts: report.accounts.map((a) => ({
-        ...a,
-        recommendations: a.recommendations.map((r) =>
-          r.id === rec.id ? { ...r, status, statusAt: status === "open" ? null : new Date().toISOString() } : r,
-        ),
-      })),
-    });
+    setReport(
+      mapRecommendations(report, (r) =>
+        r.id === rec.id ? { ...r, status, statusAt: status === "open" ? null : new Date().toISOString() } : r,
+      ),
+    );
     startTransition(async () => {
       const result = await setAnalysisRecommendationStatus(current.id, rec.id, status);
       if (result.error) {
@@ -314,7 +463,7 @@ export function ClientAnalysisPanel({
     });
   }
 
-  const openCount = report ? report.accounts.flatMap((a) => a.recommendations).filter((r) => r.status === "open").length : 0;
+  const openCount = report ? allRecommendations(report).filter((r) => r.status === "open").length : 0;
   const tone = report ? scoreTone(report.healthScore) : null;
 
   return (
@@ -379,6 +528,10 @@ export function ClientAnalysisPanel({
               </p>
             </div>
           </div>
+
+          {report.facts.leads && (
+            <LeadsSection facts={report.facts.leads} analysis={report.leads} busyId={busyId} onStatus={setStatus} />
+          )}
 
           {report.crossChannel.length > 0 && (
             <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
