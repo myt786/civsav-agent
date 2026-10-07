@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 // Mirrors the cron schedules in vercel.json (all UTC).
-function nextRun(now: Date, kind: "daily" | "monthlySeo" | "access"): Date {
+function nextRun(now: Date, kind: "daily" | "monthlySeo" | "access" | "monthlyAnalysis"): Date {
   const at = new Date(now);
   if (kind === "daily") {
     at.setUTCHours(8, 30, 0, 0);
@@ -19,6 +19,10 @@ function nextRun(now: Date, kind: "daily" | "monthlySeo" | "access"): Date {
     at.setUTCDate(4);
     at.setUTCHours(8, 0, 0, 0);
     if (at <= now) at.setUTCMonth(at.getUTCMonth() + 1, 4);
+  } else if (kind === "monthlyAnalysis") {
+    at.setUTCDate(3);
+    at.setUTCHours(9, 0, 0, 0);
+    if (at <= now) at.setUTCMonth(at.getUTCMonth() + 1, 3);
   } else {
     at.setUTCHours(9, 0, 0, 0);
     const daysUntilMonday = (8 - at.getUTCDay()) % 7;
@@ -53,6 +57,7 @@ export default async function EmailReportsPage() {
     dailySummary: { nextSend: formatNext(nextRun(now, "daily"), now) },
     monthlySeo: { nextSend: formatNext(nextRun(now, "monthlySeo"), now) },
     accessReport: { nextSend: formatNext(nextRun(now, "access"), now) },
+    monthlyAnalysis: { nextSend: formatNext(nextRun(now, "monthlyAnalysis"), now) },
   };
 
   return (
@@ -103,6 +108,7 @@ export default async function EmailReportsPage() {
           dailySummary: r.dailySummary,
           monthlySeo: r.monthlySeo,
           accessReport: r.accessReport,
+          monthlyAnalysis: r.monthlyAnalysis,
         }))}
       />
     </div>

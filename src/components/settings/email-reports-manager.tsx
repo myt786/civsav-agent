@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClockIcon, CheckIcon, ClipboardListIcon, MailIcon, PlusIcon, SendIcon, SunriseIcon, Trash2Icon, TrendingUpIcon } from "lucide-react";
+import { CalendarClockIcon, CheckIcon, ClipboardListIcon, MailIcon, PlusIcon, SendIcon, SparklesIcon, SunriseIcon, Trash2Icon, TrendingUpIcon } from "lucide-react";
 import {
   addReportRecipient,
   removeReportRecipient,
@@ -22,9 +22,10 @@ export interface RecipientRow {
   dailySummary: boolean;
   monthlySeo: boolean;
   accessReport: boolean;
+  monthlyAnalysis: boolean;
 }
 
-type ReportField = "dailySummary" | "monthlySeo" | "accessReport";
+type ReportField = "dailySummary" | "monthlySeo" | "accessReport" | "monthlyAnalysis";
 
 export interface ReportSchedule {
   // Already formatted on the server ("Tomorrow, 08:30 UTC"), so the page
@@ -34,7 +35,7 @@ export interface ReportSchedule {
 
 const REPORTS: {
   key: ReportField;
-  kind: "daily" | "monthlySeo" | "access";
+  kind: "daily" | "monthlySeo" | "access" | "monthlyAnalysis";
   label: string;
   short: string;
   schedule: string;
@@ -75,6 +76,17 @@ const REPORTS: {
     icon: ClipboardListIcon,
     accent: "bg-warning/10 text-warning",
     defaultOn: false,
+  },
+  {
+    key: "monthlyAnalysis",
+    kind: "monthlyAnalysis",
+    label: "Monthly client analysis",
+    short: "Analysis",
+    schedule: "3rd of each month",
+    description: "AI health score for every client, weakest first, with each one's top actions.",
+    icon: SparklesIcon,
+    accent: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    defaultOn: true,
   },
 ];
 
@@ -153,6 +165,7 @@ function AddRecipientRow() {
     dailySummary: true,
     monthlySeo: true,
     accessReport: false,
+    monthlyAnalysis: true,
   });
   const wasPending = useRef(pending);
   useEffect(() => {
@@ -234,7 +247,7 @@ function RecipientItem({ row }: { row: RecipientRow }) {
     });
   }
 
-  const none = !values.dailySummary && !values.monthlySeo && !values.accessReport;
+  const none = !values.dailySummary && !values.monthlySeo && !values.accessReport && !values.monthlyAnalysis;
 
   return (
     <tr className={cn("border-b border-border transition-colors last:border-b-0 hover:bg-muted/30", pending && "opacity-70")}>
@@ -293,11 +306,12 @@ export function EmailReportsManager({
     dailySummary: recipients.filter((r) => r.dailySummary).length,
     monthlySeo: recipients.filter((r) => r.monthlySeo).length,
     accessReport: recipients.filter((r) => r.accessReport).length,
+    monthlyAnalysis: recipients.filter((r) => r.monthlyAnalysis).length,
   };
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {REPORTS.map((report) => (
           <ReportCard
             key={report.key}
@@ -327,7 +341,7 @@ export function EmailReportsManager({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-sm">
+            <table className="w-full min-w-[42rem] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   <th className="px-4 py-2 text-left font-medium">Person</th>

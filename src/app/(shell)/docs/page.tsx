@@ -25,6 +25,7 @@ const TOC: { id: string; label: string; group: string }[] = [
   { id: "dashboard", label: "The dashboard", group: "Pages" },
   { id: "seo", label: "SEO & recommendations", group: "Pages" },
   { id: "insights", label: "Insights", group: "Pages" },
+  { id: "analysis", label: "AI client analysis", group: "Pages" },
   { id: "clients", label: "Managing clients", group: "Settings" },
   { id: "accounts", label: "Connecting accounts", group: "Settings" },
   { id: "keys", label: "API keys", group: "Settings" },
@@ -310,6 +311,25 @@ export default function DocsPage() {
             <strong>Write summary</strong> produces a short AI-written summary that only uses numbers already in the app.
             The same summary goes to Slack and email each morning.
           </p>
+        </Section>
+
+        <Section id="analysis" title="AI client analysis" icon={SparklesIcon} lead="A written review of every connected account for one client, with what to do next.">
+          <Terms
+            rows={[
+              { term: "Health score", body: "0–100 for the whole client. 80+ healthy, 60–79 fine with things to watch, 40–59 needs work, under 40 serious problems." },
+              { term: "Per account", body: "What changed (with the numbers), the likely reasons, and up to four recommendations, each with a priority, the effort involved and the expected result." },
+              { term: "Across accounts", body: "Links a single account can't show, like ad spend rising while leads stay flat, or missed calls losing leads after the click." },
+              { term: "Checklist", body: "Mark a recommendation Done, or dismiss it. The next report remembers both and won't suggest them again." },
+            ]}
+          />
+          <p>
+            It runs automatically on the <strong>2nd of each month</strong> for every active client, covering the month before,
+            and the team gets an email on the 3rd with every client&apos;s score, weakest first. You can also run it any time
+            with <strong>Analyse now</strong> on a client&apos;s page (the last 30 days), or <strong>Analyse all</strong> on
+            Insights. Earlier reports stay available from the picker. All numbers are calculated by the dashboard; the AI
+            (OpenAI) only explains them and suggests actions.
+          </p>
+          <GoTo href="/insights#client-health">Open client health</GoTo>
         </Section>
 
         <Section id="clients" title="Managing clients" icon={SettingsIcon} lead="Settings → Clients lists everyone, with every account as a coloured pill.">
