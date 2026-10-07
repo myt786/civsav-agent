@@ -4,7 +4,7 @@ import { getDb } from "../db";
 import { reportRecipients } from "../db/schema";
 import { sendEmail, type EmailMessage, type EmailSendResult } from "./resend";
 
-export type ReportKind = "daily" | "monthlySeo" | "access";
+export type ReportKind = "daily" | "monthlySeo" | "access" | "monthlyAnalysis";
 
 export async function getReportRecipients(kind: ReportKind): Promise<string[]> {
   const db = await getDb();
@@ -13,7 +13,9 @@ export async function getReportRecipients(kind: ReportKind): Promise<string[]> {
       ? reportRecipients.dailySummary
       : kind === "monthlySeo"
         ? reportRecipients.monthlySeo
-        : reportRecipients.accessReport;
+        : kind === "monthlyAnalysis"
+          ? reportRecipients.monthlyAnalysis
+          : reportRecipients.accessReport;
   const rows = await db
     .select({ email: reportRecipients.email })
     .from(reportRecipients)

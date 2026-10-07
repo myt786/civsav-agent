@@ -13,6 +13,9 @@ import { ClientForm } from "@/components/settings/client-form";
 import { MappingsSection } from "@/components/settings/mappings-section";
 import { ClientActions } from "@/components/settings/client-actions";
 import { ClientVisibilityCard } from "@/components/settings/client-visibility";
+import { ClientAnalysisPanel } from "@/components/settings/client-analysis-panel";
+import { getAnalysis, listClientAnalyses } from "@/lib/analysis/queries";
+import type { AnalysisListEntry, AnalysisRow } from "@/lib/analysis/types";
 import { formatRelativeTime } from "@/lib/dashboard/format";
 import { cn } from "@/lib/utils";
 import { updateClient } from "../../../actions";
@@ -173,13 +176,20 @@ function ChangeItem({ change }: { change: Parameters<typeof describeChange>[0] &
   );
 }
 
-export default async function EditClientPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditClientPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ analysis?: string }>;
+}) {
   const { id } = await params;
+  const { analysis: analysisParam } = await searchParams;
   // A mistyped or truncated link: a 404, not a database error page.
   if (!isUuid(id)) notFound();
   // The change history and "last updated" line are nice to have — a
   // failure in either shouldn't take the whole page down with it.
-  const [client, mappings, changes, discovery, lastUpdatedAt] = await Promise.all([
+  const [client, mappings, changes, discovery, lastUpdatedAt, analyses] = await Promise.all([
     getClient(id),
     getClientMappings(id),
     getRecentChanges(id).catch((err) => {
@@ -191,8 +201,21 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
       console.error("client page: last updated failed", err);
       return null;
     }),
+    listClientAnalyses(id).catch((err): AnalysisListEntry[] => {
+      console.error("client page: analyses failed", err);
+      return [];
+    }),
   ]);
   if (!client) notFound();
+
+  // The report picked in the analysis panel (?analysis=), else the latest.
+  const selectedId = analysisParam && analyses.some((a) => a.id === analysisParam) ? analysisParam : analyses[0]?.id;
+  const currentAnalysis: AnalysisRow | null = selectedId
+    ? await getAnalysis(selectedId).catch((err) => {
+        console.error("client page: analysis failed", err);
+        return null;
+      })
+    : null;
 
   const archived = client.archivedAt !== null;
   const mappedPlatforms = new Set(mappings.map((m) => m.platform));
@@ -372,6 +395,13 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
           {quiet > 0 && <p className="text-xs text-muted-foreground">{quiet} connected but quiet lately</p>}
         </StatTile>
       </div>
+
+      <ClientAnalysisPanel
+        clientId={client.id}
+        analyses={analyses}
+        current={currentAnalysis && currentAnalysis.clientId === client.id ? currentAnalysis : null}
+        aiConfigured={Boolean(process.env.OPENAI_API_KEY)}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <MappingsSection

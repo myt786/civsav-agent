@@ -5,6 +5,8 @@ import { AttentionFlags } from "@/components/insights/attention-flags";
 import { AiSummary } from "@/components/insights/ai-summary";
 import { ForecastChart } from "@/components/insights/forecast-chart";
 import { Badge } from "@/components/ui/badge";
+import { ClientHealth } from "@/components/insights/client-health";
+import { getLatestClientHealth, listLiveClients, type ClientHealthEntry } from "@/lib/analysis/queries";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MetricForecast } from "@/lib/insights/types";
 
@@ -38,6 +40,14 @@ export default async function InsightsPage() {
   // Clients, not flags: one client can have several flags, and the
   // dashboard's "Needs attention" card counts clients too.
   const attentionClients = new Set(flags.map((f) => f.clientId)).size;
+  // AI analysis is a side panel here: if it can't load, the rest still does.
+  const [health, liveClients] = await Promise.all([
+    getLatestClientHealth().catch((err): ClientHealthEntry[] => {
+      console.error("insights: client health failed", err);
+      return [];
+    }),
+    listLiveClients().catch((): { id: string; name: string }[] => []),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] animate-in flex-col gap-8 px-6 py-8 fade-in-0 duration-300">
@@ -47,6 +57,8 @@ export default async function InsightsPage() {
           What needs your attention, a written summary, and what to expect over the next week.
         </p>
       </header>
+
+      <ClientHealth entries={health} clients={liveClients} aiConfigured={Boolean(process.env.OPENAI_API_KEY)} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="flex flex-col gap-2">

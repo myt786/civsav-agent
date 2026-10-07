@@ -9,6 +9,7 @@ import {
   jsonb,
   integer,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 
 // Frozen once connectors are being built against it — adding a platform later
@@ -159,6 +160,8 @@ export const reportRecipients = pgTable(
     monthlySeo: boolean("monthly_seo").notNull().default(true),
     // Weekly list of clients whose accounts need access given or fixing.
     accessReport: boolean("access_report").notNull().default(false),
+    // Monthly AI client analysis (lib/analysis), sent on the 2nd.
+    monthlyAnalysis: boolean("monthly_analysis").notNull().default(true),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -258,6 +261,28 @@ export const clientSeoRecommendations = pgTable("client_seo_recommendations", {
   sitemapUrlCount: integer("sitemap_url_count"),
   generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// AI client analysis (lib/analysis): one row per run — monthly (cron on the
+// 2nd) or on demand from a client's page. `report` is a StoredAnalysis:
+// the computed facts, the AI's write-up, and each recommendation's
+// done/dismissed status, updated in place from the checklist.
+export const clientAnalyses = pgTable(
+  "client_analyses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id),
+    kind: text("kind").notNull(), // "monthly" | "on_demand"
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    healthScore: integer("health_score").notNull(),
+    report: jsonb("report").notNull(),
+    createdBy: text("created_by").notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("client_analyses_client_generated_idx").on(table.clientId, table.generatedAt)],
+);
 
 // One row per edited field, written by every settings mutation (client
 // create/update, mapping upsert). Not written for Verify runs — those

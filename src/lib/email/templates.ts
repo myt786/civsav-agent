@@ -3,6 +3,9 @@ import type { DigestSummary } from "../seo/digest";
 import { formatPercent } from "../dashboard/format";
 import type { EmailMessage } from "./resend";
 import type { AccessReport } from "../settings/access-report";
+import type { ClientHealthEntry } from "../analysis/queries";
+import { PLATFORM_LABELS } from "../connectors/platform-labels";
+import type { Platform } from "../connectors/types";
 
 // Email clients ignore stylesheets and most modern CSS, so these are plain
 // tables with inline styles — the one layout that renders the same in
@@ -186,6 +189,58 @@ export function buildAccessReportEmail(report: AccessReport, appUrl: string | nu
   return {
     subject: `Account access report — ${problems === 0 ? "all working" : `${problems} to fix`}`,
     html: layout(`Account access report — ${date}`, `${report.clientCount} active clients`, body, footerText(appUrl)),
+    text,
+  };
+}
+
+function scoreColor(score: number): string {
+  return score >= 80 ? "#15803d" : score >= 60 ? "#2563eb" : score >= 40 ? "#b45309" : "#b91c1c";
+}
+
+export function buildMonthlyAnalysisEmail(entries: ClientHealthEntry[], appUrl: string | null): Omit<EmailMessage, "to"> {
+  const period = entries.find((e) => e.periodLabel)?.periodLabel ?? "";
+  const needWork = entries.filter((e) => e.healthScore < 60).length;
+  const average = entries.length ? Math.round(entries.reduce((t, e) => t + e.healthScore, 0) / entries.length) : 0;
+  const summary =
+    entries.length === 0
+      ? "No client analyses were written this month."
+      : `${entries.length} clients analysed, average health ${average}/100. ${needWork === 0 ? "None need urgent work." : `${needWork} ${needWork === 1 ? "needs" : "need"} work (under 60).`}`;
+  const platformName = (p: string) => PLATFORM_LABELS[p as Platform] ?? p;
+
+  let body = `<p style="margin:12px 0 0;font-size:15px;">${esc(summary)}</p>`;
+  if (entries.length > 0) {
+    body += heading("Weakest first", MUTED);
+    body += entries
+      .map((e) => {
+        const link = appUrl ? `${appUrl}/settings/clients/${e.clientId}#analysis` : null;
+        const name = link ? `<a href="${esc(link)}" style="color:#111827;text-decoration:none;">${esc(e.clientName)}</a>` : esc(e.clientName);
+        const actions =
+          e.topActions.length > 0
+            ? `<ul style="margin:4px 0 0;padding-left:18px;color:#374151;">${e.topActions
+                .map((a) => `<li style="margin:2px 0;">${a.priority === "high" ? "<strong>High:</strong> " : ""}${esc(a.title)} <span style="color:${MUTED};">· ${esc(platformName(a.platform))}</span></li>`)
+                .join("")}</ul>`
+            : "";
+        return `<div style="padding:10px 0;border-top:1px solid #f0f1f3;"><span style="display:inline-block;min-width:34px;font-weight:700;color:${scoreColor(e.healthScore)};">${e.healthScore}</span> <strong>${name}</strong><div style="color:#374151;margin-top:2px;">${esc(e.headline)}</div>${actions}</div>`;
+      })
+      .join("");
+  }
+  if (appUrl) body += button(`${appUrl}/insights#client-health`, "Open client health");
+
+  const text = [
+    `Monthly client analysis${period ? ` — ${period}` : ""}`,
+    "",
+    summary,
+    "",
+    ...entries.flatMap((e) => [
+      `${e.healthScore}/100  ${e.clientName}: ${e.headline}`,
+      ...e.topActions.map((a) => `   - ${a.priority === "high" ? "[High] " : ""}${a.title} (${platformName(a.platform)})`),
+    ]),
+    ...(appUrl ? ["", `Open client health: ${appUrl}/insights#client-health`] : []),
+  ].join("\n");
+
+  return {
+    subject: `Monthly client analysis${period ? ` — ${period}` : ""}${needWork > 0 ? ` · ${needWork} need work` : ""}`,
+    html: layout(`Monthly client analysis${period ? ` — ${period}` : ""}`, `${entries.length} clients · written by AI from each client's numbers`, body, footerText(appUrl)),
     text,
   };
 }

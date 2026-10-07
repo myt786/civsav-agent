@@ -11,6 +11,7 @@ import { sendDailyDigest } from "@/lib/insights/send-daily-digest";
 import { getSeoDashboardData } from "@/lib/seo/queries";
 import { buildDigestSummary } from "@/lib/seo/digest";
 import { buildAccessReportEmail, buildSeoDigestEmail } from "@/lib/email/templates";
+import { sendMonthlyAnalysisEmail } from "@/lib/analysis/email";
 import { buildAccessReport } from "@/lib/settings/access-report";
 import { emailReport } from "@/lib/email/reports";
 import { getAppUrl } from "@/lib/app-url";
@@ -25,6 +26,7 @@ const addSchema = z.object({
   dailySummary: z.boolean(),
   monthlySeo: z.boolean(),
   accessReport: z.boolean(),
+  monthlyAnalysis: z.boolean(),
 });
 
 export async function addReportRecipient(_prev: RecipientFormState, formData: FormData): Promise<RecipientFormState> {
@@ -34,9 +36,10 @@ export async function addReportRecipient(_prev: RecipientFormState, formData: Fo
     dailySummary: formData.get("dailySummary") === "on",
     monthlySeo: formData.get("monthlySeo") === "on",
     accessReport: formData.get("accessReport") === "on",
+    monthlyAnalysis: formData.get("monthlyAnalysis") === "on",
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the email address." };
-  if (!parsed.data.dailySummary && !parsed.data.monthlySeo && !parsed.data.accessReport) {
+  if (!parsed.data.dailySummary && !parsed.data.monthlySeo && !parsed.data.accessReport && !parsed.data.monthlyAnalysis) {
     return { error: "Tick at least one report." };
   }
 
@@ -55,16 +58,24 @@ export async function addReportRecipient(_prev: RecipientFormState, formData: Fo
 
 export async function updateReportRecipient(
   id: string,
-  field: "dailySummary" | "monthlySeo" | "accessReport",
+  field: "dailySummary" | "monthlySeo" | "accessReport" | "monthlyAnalysis",
   value: boolean,
 ): Promise<void> {
   await requireSession();
-  if (!isUuid(id) || !["dailySummary", "monthlySeo", "accessReport"].includes(field)) return;
+  if (!isUuid(id) || !["dailySummary", "monthlySeo", "accessReport", "monthlyAnalysis"].includes(field)) return;
   const db = await getDb();
   const on = value === true;
   await db
     .update(reportRecipients)
-    .set(field === "dailySummary" ? { dailySummary: on } : field === "monthlySeo" ? { monthlySeo: on } : { accessReport: on })
+    .set(
+      field === "dailySummary"
+        ? { dailySummary: on }
+        : field === "monthlySeo"
+          ? { monthlySeo: on }
+          : field === "monthlyAnalysis"
+            ? { monthlyAnalysis: on }
+            : { accessReport: on },
+    )
     .where(eq(reportRecipients.id, id));
   revalidatePath("/settings/email-reports");
 }
@@ -83,7 +94,7 @@ export interface SendNowResult {
 }
 
 // "Send now" buttons: the same emails the crons send, to the same people.
-export async function sendReportNow(kind: "daily" | "monthlySeo" | "access"): Promise<SendNowResult> {
+export async function sendReportNow(kind: "daily" | "monthlySeo" | "access" | "monthlyAnalysis"): Promise<SendNowResult> {
   await requireSession();
   if (kind === "daily") {
     const result = await sendDailyDigest(new Date(), { slack: false, email: true });
@@ -102,6 +113,12 @@ export async function sendReportNow(kind: "daily" | "monthlySeo" | "access"): Pr
     const result = await emailReport("access", buildAccessReportEmail(await buildAccessReport(), getAppUrl()));
     return result.sent
       ? { sent: true, message: "Account access report emailed." }
+      : { sent: false, message: result.reason ?? "Couldn't send the email." };
+  }
+  if (kind === "monthlyAnalysis") {
+    const result = await sendMonthlyAnalysisEmail();
+    return result.sent
+      ? { sent: true, message: "Monthly client analysis emailed." }
       : { sent: false, message: result.reason ?? "Couldn't send the email." };
   }
   return { sent: false, message: "Unknown report." };
