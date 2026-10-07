@@ -7,7 +7,8 @@ import { openAiJson } from "../ai/openai";
 import { clientAnalyses, clientPlatformAccounts, clients, metricSnapshots } from "../db/schema";
 import { PLATFORM_ORDER } from "../connectors/platform-labels";
 import type { Platform } from "../connectors/types";
-import { formatFactValue as fmt } from "./format";
+import { allRecommendations, formatFactValue as fmt } from "./format";
+import { buildLeadFunnel } from "./leads";
 import { buildPlatformFacts, periodsFor, type SnapshotLike } from "./facts";
 import type {
   AnalysisHistoryEntry,
@@ -20,6 +21,14 @@ import type {
 } from "./types";
 
 const PLATFORMS = ["lead_dashboard", "ghl", "openphone", "google_ads", "meta", "ga4", "search_console", "ahrefs"] as const;
+
+const recommendationSchema = z.object({
+  title: z.string().describe("The action, one short imperative sentence under 15 words."),
+  detail: z.string().describe("Two or three sentences: why (citing the numbers) and exactly what to do."),
+  priority: z.enum(["high", "medium", "low"]),
+  impact: z.string().describe("Expected result in a few words, e.g. 'Lower cost per lead' or '+10-20 leads a month'."),
+  effort: z.enum(["quick", "medium", "big"]).describe("quick = under an hour, medium = a few hours, big = a project"),
+});
 
 const outputSchema = z.object({
   healthScore: z
@@ -38,20 +47,24 @@ const outputSchema = z.object({
         headline: z.string().describe("Under 15 words."),
         whatChanged: z.string().describe("One or two sentences with the actual numbers and % changes given."),
         likelyCauses: z.array(z.string()).max(3).describe("Plausible reasons, each one short sentence. Say 'likely' or 'possibly' — never state a guess as fact."),
-        recommendations: z
-          .array(
-            z.object({
-              title: z.string().describe("The action, one short imperative sentence under 15 words."),
-              detail: z.string().describe("Two or three sentences: why (citing the numbers) and exactly what to do in that platform."),
-              priority: z.enum(["high", "medium", "low"]),
-              impact: z.string().describe("Expected result in a few words, e.g. 'Lower cost per lead' or '+10-20 leads a month'."),
-              effort: z.enum(["quick", "medium", "big"]).describe("quick = under an hour, medium = a few hours, big = a project"),
-            }),
-          )
-          .max(4),
+        recommendations: z.array(recommendationSchema).max(4),
       }),
     )
     .describe("One entry per account in the data, in the same order."),
+  leads: z
+    .object({
+      headline: z.string().describe("Under 15 words: the state of this client's leads."),
+      whatChanged: z
+        .string()
+        .describe("Two or three sentences on the lead funnel: volume, completion and spam, calls answered vs missed, blended cost per lead, using the numbers given."),
+      insights: z
+        .array(z.string())
+        .max(4)
+        .describe("Specific observations about where leads come from and when — channels growing or shrinking, weekday patterns, lost leads (abandoned forms, missed calls)."),
+      recommendations: z.array(recommendationSchema).max(4).describe("How to get more, better or cheaper leads."),
+    })
+    .nullable()
+    .describe("The leads section, from the 'Leads across all accounts' data. null only if that section is missing."),
   crossChannel: z
     .array(z.object({ title: z.string(), detail: z.string() }))
     .max(4)
@@ -68,6 +81,28 @@ export function factsToPrompt(facts: ClientFacts): string {
     `Client: ${facts.clientName}`,
     `Period analysed: ${facts.period.label} (${facts.period.start} to ${facts.period.end}), compared with ${facts.previousPeriod.start} to ${facts.previousPeriod.end}.`,
   ];
+  if (facts.leads) {
+    const l = facts.leads;
+    lines.push("", "## Leads across all accounts");
+    lines.push(`Lead count comes from: ${l.source === "lead_dashboard" ? "Lead Dashboard (website form leads)" : l.source === "ghl" ? "GoHighLevel new opportunities" : "no lead source connected"}.`);
+    for (const m of l.metrics) lines.push(`- ${describeMetric(m)}`);
+    if (l.channels.length > 0) {
+      lines.push("Lead channels (each platform's own count, so they overlap and don't add up to total leads):");
+      for (const c of l.channels) {
+        const change = c.change === null ? "" : ` (${c.change >= 0 ? "+" : ""}${Math.round(c.change * 100)}%)`;
+        lines.push(`- ${c.label}: ${c.current === null ? "no data" : Math.round(c.current)} vs ${c.previous === null ? "no data" : Math.round(c.previous)} before${change}`);
+      }
+    }
+    const withLeads = l.weekdays.some((d) => d.leads !== null);
+    const withCalls = l.weekdays.some((d) => d.calls !== null);
+    if (withLeads || withCalls) {
+      lines.push(
+        `By weekday this period: ${l.weekdays
+          .map((d) => `${d.day} ${[withLeads ? `${Math.round(d.leads ?? 0)} leads` : null, withCalls ? `${Math.round(d.calls ?? 0)} calls (${Math.round(d.missedCalls ?? 0)} missed)` : null].filter(Boolean).join(", ")}`)
+          .join("; ")}.`,
+      );
+    }
+  }
   for (const p of facts.platforms) {
     lines.push("", `## ${p.label} (platform id: ${p.platform})`);
     if (p.problem) lines.push(`Problem: ${p.problem}`);
@@ -135,6 +170,7 @@ export async function buildClientFacts(clientId: string, kind: AnalysisKind, now
     previousPeriod: previous,
     platforms: facts.filter((p) => p.daysWithData > 0 || p.previousDaysWithData > 0 || p.problem),
     quietAccounts: quiet,
+    leads: buildLeadFunnel(byPlatform, platforms, current, previous),
   };
 }
 
@@ -151,10 +187,8 @@ export async function previousHistory(clientId: string): Promise<AnalysisHistory
   if (!latest) return [];
   const report = latest.report as StoredAnalysis;
   const fresh: AnalysisHistoryEntry[] = [];
-  for (const account of report.accounts ?? []) {
-    for (const rec of account.recommendations ?? []) {
-      if (rec.status === "done" || rec.status === "dismissed") fresh.push({ title: rec.title, status: rec.status, at: rec.statusAt ?? new Date().toISOString() });
-    }
+  for (const rec of allRecommendations(report)) {
+    if (rec.status === "done" || rec.status === "dismissed") fresh.push({ title: rec.title, status: rec.status, at: rec.statusAt ?? new Date().toISOString() });
   }
   return [...fresh, ...(report.history ?? [])].slice(0, 40);
 }
@@ -187,12 +221,25 @@ export async function generateClientAnalysis(
       "Recommendations must be specific and actionable (e.g. 'Add negative keywords for job-seeker searches in Google Ads'), " +
       "never generic advice like 'improve your ads'. Fewer, sharper recommendations beat many vague ones; an account that's " +
       "doing well can have zero. Mark at most three recommendations high priority across the whole report. Then look across " +
-      "accounts for connections (spend vs leads, calls vs leads, search traffic vs conversions). Plain words, no filler.",
+      "accounts for connections (spend vs leads, calls vs leads, search traffic vs conversions). Leads are what the client " +
+      "pays for, so the leads section matters most: explain the funnel (volume, completed vs abandoned forms, spam, answered " +
+      "vs missed calls, blended cost per lead), which channels are driving or losing leads, and weekday patterns, then give " +
+      "concrete ways to get more, better or cheaper leads. Plain words, no filler.",
     prompt: prompt.join("\n"),
   });
 
   const batch = Date.now().toString(36);
   const known = new Set(facts.platforms.map((p) => p.platform));
+  const toRecommendation = (prefix: string) => (r: z.infer<typeof recommendationSchema>, i: number): AnalysisRecommendation => ({
+    id: `${batch}-${prefix}-${i}`,
+    title: r.title.trim(),
+    detail: r.detail.trim(),
+    priority: r.priority,
+    impact: r.impact.trim(),
+    effort: r.effort,
+    status: "open",
+    statusAt: null,
+  });
   const report: StoredAnalysis = {
     version: 1,
     healthScore: Math.round(output.healthScore),
@@ -206,19 +253,17 @@ export async function generateClientAnalysis(
         headline: a.headline.trim(),
         whatChanged: a.whatChanged.trim(),
         likelyCauses: a.likelyCauses.map((c) => c.trim()).filter(Boolean),
-        recommendations: a.recommendations
-          .filter((r) => r.title.trim() !== "")
-          .map<AnalysisRecommendation>((r, ri) => ({
-            id: `${batch}-${ai}-${ri}`,
-            title: r.title.trim(),
-            detail: r.detail.trim(),
-            priority: r.priority,
-            impact: r.impact.trim(),
-            effort: r.effort,
-            status: "open",
-            statusAt: null,
-          })),
+        recommendations: a.recommendations.filter((r) => r.title.trim() !== "").map(toRecommendation(String(ai))),
       })),
+    leads:
+      output.leads && facts.leads
+        ? {
+            headline: output.leads.headline.trim(),
+            whatChanged: output.leads.whatChanged.trim(),
+            insights: output.leads.insights.map((x) => x.trim()).filter(Boolean),
+            recommendations: output.leads.recommendations.filter((r) => r.title.trim() !== "").map(toRecommendation("leads")),
+          }
+        : null,
     crossChannel: output.crossChannel.map((c) => ({ title: c.title.trim(), detail: c.detail.trim() })),
     facts,
     history,

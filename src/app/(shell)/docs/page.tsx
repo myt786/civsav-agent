@@ -316,6 +316,10 @@ export default function DocsPage() {
         <Section id="analysis" title="AI client analysis" icon={SparklesIcon} lead="A written review of every connected account for one client, with what to do next.">
           <Terms
             rows={[
+              {
+                term: "Leads",
+                body: "Comes first in every report: leads with completed vs abandoned forms and spam, calls answered vs missed, blended cost per lead (all Google and Meta spend ÷ leads), which channels bring leads, and which weekdays — then how to get more, better or cheaper leads.",
+              },
               { term: "Health score", body: "0–100 for the whole client. 80+ healthy, 60–79 fine with things to watch, 40–59 needs work, under 40 serious problems." },
               { term: "Per account", body: "What changed (with the numbers), the likely reasons, and up to four recommendations, each with a priority, the effort involved and the expected result." },
               { term: "Across accounts", body: "Links a single account can't show, like ad spend rising while leads stay flat, or missed calls losing leads after the click." },

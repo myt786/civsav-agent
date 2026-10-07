@@ -71,6 +71,31 @@ export interface PlatformFacts {
   problem: string | null;
 }
 
+// Leads across every account together (lib/analysis/leads.ts): the funnel,
+// blended cost per lead, where leads come from, and which weekdays bring them.
+export interface LeadChannel {
+  label: string;
+  current: number | null;
+  previous: number | null;
+  change: number | null;
+}
+
+export interface LeadWeekday {
+  day: string;
+  leads: number | null;
+  calls: number | null;
+  missedCalls: number | null;
+}
+
+export interface LeadFunnelFacts {
+  // Which account the lead count comes from (the dashboard's rule: Lead
+  // Dashboard, else GoHighLevel).
+  source: "lead_dashboard" | "ghl" | null;
+  metrics: MetricFact[];
+  channels: LeadChannel[];
+  weekdays: LeadWeekday[];
+}
+
 export interface ClientFacts {
   clientId: string;
   clientName: string;
@@ -79,6 +104,15 @@ export interface ClientFacts {
   platforms: PlatformFacts[];
   // Connected accounts with no data in the period.
   quietAccounts: string[];
+  // Absent on reports written before the leads section existed.
+  leads?: LeadFunnelFacts | null;
+}
+
+export interface LeadsAnalysis {
+  headline: string;
+  whatChanged: string;
+  insights: string[];
+  recommendations: AnalysisRecommendation[];
 }
 
 export interface StoredAnalysis {
@@ -88,6 +122,8 @@ export interface StoredAnalysis {
   summary: string;
   accounts: AccountAnalysis[];
   crossChannel: CrossChannelInsight[];
+  // The leads section; absent on older reports or with no lead data.
+  leads?: LeadsAnalysis | null;
   facts: ClientFacts;
   history: AnalysisHistoryEntry[];
   // The AI model that wrote it.

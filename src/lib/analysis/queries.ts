@@ -3,6 +3,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { clientAnalyses, clients } from "../db/schema";
 import type { AnalysisKind, AnalysisListEntry, AnalysisRow, StoredAnalysis } from "./types";
+import { allRecommendations } from "./format";
 
 function toRow(row: typeof clientAnalyses.$inferSelect): AnalysisRow {
   return {
@@ -86,8 +87,8 @@ export async function getLatestClientHealth(): Promise<ClientHealthEntry[]> {
   return rows
     .map<ClientHealthEntry>((r) => {
       const report = r.report as StoredAnalysis;
-      const recs = (report.accounts ?? [])
-        .flatMap((a) => (a.recommendations ?? []).map((x) => ({ ...x, platform: a.platform as string })))
+      const recs = allRecommendations(report)
+        .map((x) => ({ ...x, platform: x.area }))
         .filter((x) => x.status === "open");
       const rank: Record<string, number> = { high: 0, medium: 1, low: 2 };
       const topActions = [...recs]
