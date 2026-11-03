@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BookOpenIcon,
+  ClipboardListIcon,
   KeyRoundIcon,
   LayoutDashboardIcon,
   LogOutIcon,
@@ -54,6 +55,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Manage",
     items: [
       { href: "/settings/clients", label: "Clients", icon: UsersIcon, badge: "brokenAccounts" },
+      { href: "/settings/lead-reports", label: "Lead reports", icon: ClipboardListIcon },
       { href: "/settings/api-keys", label: "API keys", icon: KeyRoundIcon },
       { href: "/settings/email-reports", label: "Email reports", icon: MailIcon },
       { href: "/settings/team", label: "Team", icon: UserCogIcon },

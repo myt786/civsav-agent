@@ -59,3 +59,41 @@ export async function sendEmail(message: EmailMessage): Promise<EmailSendResult>
   }
   return { sent: true };
 }
+
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+}
+
+// Resend's batch endpoint can't carry attachments, so a message with a
+// file (the lead report PDF) goes out one email per recipient instead.
+export async function sendEmailWithAttachments(
+  message: EmailMessage & { attachments: EmailAttachment[]; replyTo?: string },
+): Promise<EmailSendResult> {
+  const { apiKey, from, missing } = getEmailConfig();
+  if (!apiKey || !from) {
+    return { sent: false, reason: `Email isn't set up: ${missing.join(" and ")} missing` };
+  }
+  if (message.to.length === 0) return { sent: false, reason: "No recipients" };
+  const attachments = message.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") }));
+  for (const to of message.to) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
+        attachments,
+        ...(message.replyTo ? { reply_to: message.replyTo } : {}),
+      }),
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(`Resend rejected the email to ${to}: ${body?.message ?? response.statusText}`);
+    }
+  }
+  return { sent: true };
+}
