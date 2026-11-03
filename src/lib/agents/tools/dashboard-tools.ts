@@ -26,7 +26,10 @@ export const getFleetSnapshotTool = tool({
       clients: data.rows.map((row) => ({
         clientId: row.clientId,
         clientName: row.clientName,
+        // Total leads = every counted source added together; leadBreakdown
+        // is each source's share.
         leads: row.leads,
+        leadBreakdown: row.leadBreakdown,
         leadsDelta: row.leadsDelta,
         calls: row.calls,
         spend: row.spend,

@@ -221,7 +221,13 @@ function LeadsSection({
           Leads
         </h4>
         <span className="text-[11px] text-muted-foreground">
-          {facts.source === "lead_dashboard" ? "Lead count from Lead Dashboard" : facts.source === "ghl" ? "Lead count from GoHighLevel" : "No lead source connected"}
+          {facts.sources && facts.sources.length > 0
+            ? `Total from: ${facts.sources.join(" + ")}`
+            : facts.source === "lead_dashboard"
+              ? "Lead count from Lead Dashboard"
+              : facts.source === "ghl"
+                ? "Lead count from GoHighLevel"
+                : "No lead source connected"}
         </span>
       </header>
 
@@ -263,7 +269,7 @@ function LeadsSection({
                 );
               })}
             </ul>
-            <p className="text-[11px] text-muted-foreground">Each platform counts its own way, so these overlap rather than add up.</p>
+            <p className="text-[11px] text-muted-foreground">The lead sources add up to total leads; search clicks and website conversions are extra context.</p>
           </div>
         )}
         {(hasLeadDays || hasCallDays) && (

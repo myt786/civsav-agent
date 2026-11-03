@@ -113,22 +113,37 @@ export function createClientColumns(
   columnHelper.accessor("leads", {
     id: "leads",
     header: () => (
-      <ColumnHeader label="Leads 7d" tooltip="Leads in the last 7 full days (today isn't counted yet because it isn't over)." />
+      <ColumnHeader
+        label="Leads 7d"
+        tooltip="All lead sources added together over the last 7 full days: website forms (no spam), GoHighLevel, answered calls, Meta and Google Ads. Hover a number to see the split."
+      />
     ),
     cell: (info) => {
       const leadsSeries = detailsByClient[info.row.original.clientId]?.sparklines.find((s) => s.key === "leads");
+      const parts = info.row.original.leadBreakdown ?? [];
+      const value = (
+        <DataCell state={info.getValue()} format={formatInteger} notConnected={info.row.original.connected?.leads === false} />
+      );
       return (
         <span className="flex items-center justify-end gap-2">
-          {info.row.original.leadsSource === "ghl" && (
-            <span
-              className="rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground"
-              title="From GoHighLevel — this client has no Lead Dashboard account"
-            >
-              GHL
-            </span>
-          )}
           {leadsSeries && <MiniSparkline points={leadsSeries.points} stroke="var(--chart-1)" />}
-          <DataCell state={info.getValue()} format={formatInteger} notConnected={info.row.original.connected?.leads === false} />
+          {parts.length > 1 ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help border-b border-dotted border-muted-foreground/40">{value}</span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="flex flex-col gap-0.5">
+                {parts.map((p) => (
+                  <span key={p.source} className="flex justify-between gap-4 tabular-nums">
+                    <span>{p.label}</span>
+                    <span className="font-medium">{p.value === null ? "–" : formatInteger(p.value)}</span>
+                  </span>
+                ))}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <span title={parts[0] ? `From ${parts[0].label}` : undefined}>{value}</span>
+          )}
         </span>
       );
     },

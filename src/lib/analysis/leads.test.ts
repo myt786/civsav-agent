@@ -40,30 +40,38 @@ describe("buildLeadFunnel", () => {
   const funnel = buildLeadFunnel(rows, ["lead_dashboard", "openphone", "google_ads"], current, previous)!;
   const metric = (label: string) => funnel.metrics.find((m) => m.label === label)!;
 
-  it("builds the funnel from the Lead Dashboard", () => {
-    expect(funnel.source).toBe("lead_dashboard");
-    expect(metric("Leads")).toMatchObject({ current: 20, previous: 10, change: 1 });
-    expect(metric("Completed leads")).toMatchObject({ current: 14, previous: 9 });
-    expect(metric("Completion rate").current).toBeCloseTo(70);
+  it("adds every connected source into total leads (form spam left out, answered calls only)", () => {
+    expect(funnel.sources).toEqual(["Website forms", "Answered calls", "Google Ads conversions"]);
+    // forms 18 (20 - 2 spam) + answered calls 15 + Google Ads 6; before: 10 + 18 + 4
+    expect(metric("Total leads (all sources)")).toMatchObject({ current: 39, previous: 32 });
+    expect(metric("Leads · Website forms")).toMatchObject({ current: 18, previous: 10 });
+    expect(metric("Completed forms")).toMatchObject({ current: 14, previous: 9 });
+    expect(metric("Form completion rate").current).toBeCloseTo(70);
     expect(metric("Spam rate").current).toBeCloseTo(10);
     expect(metric("Missed-call rate").current).toBeCloseTo(25);
   });
 
   it("works out blended cost per lead from all ad spend", () => {
     expect(metric("Paid ad spend (Google + Meta)")).toMatchObject({ current: 300, previous: 200 });
-    expect(metric("Blended cost per lead")).toMatchObject({ current: 15, previous: 20, lowerIsBetter: true });
+    expect(metric("Blended cost per lead").current).toBeCloseTo(300 / 39);
+    expect(metric("Blended cost per lead")).toMatchObject({ previous: 6.25, lowerIsBetter: true });
   });
 
   it("splits leads and missed calls by weekday", () => {
     const mon = funnel.weekdays.find((d) => d.day === "Mon")!;
     const sat = funnel.weekdays.find((d) => d.day === "Sat")!;
-    expect(mon).toMatchObject({ leads: 10, calls: 20, missedCalls: 5 });
-    expect(sat).toMatchObject({ leads: 10, calls: 0, missedCalls: 0 });
+    expect(mon).toMatchObject({ leads: 30, calls: 20, missedCalls: 5 });
+    expect(sat).toMatchObject({ leads: 9, calls: 0, missedCalls: 0 });
   });
 
-  it("lists channels side by side", () => {
-    expect(funnel.channels.map((c) => c.label)).toEqual(["Google Ads conversions", "Answered phone calls"]);
+  it("lists each source's leads side by side", () => {
+    expect(funnel.channels.map((c) => c.label)).toEqual(["Website forms", "Answered calls", "Google Ads conversions"]);
     expect(funnel.channels[1]).toMatchObject({ current: 15, previous: 18 });
+  });
+
+  it("leaves out a source switched off for the client", () => {
+    const off = buildLeadFunnel(rows, ["lead_dashboard", "openphone", "google_ads"], current, previous, ["google_ads"])!;
+    expect(off.metrics.find((m) => m.label === "Total leads (all sources)")).toMatchObject({ current: 33, previous: 28 });
   });
 
   it("uses GoHighLevel when there's no Lead Dashboard", () => {
@@ -72,7 +80,7 @@ describe("buildLeadFunnel", () => {
     ]);
     const f = buildLeadFunnel(ghl, ["ghl"], current, previous)!;
     expect(f.source).toBe("ghl");
-    expect(f.metrics.find((m) => m.label === "Leads")?.current).toBe(7);
+    expect(f.metrics.find((m) => m.label === "Total leads (all sources)")?.current).toBe(7);
   });
 
   it("returns null with nothing lead-related connected", () => {

@@ -51,6 +51,10 @@ export const clients = pgTable("clients", {
   // Platforms this client doesn't use at all (no GA4, no OpenPhone, ...),
   // marked "Not used" in Settings so they stop showing as missing access.
   excludedPlatforms: jsonb("excluded_platforms").$type<string[]>().notNull().default([]),
+  // Lead sources (lib/leads/sources.ts) switched off for this client's
+  // total leads — e.g. Google Ads conversions that duplicate form leads.
+  // Every connected source counts unless it's listed here.
+  leadSourcesOff: jsonb("lead_sources_off").$type<string[]>().notNull().default([]),
   // Which pages the client appears on. Numbers are still collected either
   // way; this only decides whether the client is listed on the health
   // dashboard (and Insights, the daily summary) and on the SEO page (and

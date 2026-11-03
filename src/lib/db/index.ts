@@ -49,6 +49,7 @@ const SELF_HEALING_DDL = [
   )`,
   `CREATE INDEX IF NOT EXISTS "client_analyses_client_generated_idx" ON "client_analyses" USING btree ("client_id","generated_at")`,
   `ALTER TABLE "report_recipients" ADD COLUMN IF NOT EXISTS "monthly_analysis" boolean DEFAULT true NOT NULL`,
+  `ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "lead_sources_off" jsonb DEFAULT '[]'::jsonb NOT NULL`,
 ];
 
 async function createDb() {

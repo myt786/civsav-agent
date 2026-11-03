@@ -230,10 +230,11 @@ export default function DocsPage() {
                 term: "Leads",
                 body: (
                   <>
-                    New leads from the Lead Dashboard. A client without one but with GoHighLevel uses GoHighLevel&apos;s new
-                    opportunities instead, marked with a small <Pill className="bg-muted text-muted-foreground">GHL</Pill> tag.
-                    When both are connected the Lead Dashboard is used and the two are never added together (that would
-                    count the same lead twice) — the client&apos;s breakdown shows both side by side.
+                    Every lead source the client has connected, added together: website form leads from the Lead
+                    Dashboard (spam left out), new GoHighLevel opportunities, answered OpenPhone calls, Meta Ads results
+                    and Google Ads conversions. Hover the number to see each source. If two sources count the same
+                    enquiries (say Google Ads conversions that track the same form fills), switch one off under{" "}
+                    <strong>Lead sources</strong> on the client&apos;s page.
                   </>
                 ),
               },
@@ -482,8 +483,8 @@ export default function DocsPage() {
                 a: "Hover over it for the reason. Most often our Google email or manager account needs adding to the client's account: open the client in Settings and use Give access on that row, then Re-check.",
               },
               {
-                q: "Why doesn't the Leads number match GoHighLevel?",
-                a: "When a client has the Lead Dashboard connected, Leads come from there. GoHighLevel's count is shown separately in the client's breakdown so you can compare.",
+                q: "Why doesn't the Leads number match GoHighLevel (or another platform)?",
+                a: "Leads adds up every connected lead source, so it's usually higher than any one platform. Hover the number to see each source's share, and switch off a source under Lead sources on the client's page if it's counting the same enquiries twice.",
               },
               {
                 q: "Will hiding or pausing a client lose data?",

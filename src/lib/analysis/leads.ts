@@ -1,6 +1,5 @@
 import { getDay, parseISO } from "date-fns";
 import { leadDashboardDataSchema } from "../connectors/lead-dashboard/schema";
-import { ghlDataSchema } from "../connectors/ghl/schema";
 import { telephonyDataSchema } from "../connectors/openphone/schema";
 import { googleAdsDataSchema } from "../connectors/google-ads/schema";
 import { metaDataSchema } from "../connectors/meta/schema";
@@ -9,6 +8,7 @@ import { searchConsoleDataSchema } from "../connectors/search-console/schema";
 import type { Platform } from "../connectors/types";
 import { changeOf, type Period, type SnapshotLike } from "./facts";
 import type { LeadChannel, LeadFunnelFacts, LeadWeekday, MetricFact } from "./types";
+import { countedLeadSources, LEAD_SOURCES, leadsFromSnapshot, type LeadSource } from "../leads/sources";
 
 // The leads picture across every account at once — plain arithmetic over
 // the synced daily snapshots, like facts.ts. The AI only explains it.
@@ -59,25 +59,46 @@ function channel(label: string, current: number | null, previous: number | null)
   return { label, current, previous, change: changeOf(current, previous) };
 }
 
+// One source's leads over a period (lib/leads/sources.ts), null if no data.
+function sourceLeads(rowsByPlatform: Map<Platform, SnapshotLike[]>, source: LeadSource, period: Period): number | null {
+  const platform = LEAD_SOURCES.find((s) => s.key === source)!.platform;
+  let sum = 0;
+  let found = 0;
+  for (const row of rowsByPlatform.get(platform) ?? []) {
+    if (row.date < period.start || row.date > period.end) continue;
+    const value = leadsFromSnapshot(source, row.metrics);
+    if (value !== null) {
+      sum += value;
+      found += 1;
+    }
+  }
+  return found > 0 ? sum : null;
+}
+
 export function buildLeadFunnel(
   rowsByPlatform: Map<Platform, SnapshotLike[]>,
   connected: Platform[],
   current: Period,
   previous: Period,
+  leadSourcesOff: readonly string[] = [],
 ): LeadFunnelFacts | null {
   const has = (p: Platform) => connected.includes(p);
-  const source: LeadFunnelFacts["source"] = has("lead_dashboard") ? "lead_dashboard" : has("ghl") ? "ghl" : null;
+  // Total leads = every counted source added together — the same rule as
+  // the dashboard's Leads column.
+  const counted = countedLeadSources(has, leadSourcesOff);
 
   const ld = (period: Period) => parsedRows(rowsByPlatform.get("lead_dashboard"), leadDashboardDataSchema, period);
-  const ghl = (period: Period) => parsedRows(rowsByPlatform.get("ghl"), ghlDataSchema, period);
   const phone = (period: Period) => parsedRows(rowsByPlatform.get("openphone"), telephonyDataSchema, period);
   const gads = (period: Period) => parsedRows(rowsByPlatform.get("google_ads"), googleAdsDataSchema, period);
   const meta = (period: Period) => parsedRows(rowsByPlatform.get("meta"), metaDataSchema, period);
   const ga4 = (period: Period) => parsedRows(rowsByPlatform.get("ga4"), ga4DataSchema, period);
   const gsc = (period: Period) => parsedRows(rowsByPlatform.get("search_console"), searchConsoleDataSchema, period);
 
-  const leads = (period: Period) =>
-    source === "lead_dashboard" ? total(ld(period), (d) => d.totalLeads) : source === "ghl" ? total(ghl(period), (d) => d.leadCount) : null;
+  const leads = (period: Period): number | null => {
+    const values = counted.map((source) => sourceLeads(rowsByPlatform, source, period)).filter((v): v is number => v !== null);
+    return values.length > 0 ? values.reduce((a, b) => a + b, 0) : null;
+  };
+  const formLeads = (period: Period) => total(ld(period), (d) => d.totalLeads);
   const completed = (period: Period) => total(ld(period), (d) => d.byStatus.completed ?? 0);
   const abandoned = (period: Period) => total(ld(period), (d) => d.byStatus.abandoned ?? 0);
   const spam = (period: Period) => total(ld(period), (d) => d.spamLeads);
@@ -91,13 +112,18 @@ export function buildLeadFunnel(
   };
 
   const metrics: MetricFact[] = [];
-  if (source) metrics.push(fact("Leads", "count", leads(current), leads(previous)));
+  if (counted.length > 0) metrics.push(fact("Total leads (all sources)", "count", leads(current), leads(previous)));
+  for (const source of counted) {
+    const info = LEAD_SOURCES.find((s) => s.key === source)!;
+    metrics.push(fact(`Leads · ${info.label}`, "count", sourceLeads(rowsByPlatform, source, current), sourceLeads(rowsByPlatform, source, previous)));
+  }
   if (has("lead_dashboard")) {
-    metrics.push(fact("Completed leads", "count", completed(current), completed(previous)));
-    metrics.push(fact("Abandoned (unfinished) leads", "count", abandoned(current), abandoned(previous), true));
-    metrics.push(fact("Completion rate", "percent", pct(completed(current), leads(current)), pct(completed(previous), leads(previous))));
-    metrics.push(fact("Spam leads", "count", spam(current), spam(previous), true));
-    metrics.push(fact("Spam rate", "percent", pct(spam(current), leads(current)), pct(spam(previous), leads(previous)), true));
+    // Form quality, out of all form submissions (spam included).
+    metrics.push(fact("Completed forms", "count", completed(current), completed(previous)));
+    metrics.push(fact("Abandoned (unfinished) forms", "count", abandoned(current), abandoned(previous), true));
+    metrics.push(fact("Form completion rate", "percent", pct(completed(current), formLeads(current)), pct(completed(previous), formLeads(previous))));
+    metrics.push(fact("Spam forms", "count", spam(current), spam(previous), true));
+    metrics.push(fact("Spam rate", "percent", pct(spam(current), formLeads(current)), pct(spam(previous), formLeads(previous)), true));
   }
   if (has("openphone")) {
     const answered = (period: Period) => {
@@ -111,15 +137,14 @@ export function buildLeadFunnel(
   }
   if (has("google_ads") || has("meta")) {
     metrics.push(fact("Paid ad spend (Google + Meta)", "currency", spend(current), spend(previous)));
-    if (source) metrics.push(fact("Blended cost per lead", "currency", cpl(current), cpl(previous), true));
+    if (counted.length > 0) metrics.push(fact("Blended cost per lead", "currency", cpl(current), cpl(previous), true));
   }
   if (metrics.length === 0) return null;
 
-  // Where leads come from: each channel's own count, side by side.
-  const channels: LeadChannel[] = [];
-  if (has("google_ads")) channels.push(channel("Google Ads conversions", total(gads(current), (d) => d.conversions), total(gads(previous), (d) => d.conversions)));
-  if (has("meta")) channels.push(channel("Meta Ads results", total(meta(current), (d) => d.results), total(meta(previous), (d) => d.results)));
-  if (has("openphone")) channels.push(channel("Answered phone calls", metrics.find((m) => m.label === "Answered calls")?.current ?? null, metrics.find((m) => m.label === "Answered calls")?.previous ?? null));
+  // Where leads come from: each counted source's leads, then other signals.
+  const channels: LeadChannel[] = counted.map((source) =>
+    channel(LEAD_SOURCES.find((s) => s.key === source)!.label, sourceLeads(rowsByPlatform, source, current), sourceLeads(rowsByPlatform, source, previous)),
+  );
   if (has("search_console")) channels.push(channel("Google search clicks", total(gsc(current), (d) => d.totalClicks), total(gsc(previous), (d) => d.totalClicks)));
   if (has("ga4")) {
     const bySource = (period: Period) => {
@@ -134,10 +159,28 @@ export function buildLeadFunnel(
     }
   }
 
-  const leadDays = source === "lead_dashboard" ? byWeekday(ld(current), (d) => d.totalLeads) : source === "ghl" ? byWeekday(ghl(current), (d) => d.leadCount) : DAYS.map(() => null);
+  const leadDays: (number | null)[] = DAYS.map(() => null);
+  for (const source of counted) {
+    const platform = LEAD_SOURCES.find((s) => s.key === source)!.platform;
+    for (const row of rowsByPlatform.get(platform) ?? []) {
+      if (row.date < current.start || row.date > current.end) continue;
+      const value = leadsFromSnapshot(source, row.metrics);
+      if (value === null) continue;
+      const i = (getDay(parseISO(row.date)) + 6) % 7;
+      leadDays[i] = (leadDays[i] ?? 0) + value;
+    }
+  }
+  if (leadDays.some((v) => v !== null)) for (let i = 0; i < 7; i++) leadDays[i] ??= 0;
   const callDays = byWeekday(phone(current), (d) => d.totalCalls);
   const missedDays = byWeekday(phone(current), (d) => d.missedCalls - d.missedAndForwardedCalls);
   const weekdays: LeadWeekday[] = DAYS.map((day, i) => ({ day, leads: leadDays[i], calls: callDays[i], missedCalls: missedDays[i] }));
 
-  return { source, metrics, channels, weekdays };
+  const source: LeadFunnelFacts["source"] = counted.includes("lead_dashboard") ? "lead_dashboard" : counted.includes("ghl") ? "ghl" : null;
+  return {
+    source,
+    sources: counted.map((key) => LEAD_SOURCES.find((s) => s.key === key)!.label),
+    metrics,
+    channels,
+    weekdays,
+  };
 }

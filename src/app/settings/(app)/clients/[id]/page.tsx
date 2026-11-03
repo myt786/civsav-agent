@@ -14,6 +14,7 @@ import { MappingsSection } from "@/components/settings/mappings-section";
 import { ClientActions } from "@/components/settings/client-actions";
 import { ClientVisibilityCard } from "@/components/settings/client-visibility";
 import { ClientAnalysisPanel } from "@/components/settings/client-analysis-panel";
+import { LeadSourcesCard } from "@/components/settings/lead-sources-card";
 import { getAnalysis, listClientAnalyses } from "@/lib/analysis/queries";
 import type { AnalysisListEntry, AnalysisRow } from "@/lib/analysis/types";
 import { formatRelativeTime } from "@/lib/dashboard/format";
@@ -46,6 +47,11 @@ function describeChange(change: {
   if (change.field === "show_on_dashboard" || change.field === "show_on_seo") {
     const where = change.field === "show_on_dashboard" ? "the health dashboard" : "SEO";
     return change.newValue === "false" ? `hid this client from ${where}` : `showed this client on ${where}`;
+  }
+  if (change.field === "counts_as_leads") {
+    return change.newValue === "false"
+      ? `stopped counting ${platform ?? "a source"} towards leads`
+      : `started counting ${platform ?? "a source"} towards leads again`;
   }
   if (change.field === "used") {
     return change.newValue === "false" ? `marked ${platform ?? "a platform"} as not used` : `marked ${platform ?? "a platform"} as used again`;
@@ -419,6 +425,12 @@ export default async function EditClientPage({
             clientName={client.name}
             showOnDashboard={client.showOnDashboard}
             showOnSeo={client.showOnSeo}
+          />
+
+          <LeadSourcesCard
+            clientId={client.id}
+            connectedPlatforms={mappings.filter((m) => m.active).map((m) => m.platform)}
+            off={client.leadSourcesOff ?? []}
           />
 
           <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
