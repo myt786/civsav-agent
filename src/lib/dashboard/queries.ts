@@ -4,14 +4,13 @@ import { toZonedTime } from "date-fns-tz";
 import { getDb } from "../db";
 import { clientPlatformAccounts, clients, metricSnapshots, rawResponses, syncRuns } from "../db/schema";
 import type { Platform } from "../connectors/types";
-import { leadDashboardDataSchema } from "../connectors/lead-dashboard/schema";
-import { ghlDataSchema } from "../connectors/ghl/schema";
 import { telephonyDataSchema } from "../connectors/openphone/schema";
 import { googleAdsDataSchema } from "../connectors/google-ads/schema";
 import { metaDataSchema } from "../connectors/meta/schema";
 import { ga4DataSchema } from "../connectors/ga4/schema";
 import { searchConsoleDataSchema } from "../connectors/search-console/schema";
 import { PLATFORM_ORDER, SPARKLINE_DAYS, WINDOW_DAYS } from "./constants";
+import { countedLeadSources, leadSourceInfo, leadsFromSnapshot, type LeadSource } from "../leads/sources";
 import {
   buildCallsCell,
   buildNumericCell,
@@ -24,6 +23,7 @@ import {
 } from "./metrics";
 import type { SnapshotRow } from "./metrics";
 import type {
+  CellState,
   ClientDetail,
   ClientRow,
   ConnectorStatus,
@@ -206,36 +206,37 @@ async function loadDashboardData(now: Date): Promise<DashboardData> {
     const prev7 = dateKeysBack(tz, now, WINDOW_DAYS, 1 + WINDOW_DAYS);
     const sparkline30 = dateKeysBack(tz, now, SPARKLINE_DAYS, 1);
 
-    // Leads come from the Lead Dashboard. A client without one but with
-    // GoHighLevel uses GHL's new opportunities instead. The two are never
-    // added together — the Lead Dashboard usually already includes the
-    // same enquiries — so when both are connected the Lead Dashboard wins
-    // and GHL's own count is still shown in the client's breakdown.
-    const ldVerified = isMappingVerified(client.id, "lead_dashboard");
-    const ldErr = errorFor(client.id, "lead_dashboard");
-    const ldLeads = downgradeIfUnverifiedMapping(
-      buildNumericCell(rowsFor(snapshotsByClient, client.id, "lead_dashboard", current7), leadDashboardDataSchema, (d) => d.totalLeads, ldErr),
-      ldVerified,
-    );
-    const ldLeadsPrev = downgradeIfUnverifiedMapping(
-      buildNumericCell(rowsFor(snapshotsByClient, client.id, "lead_dashboard", prev7), leadDashboardDataSchema, (d) => d.totalLeads, ldErr),
-      ldVerified,
-    );
-    const ghlVerified = isMappingVerified(client.id, "ghl");
-    const ghlErr = errorFor(client.id, "ghl");
-    const ghlLeads = downgradeIfUnverifiedMapping(
-      buildNumericCell(rowsFor(snapshotsByClient, client.id, "ghl", current7), ghlDataSchema, (d) => d.leadCount, ghlErr),
-      ghlVerified,
-    );
-    const ghlLeadsPrev = downgradeIfUnverifiedMapping(
-      buildNumericCell(rowsFor(snapshotsByClient, client.id, "ghl", prev7), ghlDataSchema, (d) => d.leadCount, ghlErr),
-      ghlVerified,
-    );
-    const leadsSource: "lead_dashboard" | "ghl" =
-      !hasMapping(client.id, "lead_dashboard") && hasMapping(client.id, "ghl") ? "ghl" : "lead_dashboard";
-    const leads = leadsSource === "ghl" ? ghlLeads : ldLeads;
-    const leadsPrev = leadsSource === "ghl" ? ghlLeadsPrev : ldLeadsPrev;
+    // Leads = every counted lead source added together (lib/leads/sources.ts):
+    // form leads (spam left out), GoHighLevel opportunities, answered calls,
+    // Meta results and Google Ads conversions — less any switched off for
+    // this client because they double-count another.
+    const counted = countedLeadSources((p) => hasMapping(client.id, p), client.leadSourcesOff);
+    const leadCell = (source: LeadSource, keys: string[]): CellState<number> => {
+      const platform = leadSourceInfo(source).platform;
+      const rows = rowsFor(snapshotsByClient, client.id, platform, keys);
+      const err = errorFor(client.id, platform);
+      if (rows.length === 0) return err ? { kind: "error", message: err } : { kind: "no_data" };
+      let total = 0;
+      for (const row of rows) {
+        const value = leadsFromSnapshot(source, row.metrics);
+        if (value === null) return { kind: "error", message: `stored ${platform} metrics for ${row.date} couldn't be read` };
+        total += value;
+      }
+      return downgradeIfUnverifiedMapping<number>({ kind: "ok", value: total }, isMappingVerified(client.id, platform));
+    };
+    const sourceCells = counted.map((source) => ({ source, current: leadCell(source, current7), previous: leadCell(source, prev7) }));
+    const leads: CellState<number> = sourceCells.length ? sumCells(sourceCells.map((c) => c.current)) : { kind: "no_data" };
+    const leadsPrev: CellState<number> = sourceCells.length ? sumCells(sourceCells.map((c) => c.previous)) : { kind: "no_data" };
     const leadsDelta = computeDelta(leads, leadsPrev);
+    const leadBreakdown = sourceCells.map(({ source, current }) => {
+      const info = leadSourceInfo(source);
+      return {
+        source,
+        label: info.label,
+        short: info.short,
+        value: current.kind === "ok" || current.kind === "unverified" ? current.value : null,
+      };
+    });
 
     const callsVerified = isMappingVerified(client.id, "openphone");
     const callsRows = rowsFor(snapshotsByClient, client.id, "openphone", current7);
@@ -316,9 +317,9 @@ async function loadDashboardData(now: Date): Promise<DashboardData> {
       avgPosition,
       lastSyncedAt,
       staleHours,
-      leadsSource,
+      leadBreakdown,
       connected: (() => {
-        const leadsOn = hasMapping(client.id, "lead_dashboard") || hasMapping(client.id, "ghl");
+        const leadsOn = counted.length > 0;
         const adsOn = hasMapping(client.id, "google_ads") || hasMapping(client.id, "meta");
         const ga4On = hasMapping(client.id, "ga4");
         return {
@@ -337,14 +338,21 @@ async function loadDashboardData(now: Date): Promise<DashboardData> {
       {
         key: "leads",
         label: "Leads",
-        points:
-          leadsSource === "ghl"
-            ? toSeries(rowsFor(snapshotsByClient, client.id, "ghl", sparkline30), sparkline30, (m) =>
-                safeExtract(ghlDataSchema, m, (d) => d.leadCount),
-              )
-            : toSeries(rowsFor(snapshotsByClient, client.id, "lead_dashboard", sparkline30), sparkline30, (m) =>
-          safeExtract(leadDashboardDataSchema, m, (d) => d.totalLeads),
-        ),
+        // Same sum as the Leads column, day by day; null only when no
+        // counted source has a number for that day.
+        points: sparkline30.map((date) => {
+          let total = 0;
+          let found = 0;
+          for (const source of counted) {
+            const row = rowsFor(snapshotsByClient, client.id, leadSourceInfo(source).platform, [date])[0];
+            const value = row ? leadsFromSnapshot(source, row.metrics) : null;
+            if (value !== null) {
+              total += value;
+              found += 1;
+            }
+          }
+          return { date, value: found > 0 ? total : null };
+        }),
       },
       {
         key: "callsTotal",
@@ -395,20 +403,13 @@ async function loadDashboardData(now: Date): Promise<DashboardData> {
       },
     ];
 
-    // Both lead sources are listed when connected, so the two counts can
-    // be compared side by side even though only one feeds the Leads column.
-    const leadItems: SourceBreakdownItem[] = [];
-    if (hasMapping(client.id, "lead_dashboard") || leadsSource === "lead_dashboard") {
-      leadItems.push({ platform: "lead_dashboard", label: "Leads", unit: "count", cell: ldLeads });
-    }
-    if (hasMapping(client.id, "ghl")) {
-      leadItems.push({
-        platform: "ghl",
-        label: leadsSource === "ghl" ? "Leads (GoHighLevel)" : "GoHighLevel opportunities",
-        unit: "count",
-        cell: ghlLeads,
-      });
-    }
+    // Each counted lead source's own count, so the total can be checked.
+    const leadItems: SourceBreakdownItem[] = sourceCells.map(({ source, current }) => ({
+      platform: leadSourceInfo(source).platform,
+      label: `Leads · ${leadSourceInfo(source).label}`,
+      unit: "count",
+      cell: current,
+    }));
     const breakdown: SourceBreakdownItem[] = [
       ...leadItems,
       { platform: "openphone", label: "Calls", unit: "count", cell: callsTotal },

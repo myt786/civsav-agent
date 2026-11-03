@@ -91,6 +91,8 @@ export interface LeadFunnelFacts {
   // Which account the lead count comes from (the dashboard's rule: Lead
   // Dashboard, else GoHighLevel).
   source: "lead_dashboard" | "ghl" | null;
+  // Every lead source counted in the total (absent on older reports).
+  sources?: string[];
   metrics: MetricFact[];
   channels: LeadChannel[];
   weekdays: LeadWeekday[];

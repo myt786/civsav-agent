@@ -60,7 +60,7 @@ export function RowDetailSheet({
           <section className="flex flex-col gap-5">
             <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Last 30 days</h3>
 
-            <SparklineBlock label="Leads">
+            <SparklineBlock label="Total leads (all sources)">
               <Sparkline
                 series={[{ label: "Leads", points: byKey.leads.points, stroke: "var(--chart-1)" }]}
                 formatValue={formatInteger}

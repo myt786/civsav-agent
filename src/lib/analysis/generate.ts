@@ -84,10 +84,14 @@ export function factsToPrompt(facts: ClientFacts): string {
   if (facts.leads) {
     const l = facts.leads;
     lines.push("", "## Leads across all accounts");
-    lines.push(`Lead count comes from: ${l.source === "lead_dashboard" ? "Lead Dashboard (website form leads)" : l.source === "ghl" ? "GoHighLevel new opportunities" : "no lead source connected"}.`);
+    lines.push(
+      l.sources && l.sources.length > 0
+        ? `Total leads = these sources added together: ${l.sources.join(", ")} (form leads exclude spam; calls are answered calls only).`
+        : "No lead source is connected.",
+    );
     for (const m of l.metrics) lines.push(`- ${describeMetric(m)}`);
     if (l.channels.length > 0) {
-      lines.push("Lead channels (each platform's own count, so they overlap and don't add up to total leads):");
+      lines.push("Lead channels (each counted source's own leads, then other signals):");
       for (const c of l.channels) {
         const change = c.change === null ? "" : ` (${c.change >= 0 ? "+" : ""}${Math.round(c.change * 100)}%)`;
         lines.push(`- ${c.label}: ${c.current === null ? "no data" : Math.round(c.current)} vs ${c.previous === null ? "no data" : Math.round(c.previous)} before${change}`);
@@ -170,7 +174,7 @@ export async function buildClientFacts(clientId: string, kind: AnalysisKind, now
     previousPeriod: previous,
     platforms: facts.filter((p) => p.daysWithData > 0 || p.previousDaysWithData > 0 || p.problem),
     quietAccounts: quiet,
-    leads: buildLeadFunnel(byPlatform, platforms, current, previous),
+    leads: buildLeadFunnel(byPlatform, platforms, current, previous, client.leadSourcesOff ?? []),
   };
 }
 
