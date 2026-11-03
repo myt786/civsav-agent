@@ -244,3 +244,60 @@ export function buildMonthlyAnalysisEmail(entries: ClientHealthEntry[], appUrl: 
     text,
   };
 }
+
+export interface LeadReviewEmailEntry {
+  reportId: string;
+  clientName: string;
+  periodLabel: string;
+  headline: string;
+  tier1: number;
+  open: number;
+}
+
+// To the team: new AI lead reports are waiting for review before anything
+// goes to a client.
+export function buildLeadReviewEmail(entries: LeadReviewEmailEntry[], appUrl: string | null): Omit<EmailMessage, "to"> {
+  const title = entries.length === 1 ? `Lead report ready for review — ${entries[0].clientName}` : `${entries.length} lead reports ready for review`;
+  let body = `<p style="margin:12px 0 0;">Review each report, add remarks, and approve it before it's sent to the client.</p>`;
+  body += entries
+    .map((e) => {
+      const link = appUrl ? `${appUrl}/settings/lead-reports/${e.reportId}` : null;
+      const name = link ? `<a href="${esc(link)}" style="color:#111827;">${esc(e.clientName)}</a>` : esc(e.clientName);
+      return `<div style="padding:10px 0;border-top:1px solid #f0f1f3;"><strong>${name}</strong> <span style="color:${MUTED};">· ${esc(e.periodLabel)}</span><div style="color:#374151;margin-top:2px;">${esc(e.headline)}</div><div style="color:${MUTED};font-size:13px;margin-top:2px;">${e.tier1} to call today · ${e.open} open leads</div></div>`;
+    })
+    .join("");
+  if (appUrl) body += button(`${appUrl}/settings/lead-reports`, "Open the review queue");
+  const text = [
+    title,
+    "",
+    ...entries.map((e) => `${e.clientName} (${e.periodLabel}): ${e.headline} — ${e.tier1} to call today, ${e.open} open${appUrl ? `\n  ${appUrl}/settings/lead-reports/${e.reportId}` : ""}`),
+  ].join("\n");
+  return { subject: title, html: layout(title, "AI lead analysis · needs a reviewer", body, footerText(appUrl)), text };
+}
+
+// To the client: the approved report, PDF attached.
+export function buildLeadClientEmail(input: {
+  clientName: string;
+  periodLabel: string;
+  headline: string;
+  intro: string;
+  tier1: number;
+  tier2: number;
+  open: number;
+  message: string | null;
+}): Omit<EmailMessage, "to"> {
+  const title = `Your sales call priority list — ${input.periodLabel}`;
+  const note = input.message?.trim() ? `<p style="margin:12px 0 0;white-space:pre-line;">${esc(input.message.trim())}</p>` : "";
+  const body = `${note}<p style="margin:12px 0 0;font-size:15px;font-weight:600;">${esc(input.headline)}</p><p style="margin:8px 0 0;">${esc(input.intro)}</p><p style="margin:12px 0 0;color:#374151;"><strong>${input.tier1}</strong> leads to call today · <strong>${input.tier2}</strong> this week · ${input.open} open in total.</p><p style="margin:12px 0 0;">The full ranked list, with contact details and an opener for each call, is in the attached PDF.</p>`;
+  const text = [
+    title,
+    "",
+    ...(input.message?.trim() ? [input.message.trim(), ""] : []),
+    input.headline,
+    input.intro,
+    "",
+    `${input.tier1} to call today, ${input.tier2} this week, ${input.open} open in total.`,
+    "The full ranked list is in the attached PDF.",
+  ].join("\n");
+  return { subject: `${input.clientName} — sales call priority list, ${input.periodLabel}`, html: layout(title, input.clientName, body, "Prepared by Civilized Savage."), text };
+}

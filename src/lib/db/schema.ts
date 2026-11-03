@@ -55,6 +55,13 @@ export const clients = pgTable("clients", {
   // total leads — e.g. Google Ads conversions that duplicate form leads.
   // Every connected source counts unless it's listed here.
   leadSourcesOff: jsonb("lead_sources_off").$type<string[]>().notNull().default([]),
+  // AI lead report (lib/lead-report): how often it's made ("off" |
+  // "weekly" | "monthly"), the tone it's written in, the team's own wording
+  // guidance, and who at the client gets the approved PDF.
+  leadReportCadence: text("lead_report_cadence").notNull().default("off"),
+  leadReportTone: text("lead_report_tone").notNull().default("positive"),
+  leadReportToneNote: text("lead_report_tone_note"),
+  leadReportEmails: jsonb("lead_report_emails").$type<string[]>().notNull().default([]),
   // Which pages the client appears on. Numbers are still collected either
   // way; this only decides whether the client is listed on the health
   // dashboard (and Insights, the daily summary) and on the SEO page (and
@@ -286,6 +293,33 @@ export const clientAnalyses = pgTable(
     generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("client_analyses_client_generated_idx").on(table.clientId, table.generatedAt)],
+);
+
+// AI lead report (lib/lead-report): one row per run. Made weekly/monthly
+// (cron) or on demand, reviewed by the team (remarks, approve or ask for
+// changes — kept in `events`), then sent to the client as a PDF.
+export const leadReports = pgTable(
+  "lead_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id),
+    kind: text("kind").notNull(), // "weekly" | "monthly" | "on_demand"
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    status: text("status").notNull().default("in_review"), // LeadReportStatus
+    tone: text("tone").notNull(),
+    report: jsonb("report").notNull(), // LeadReport
+    events: jsonb("events").notNull().default([]), // LeadReportEvent[]
+    createdBy: text("created_by").notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    sentTo: jsonb("sent_to").$type<string[]>().notNull().default([]),
+  },
+  (table) => [index("lead_reports_client_generated_idx").on(table.clientId, table.generatedAt)],
 );
 
 // One row per edited field, written by every settings mutation (client
