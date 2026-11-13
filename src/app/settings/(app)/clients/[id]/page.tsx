@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { eq, sql } from "drizzle-orm";
 import { AlertTriangleIcon, ArchiveIcon, ArrowLeftIcon, CheckCircle2Icon, ClockIcon, GlobeIcon, PauseIcon, PlugIcon } from "lucide-react";
 import { getDb } from "@/lib/db";
-import { metricSnapshots } from "@/lib/db/schema";
+import { metricSnapshots, teamMembers } from "@/lib/db/schema";
 import { getClient, getClientMappings } from "@/lib/settings/queries";
 import { isUuid } from "@/lib/settings/validation";
 import { getRecentChanges } from "@/lib/settings/audit";
@@ -15,6 +15,7 @@ import { ClientActions } from "@/components/settings/client-actions";
 import { ClientVisibilityCard } from "@/components/settings/client-visibility";
 import { ClientAnalysisPanel } from "@/components/settings/client-analysis-panel";
 import { LeadSourcesCard } from "@/components/settings/lead-sources-card";
+import { LeadAlertSettingsCard } from "@/components/settings/lead-alert-settings-card";
 import { getAnalysis, listClientAnalyses } from "@/lib/analysis/queries";
 import type { AnalysisListEntry, AnalysisRow } from "@/lib/analysis/types";
 import { formatRelativeTime } from "@/lib/dashboard/format";
@@ -213,6 +214,10 @@ export default async function EditClientPage({
     }),
   ]);
   if (!client) notFound();
+  const team = await getDb()
+    .then((db) => db.select({ email: teamMembers.email }).from(teamMembers))
+    .then((rows) => rows.map((r) => r.email).sort())
+    .catch((): string[] => []);
 
   // The report picked in the analysis panel (?analysis=), else the latest.
   const selectedId = analysisParam && analyses.some((a) => a.id === analysisParam) ? analysisParam : analyses[0]?.id;
@@ -431,6 +436,14 @@ export default async function EditClientPage({
             clientId={client.id}
             connectedPlatforms={mappings.filter((m) => m.active).map((m) => m.platform)}
             off={client.leadSourcesOff ?? []}
+          />
+
+          <LeadAlertSettingsCard
+            clientId={client.id}
+            owner={client.leadAlertOwner}
+            sensitivity={client.leadAlertSensitivity}
+            paused={client.leadAlertsPaused}
+            team={team}
           />
 
           <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">

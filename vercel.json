@@ -35,6 +35,14 @@
     {
       "path": "/api/cron/lead-reports",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/lead-alerts",
+      "schedule": "15 9 * * *"
+    },
+    {
+      "path": "/api/cron/lead-alerts?today=1",
+      "schedule": "0 19 * * *"
     }
   ]
 }

@@ -62,6 +62,13 @@ export const clients = pgTable("clients", {
   leadReportTone: text("lead_report_tone").notNull().default("positive"),
   leadReportToneNote: text("lead_report_tone_note"),
   leadReportEmails: jsonb("lead_report_emails").$type<string[]>().notNull().default([]),
+  // Lead alerts (lib/lead-alerts): the team member who gets this client's
+  // alerts (null: the daily-summary list), how easily they fire
+  // ("low" | "normal" | "high"), and a pause for quiet spells (ads off,
+  // off season).
+  leadAlertOwner: text("lead_alert_owner"),
+  leadAlertSensitivity: text("lead_alert_sensitivity").notNull().default("normal"),
+  leadAlertsPaused: boolean("lead_alerts_paused").notNull().default(false),
   // Which pages the client appears on. Numbers are still collected either
   // way; this only decides whether the client is listed on the health
   // dashboard (and Insights, the daily summary) and on the SEO page (and
@@ -320,6 +327,35 @@ export const leadReports = pgTable(
     sentTo: jsonb("sent_to").$type<string[]>().notNull().default([]),
   },
   (table) => [index("lead_reports_client_generated_idx").on(table.clientId, table.generatedAt)],
+);
+
+// Lead alerts (lib/lead-alerts): one row per problem — leads stopped, a
+// sharp drop, one source gone quiet, or a source not syncing. Opened by
+// the alert check after each sync, acknowledged by the team, resolved when
+// leads come back (or by hand).
+export const leadAlerts = pgTable(
+  "lead_alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id),
+    kind: text("kind").notNull(), // LeadAlertKind
+    source: text("source").notNull(), // "total" or a lead source key
+    severity: text("severity").notNull(), // "critical" | "warning"
+    status: text("status").notNull().default("open"), // "open" | "acknowledged" | "resolved"
+    message: text("message").notNull(),
+    detail: jsonb("detail").notNull().default({}),
+    openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    lastNotifiedAt: timestamp("last_notified_at", { withTimezone: true }),
+    acknowledgedBy: text("acknowledged_by"),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    note: text("note"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: text("resolved_by"),
+  },
+  (table) => [index("lead_alerts_client_status_idx").on(table.clientId, table.status)],
 );
 
 // One row per edited field, written by every settings mutation (client

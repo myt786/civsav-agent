@@ -8,6 +8,7 @@ import { SETTINGS_SESSION_COOKIE, verifySessionCookieValue } from "@/lib/auth/se
 import { getDashboardData, getSyncStatus } from "@/lib/dashboard/queries";
 import { isSessionActive } from "@/lib/auth/team";
 import { computeAttentionFlags } from "@/lib/insights/rules";
+import { listActiveLeadAlertFlags } from "@/lib/lead-alerts/queries";
 
 export interface NavSummary {
   email: string | null;
@@ -37,8 +38,8 @@ export async function getNavSummary(): Promise<NavSummary> {
   await Promise.all([
     (async () => {
       try {
-        const data = await getDashboardData();
-        summary.attention = new Set(computeAttentionFlags(data).map((f) => f.clientId)).size;
+        const [data, leadAlerts] = await Promise.all([getDashboardData(), listActiveLeadAlertFlags().catch(() => [])]);
+        summary.attention = new Set(computeAttentionFlags(data, leadAlerts).map((f) => f.clientId)).size;
       } catch {
         // No badge.
       }

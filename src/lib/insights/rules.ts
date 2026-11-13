@@ -39,8 +39,25 @@ function metricErrorFlags(row: ClientRow): { field: string; message: string }[] 
 // (cell states, the existing 7-day delta, sync recency) — no model call,
 // no extra DB round trip, and no chance of a flag disagreeing with what
 // the table itself shows.
-export function computeAttentionFlags(data: DashboardData): AttentionFlag[] {
-  const flags: AttentionFlag[] = [];
+// Open lead alerts (lib/lead-alerts) passed in by the caller, so this stays
+// a pure function of what it's given.
+export interface ActiveLeadAlert {
+  clientId: string;
+  clientName: string;
+  message: string;
+  severity: "critical" | "warning";
+}
+
+export function computeAttentionFlags(data: DashboardData, leadAlerts: ActiveLeadAlert[] = []): AttentionFlag[] {
+  const flags: AttentionFlag[] = leadAlerts.map((a): AttentionFlag => ({
+    kind: "lead_alert",
+    severity: a.severity,
+    clientId: a.clientId,
+    clientName: a.clientName,
+    message: a.message,
+  }));
+  // The alert says it better than the week-on-week "Leads are down".
+  const alerted = new Set(leadAlerts.map((a) => a.clientId));
 
   for (const row of data.rows) {
     const errors = metricErrorFlags(row);
@@ -70,6 +87,7 @@ export function computeAttentionFlags(data: DashboardData): AttentionFlag[] {
         ? row.leads.value / (1 + row.leadsDelta.pct / 100)
         : null;
     if (
+      !alerted.has(row.clientId) &&
       row.leadsDelta.direction === "down" &&
       row.leadsDelta.pct !== null &&
       (priorLeads === null || priorLeads >= LEADS_DROP_MIN_PRIOR)

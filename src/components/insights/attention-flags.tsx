@@ -8,6 +8,7 @@ const KIND_LABEL: Record<AttentionFlag["kind"], string> = {
   sync_error: "Not updating",
   stale_sync: "Out of date",
   leads_down: "Fewer leads",
+  lead_alert: "Lead alert",
   missed_calls_high: "Missed calls",
   position_worsening: "Google ranking",
   spend_spike: "Spend jump",
