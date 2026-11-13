@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ActivityIcon, AlertTriangleIcon, DollarSignIcon, UsersIcon } from "lucide-react";
 import { getDashboardData } from "@/lib/dashboard/queries";
 import { computeAttentionFlags } from "@/lib/insights/rules";
+import { listActiveLeadAlertFlags } from "@/lib/lead-alerts/queries";
 import { buildFleetDailySeries, countWithValue, sumOkOrUnverified, weekOverWeekPct } from "@/lib/dashboard/aggregate";
 import { formatInteger } from "@/lib/dashboard/format";
 import { isDataFlag } from "@/lib/insights/data-issues";
@@ -23,8 +24,8 @@ export const dynamic = "force-dynamic";
 // re-fetch.
 export default async function DashboardPage() {
   const now = new Date();
-  const data = await getDashboardData(now);
-  const flags = computeAttentionFlags(data);
+  const [data, leadAlerts] = await Promise.all([getDashboardData(now), listActiveLeadAlertFlags().catch(() => [])]);
+  const flags = computeAttentionFlags(data, leadAlerts);
 
   const totalLeads = sumOkOrUnverified(data.rows, (r) => r.leads);
   const totalSpend = sumOkOrUnverified(data.rows, (r) => r.spend);

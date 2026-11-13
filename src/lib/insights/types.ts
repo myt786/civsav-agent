@@ -6,6 +6,7 @@ export type FlagKind =
   | "sync_error"
   | "stale_sync"
   | "leads_down"
+  | "lead_alert"
   | "missed_calls_high"
   | "position_worsening"
   | "spend_spike"

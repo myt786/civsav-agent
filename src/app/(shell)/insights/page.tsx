@@ -1,5 +1,7 @@
 import { getDashboardData } from "@/lib/dashboard/queries";
 import { buildForecasts, computeAttentionFlags } from "@/lib/insights/rules";
+import { listLeadAlerts, type LeadAlertRow } from "@/lib/lead-alerts/queries";
+import { LeadAlertsPanel } from "@/components/insights/lead-alerts-panel";
 import { NOISE_BAND_PCT, SPARKLINE_DAYS } from "@/lib/dashboard/constants";
 import { AttentionFlags } from "@/components/insights/attention-flags";
 import { AiSummary } from "@/components/insights/ai-summary";
@@ -28,8 +30,11 @@ function sortByTrend<T extends { metric: MetricForecast }>(items: T[]): T[] {
 
 export default async function InsightsPage() {
   const now = new Date();
-  const data = await getDashboardData(now);
-  const flags = computeAttentionFlags(data);
+  const [data, alerts] = await Promise.all([getDashboardData(now), listLeadAlerts(now).catch((): LeadAlertRow[] => [])]);
+  const flags = computeAttentionFlags(
+    data,
+    alerts.filter((a) => a.status !== "resolved"),
+  );
   const forecasts = buildForecasts(data, FORECAST_DAYS, NOISE_BAND_PCT);
   // A card with too little history to project from is just an empty box —
   // with ~60 clients most of the grid was those. Count them instead.
@@ -57,6 +62,8 @@ export default async function InsightsPage() {
           What needs your attention, a written summary, and what to expect over the next week.
         </p>
       </header>
+
+      <LeadAlertsPanel alerts={alerts} />
 
       <ClientHealth entries={health} clients={liveClients} aiConfigured={Boolean(process.env.OPENAI_API_KEY)} />
 

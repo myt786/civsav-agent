@@ -6,6 +6,7 @@ import type { AccessReport } from "../settings/access-report";
 import type { ClientHealthEntry } from "../analysis/queries";
 import { PLATFORM_LABELS } from "../connectors/platform-labels";
 import type { Platform } from "../connectors/types";
+import { LEAD_ALERT_CHECKS } from "../lead-alerts/labels";
 
 // Email clients ignore stylesheets and most modern CSS, so these are plain
 // tables with inline styles — the one layout that renders the same in
@@ -300,4 +301,54 @@ export function buildLeadClientEmail(input: {
     "The full ranked list is in the attached PDF.",
   ].join("\n");
   return { subject: `${input.clientName} — sales call priority list, ${input.periodLabel}`, html: layout(title, input.clientName, body, "Prepared by Civilized Savage."), text };
+}
+
+export interface LeadAlertEmailEvent {
+  type: "new" | "reminder" | "resolved";
+  clientId: string;
+  clientName: string;
+  severity: "critical" | "warning";
+  kind: "stopped" | "drop" | "source_stopped" | "data_missing";
+  message: string;
+  detail: { lastLeadDate?: string | null };
+}
+
+// Sent straight after the alert check (morning and afternoon) — separate
+// from the daily summary so a stopped lead flow can't be skimmed past.
+export function buildLeadAlertEmail(events: LeadAlertEmailEvent[], appUrl: string | null): Omit<EmailMessage, "to"> {
+  const problems = events.filter((e) => e.type !== "resolved");
+  const critical = problems.some((e) => e.severity === "critical");
+  const title =
+    problems.length === 0
+      ? `Leads are back — ${events.map((e) => e.clientName).join(", ")}`
+      : problems.length === 1
+        ? `${critical ? "🔴" : "🟠"} Lead alert — ${problems[0].clientName}`
+        : `${critical ? "🔴" : "🟠"} Lead alerts — ${problems.length} clients`;
+  const row = (e: LeadAlertEmailEvent) => {
+    const color = e.type === "resolved" ? "#16a34a" : e.severity === "critical" ? "#dc2626" : "#d97706";
+    const label = e.type === "resolved" ? "Back to normal" : e.type === "reminder" ? "Still open (not acknowledged)" : e.severity === "critical" ? "Critical" : "Warning";
+    const link = appUrl ? `${appUrl}/settings/clients/${e.clientId}` : null;
+    const name = link ? `<a href="${esc(link)}" style="color:#111827;">${esc(e.clientName)}</a>` : esc(e.clientName);
+    const last = e.type !== "resolved" && e.detail.lastLeadDate ? `<div style="color:${MUTED};font-size:13px;">Last lead: ${esc(e.detail.lastLeadDate)}</div>` : "";
+    const checks = e.type !== "resolved" ? `<div style="color:#374151;font-size:13px;margin-top:4px;">${esc(LEAD_ALERT_CHECKS[e.kind])}</div>` : "";
+    return `<div style="padding:12px 0;border-top:1px solid #f0f1f3;"><div style="font-size:12px;font-weight:600;color:${color};text-transform:uppercase;letter-spacing:.04em;">${esc(label)}</div><strong>${name}</strong><div style="margin-top:2px;">${esc(e.message)}</div>${last}${checks}</div>`;
+  };
+  let body = events.map(row).join("");
+  if (appUrl && problems.length > 0) body += button(`${appUrl}/insights#lead-alerts`, "Acknowledge and add a note");
+  const text = [
+    title,
+    "",
+    ...events.map(
+      (e) =>
+        `${e.type === "resolved" ? "[Back to normal]" : e.type === "reminder" ? "[Still open]" : `[${e.severity}]`} ${e.clientName}: ${e.message}${
+          e.type !== "resolved" && e.detail.lastLeadDate ? ` (last lead ${e.detail.lastLeadDate})` : ""
+        }`,
+    ),
+    ...(appUrl ? ["", `Lead alerts: ${appUrl}/insights#lead-alerts`] : []),
+  ].join("\n");
+  return {
+    subject: title,
+    html: layout(title, "Lead alerts · checked after each sync", body, "Sent by the Civilized Savage dashboard. Change who gets a client's alerts on its page in Settings → Clients."),
+    text,
+  };
 }
