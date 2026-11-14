@@ -69,6 +69,9 @@ export const clients = pgTable("clients", {
   leadAlertOwner: text("lead_alert_owner"),
   leadAlertSensitivity: text("lead_alert_sensitivity").notNull().default("normal"),
   leadAlertsPaused: boolean("lead_alerts_paused").notNull().default(false),
+  // When this client's alerts were last pushed (email/Slack), newest last,
+  // for the caps: one push a day, three a week.
+  leadAlertPushes: jsonb("lead_alert_pushes").$type<string[]>().notNull().default([]),
   // Which pages the client appears on. Numbers are still collected either
   // way; this only decides whether the client is listed on the health
   // dashboard (and Insights, the daily summary) and on the SEO page (and
@@ -354,6 +357,13 @@ export const leadAlerts = pgTable(
     note: text("note"),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     resolvedBy: text("resolved_by"),
+    // No pushes or Needs-attention flag until then; null: not snoozed.
+    snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
+    // The one reminder, once sent.
+    remindedAt: timestamp("reminded_at", { withTimezone: true }),
+    // Whether anyone was emailed/Slacked about it — only those get a
+    // "leads are back" message.
+    pushed: boolean("pushed").notNull().default(false),
   },
   (table) => [index("lead_alerts_client_status_idx").on(table.clientId, table.status)],
 );

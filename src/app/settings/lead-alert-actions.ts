@@ -31,6 +31,27 @@ export async function acknowledgeLeadAlert(id: string, note: string): Promise<{ 
   return {};
 }
 
+// Mute it: no reminder, no push, off Needs attention until then. "Until
+// leads are back" lasts until the alert closes on its own.
+export async function snoozeLeadAlert(id: string, days: number): Promise<{ error?: string }> {
+  const session = await requireSession();
+  if (!isUuid(id) || ![1, 7, 90].includes(days)) return { error: "That alert wasn't found." };
+  const db = await getDb();
+  const now = new Date();
+  await db
+    .update(leadAlerts)
+    .set({
+      snoozedUntil: new Date(now.getTime() + days * 24 * 60 * 60 * 1000),
+      acknowledgedBy: session.email,
+      acknowledgedAt: now,
+      status: "acknowledged",
+      updatedAt: now,
+    })
+    .where(eq(leadAlerts.id, id));
+  refresh();
+  return {};
+}
+
 // Close it by hand (e.g. the client paused their ads on purpose). If the
 // problem is still there at the next check, a new alert opens.
 export async function resolveLeadAlert(id: string, note: string): Promise<{ error?: string }> {

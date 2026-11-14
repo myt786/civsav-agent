@@ -94,6 +94,10 @@ const SELF_HEALING_DDL = [
     "resolved_by" text
   )`,
   `CREATE INDEX IF NOT EXISTS "lead_alerts_client_status_idx" ON "lead_alerts" USING btree ("client_id","status")`,
+  `ALTER TABLE "lead_alerts" ADD COLUMN IF NOT EXISTS "snoozed_until" timestamp with time zone`,
+  `ALTER TABLE "lead_alerts" ADD COLUMN IF NOT EXISTS "reminded_at" timestamp with time zone`,
+  `ALTER TABLE "lead_alerts" ADD COLUMN IF NOT EXISTS "pushed" boolean DEFAULT false NOT NULL`,
+  `ALTER TABLE "clients" ADD COLUMN IF NOT EXISTS "lead_alert_pushes" jsonb DEFAULT '[]'::jsonb NOT NULL`,
 ];
 
 async function createDb() {
