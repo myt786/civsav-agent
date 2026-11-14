@@ -22,6 +22,7 @@ export interface LeadAlertRow {
   note: string | null;
   resolvedAt: string | null;
   resolvedBy: string | null;
+  snoozedUntil: string | null;
 }
 
 // Open and acknowledged alerts, plus those resolved in the last week.
@@ -59,13 +60,15 @@ export async function listLeadAlerts(now: Date = new Date()): Promise<LeadAlertR
     note: r.note,
     resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
     resolvedBy: r.resolvedBy,
+    snoozedUntil: r.snoozedUntil && r.snoozedUntil.getTime() > now.getTime() ? r.snoozedUntil.toISOString() : null,
   }));
 }
 
-// For the attention flags: one entry per open or acknowledged alert.
+// For the attention flags: one entry per open or acknowledged alert that
+// isn't snoozed.
 export async function listActiveLeadAlertFlags(): Promise<{ clientId: string; clientName: string; message: string; severity: LeadAlertSeverity }[]> {
   const rows = await listLeadAlerts();
   return rows
-    .filter((r) => r.status !== "resolved")
+    .filter((r) => r.status !== "resolved" && !r.snoozedUntil)
     .map((r) => ({ clientId: r.clientId, clientName: r.clientName, message: r.message, severity: r.severity }));
 }

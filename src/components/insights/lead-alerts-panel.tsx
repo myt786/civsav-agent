@@ -3,11 +3,11 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BellRingIcon, CheckCircle2Icon, CheckIcon, Loader2Icon } from "lucide-react";
+import { BellOffIcon, BellRingIcon, CheckCircle2Icon, CheckIcon, Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
-import { acknowledgeLeadAlert, resolveLeadAlert } from "@/app/settings/lead-alert-actions";
+import { acknowledgeLeadAlert, resolveLeadAlert, snoozeLeadAlert } from "@/app/settings/lead-alert-actions";
 import { LEAD_ALERT_CHECKS, LEAD_ALERT_TITLE } from "@/lib/lead-alerts/labels";
 import type { LeadAlertRow } from "@/lib/lead-alerts/queries";
 import { cn } from "@/lib/utils";
@@ -22,12 +22,17 @@ function AlertCard({ alert }: { alert: LeadAlertRow }) {
   const [pending, startTransition] = useTransition();
   const critical = alert.severity === "critical";
 
-  function act(kind: "ack" | "resolve") {
+  function act(kind: "ack" | "resolve" | 1 | 7 | 90) {
     startTransition(async () => {
-      const result = kind === "ack" ? await acknowledgeLeadAlert(alert.id, note) : await resolveLeadAlert(alert.id, note);
+      const result =
+        kind === "ack"
+          ? await acknowledgeLeadAlert(alert.id, note)
+          : kind === "resolve"
+            ? await resolveLeadAlert(alert.id, note)
+            : await snoozeLeadAlert(alert.id, kind);
       if (result.error) toast({ variant: "error", title: "Not saved", description: result.error });
       else {
-        toast({ variant: "success", title: kind === "ack" ? "Acknowledged" : "Marked resolved" });
+        toast({ variant: "success", title: kind === "ack" ? "Acknowledged" : kind === "resolve" ? "Marked resolved" : "Snoozed" });
         setNote("");
         router.refresh();
       }
@@ -38,7 +43,7 @@ function AlertCard({ alert }: { alert: LeadAlertRow }) {
     <li
       className={cn(
         "flex flex-col gap-2 rounded-lg border bg-card p-4 shadow-sm",
-        alert.status === "acknowledged" ? "border-border" : critical ? "border-destructive/40" : "border-warning/40",
+        alert.status === "acknowledged" || alert.snoozedUntil ? "border-border opacity-80" : critical ? "border-destructive/40" : "border-warning/40",
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -59,6 +64,12 @@ function AlertCard({ alert }: { alert: LeadAlertRow }) {
       <p className="text-sm text-foreground">{alert.message}</p>
       {alert.detail.lastLeadDate && <p className="text-xs text-muted-foreground">Last lead: {alert.detail.lastLeadDate}</p>}
       <p className="text-xs text-muted-foreground">{LEAD_ALERT_CHECKS[alert.kind]}</p>
+      {alert.snoozedUntil && (
+        <p className="text-xs text-muted-foreground">
+          <BellOffIcon className="mr-1 inline size-3.5" />
+          Snoozed {new Date(alert.snoozedUntil).getTime() - Date.now() > 30 * 86_400_000 ? "until leads are back" : `until ${when(alert.snoozedUntil)}`}
+        </p>
+      )}
       {alert.status === "acknowledged" && (
         <p className="text-xs text-foreground">
           <CheckIcon className="mr-1 inline size-3.5 text-success" />
@@ -81,6 +92,18 @@ function AlertCard({ alert }: { alert: LeadAlertRow }) {
         <Button size="sm" variant="outline" disabled={pending} onClick={() => act("resolve")}>
           Resolve
         </Button>
+        <select
+          aria-label="Snooze"
+          disabled={pending}
+          value=""
+          onChange={(e) => e.target.value && act(Number(e.target.value) as 1 | 7 | 90)}
+          className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-muted-foreground shadow-xs"
+        >
+          <option value="">Snooze…</option>
+          <option value="1">1 day</option>
+          <option value="7">1 week</option>
+          <option value="90">Until leads are back</option>
+        </select>
       </div>
     </li>
   );

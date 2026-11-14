@@ -1,6 +1,7 @@
 import "server-only";
 import { getDashboardData } from "../dashboard/queries";
 import { computeAttentionFlags } from "./rules";
+import { listActiveLeadAlertFlags } from "../lead-alerts/queries";
 import { generateFleetNarrative, type FleetNarrative } from "./narrative";
 import { groupDataIssues } from "./data-issues";
 import { buildDailyDigest } from "./daily-digest";
@@ -21,7 +22,10 @@ export async function sendDailyDigest(
   channels: { slack: boolean; email: boolean } = { slack: true, email: true },
 ): Promise<{ slack: SlackPostResult; email: EmailSendResult; narrativeError?: string; flags: number }> {
   const data = await getDashboardData(now);
-  const flags = computeAttentionFlags(data);
+  // Open lead alerts (drops and sync problems aren't pushed on their own,
+  // so this summary is where they reach people).
+  const leadAlerts = await listActiveLeadAlertFlags().catch(() => []);
+  const flags = computeAttentionFlags(data, leadAlerts);
 
   let narrative: FleetNarrative | null = null;
   let narrativeError: string | undefined;

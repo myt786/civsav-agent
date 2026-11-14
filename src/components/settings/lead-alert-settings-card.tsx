@@ -48,7 +48,8 @@ export function LeadAlertSettingsCard({
         <div className="flex flex-col gap-0.5">
           <h3 className="text-sm font-medium text-foreground">Lead alerts</h3>
           <p className="text-xs text-muted-foreground">
-            Checked after the morning sync and again in the afternoon. Alerts go by email to the owner and to Slack.
+            Checked after the morning sync and in the afternoon. Only stopped leads are emailed to the owner and posted to
+            Slack — at most once a day, three times a week. Drops and sync problems show on Insights and in the daily summary.
           </p>
         </div>
       </div>
@@ -67,7 +68,7 @@ export function LeadAlertSettingsCard({
         Sensitivity
         <select value={level} onChange={(e) => setLevel(e.target.value)} className={SELECT}>
           <option value="low">Low — only clear stoppages</option>
-          <option value="normal">Normal</option>
+          <option value="normal">Normal (recommended)</option>
           <option value="high">High — alert early</option>
         </select>
       </label>

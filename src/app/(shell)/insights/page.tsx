@@ -33,7 +33,7 @@ export default async function InsightsPage() {
   const [data, alerts] = await Promise.all([getDashboardData(now), listLeadAlerts(now).catch((): LeadAlertRow[] => [])]);
   const flags = computeAttentionFlags(
     data,
-    alerts.filter((a) => a.status !== "resolved"),
+    alerts.filter((a) => a.status !== "resolved" && !a.snoozedUntil),
   );
   const forecasts = buildForecasts(data, FORECAST_DAYS, NOISE_BAND_PCT);
   // A card with too little history to project from is just an empty box —

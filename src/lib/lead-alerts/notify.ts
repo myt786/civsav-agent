@@ -67,11 +67,13 @@ export async function notifyLeadAlerts(events: LeadAlertEvent[]): Promise<{ slac
   let email = "sent";
   try {
     const byRecipient = new Map<string, LeadAlertEvent[]>();
-    const fallback = sorted.some((e) => !e.owner) ? await getReportRecipients("daily") : [];
-    for (const e of sorted) {
+    // "Leads are back" is Slack only — no inbox noise for good news.
+    const toEmail = sorted.filter((e) => e.type !== "resolved");
+    const fallback = toEmail.some((e) => !e.owner) ? await getReportRecipients("daily") : [];
+    for (const e of toEmail) {
       for (const to of e.owner ? [e.owner] : fallback) byRecipient.set(to, [...(byRecipient.get(to) ?? []), e]);
     }
-    if (byRecipient.size === 0) email = "no recipients";
+    if (byRecipient.size === 0) email = toEmail.length === 0 ? "nothing to send" : "no recipients";
     for (const [to, list] of byRecipient) {
       const result = await sendEmail({ to: [to], ...buildLeadAlertEmail(list, appUrl) });
       if (!result.sent) email = result.reason ?? "not sent";
